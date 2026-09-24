@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = ROOT / "spec"
 VERIF = ROOT / "verification"
 
-TERMS_FILES = {"CW": SPEC / "terms_cw.yaml", "DDS": SPEC / "terms_dds.yaml"}
+TERMS_FILES = {"CW": "terms_cw.yaml", "DDS": "terms_dds.yaml"}
 GATED_USES = {"pricing", "eligibility", "evidence", "quantity"}  # tables that can feed valuation
 ALL_USES = GATED_USES | {"coverage", "example", "consistency"}
 
@@ -23,7 +23,7 @@ def load_yaml(path: Path):
 
 
 def load_terms(contract: str) -> dict:
-    return load_yaml(TERMS_FILES[contract])
+    return load_yaml(SPEC / TERMS_FILES[contract])
 
 
 def load_instruments() -> dict:

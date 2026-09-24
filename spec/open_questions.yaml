@@ -1,0 +1,182 @@
+# Ambiguity and decision register (G0 index, G1 content). Plan §9 Q1-Q11 plus items found in Phase 3.
+# Each open question has bounded alternatives, the rules it touches, an affected scope computed from the data
+# (spec/question_scopes.json via tools/question_scopes.py; populations a reading CAN affect, not findings),
+# and the gate that must close it. None is silently assumed: rules depending on an open question carry
+# `status: open` in spec/rules.yaml and cannot produce a final outcome until it is closed or disclosed.
+# D-entries are settled readings that keep a recorded alternative because a clause points the other way.
+
+questions:
+  - id: Q1
+    title: A3 adjustment recipient - "after" (A3) vs "on or after" (31A/36A); same-day ties; DDS per-well invoicing vs a single first invoice
+    sources: ["CW A3 (p43)", "CW 31A (p32)", "DDS A3 (p42)", "DDS 36A (p35)", "DDS Cl.32 (p8)"]
+    alternatives:
+      - {id: A, reading: "Incorporated clause governs: first submission ON OR AFTER issue (CW 2026-05-12: PA-00006/PA-00023/PA-00380 tie; DDS 2026-08-17: MDS-01625)"}
+      - {id: B, reading: "Amendment's own words govern: first submission strictly AFTER issue (CW 2026-05-14: PA-00443; DDS 2026-08-18: MDS-01585/01631/01645 tie)"}
+      - {id: C, reading: "DDS only: per-well first invoice (each well's own first invoice on/after issue), because each well is invoiced separately (Cl.32)"}
+    tie_rule: "No contractual tie-breaker; ties stay visible. Never post to every candidate or pick the smallest ID."
+    rules: [CW-R22, DDS-R21]
+    scope_ref: [Q1_Q2_CW, Q1_Q2_DDS]
+    status: open
+    blocks: G4
+  - id: Q2
+    title: Adjustment financial basis and placement - certified vs submitted CW work; application_total vs 45A payment; DDS adjustment vs DS-900 and VAT
+    sources: ["CW Cl.8/45A (pp8, 32)", "CW A3 (p43)", "DDS Cl.36-40 (p8)", "DDS 36A, A3 (pp35, 42)", "README Data"]
+    alternatives:
+      - {id: A, reading: "Judged totals exclude the adjustment (CW: measured total; 45A payable carries it). DDS: adjustment column only"}
+      - {id: B, reading: "Receiving invoice's judged total includes the adjustment (DDS: inside net before DS-900/VAT)"}
+      - {id: C, reading: "DDS: adjustment added after DS-900 and before VAT"}
+    rules: [CW-R21, CW-R22, DDS-R21]
+    scope_ref: [Q1_Q2_CW, Q1_Q2_DDS]
+    status: open
+    blocks: G5
+  - id: Q3
+    title: Missing Schedule 5 record - current exclusion vs P23 next-valuation recovery; no delivery/certification timestamps
+    sources: ["CW Cl.46 (p8)", "CW P23 (p14)", "CW Sch 5 (p27)", "DDS Cl.37 (p8)"]
+    alternatives:
+      - {id: A, reading: "Line not payable now: excluded from the expected total of its own application (Cl.46)"}
+      - {id: B, reading: "Line stays in its application's measured value; P23 deducts it from the next valuation (with retention released on it)"}
+    rules: [CW-R05, DDS-R05]
+    scope_ref: [Q3_CW]
+    status: open
+    blocks: G3
+  - id: Q4
+    title: DDS hourly quantity - first hour of each "period in the hole", daily 6-hour minimum, DD-120 vs RM-530 hour scope
+    sources: ["DDS Cl.21 (p6)", "21A (p35)", "Sch 3 Part 7 (p22)", "P10 (p11)", "Sch 8 DD-120/RM-530 (pp27-28)"]
+    alternatives:
+      - {id: A, reading: "Deduct one hour per period in the hole, then apply the 6-hour minimum"}
+      - {id: B, reading: "Apply the minimum to hours run, then deduct one hour"}
+      - {id: C, reading: "Period = BHA run (one deduction per run, on its first day) rather than per day"}
+    observation: "No DD-120 line is billed at 6 hours or fewer, so the minimum/deduction order changes nothing billed at or below 6; period definition still matters."
+    rules: [DDS-R07]
+    scope_ref: [Q4_DDS]
+    status: open
+    blocks: G3
+  - id: Q5
+    title: Schedule 8 conflicts, service by service (DD-102 coordinator vs tool-in-hole row; HC-630 per BHA run vs clean-out runs; DD-120/RM-530 'circulating or back-reaming')
+    sources: ["Sch 8 (pp27-28)", "Cl.2 (p3)", "Cl.26, Cl.30 (p7)", "App G (p36)", "Sch 4 (p23)"]
+    alternatives:
+      - {id: A, reading: "DD-102: per coordinator recorded per day (Sch 8 intro, Sch 4, App G 'night man')"}
+      - {id: B, reading: "DD-102: per day the tool is in the hole (Sch 8 row)"}
+      - {id: C, reading: "HC-630: per BHA run (Sch 8) vs per clean-out run recorded (Cl.30); RM-530/DD-120: whether back-reaming hours count for DD-120"}
+    rules: [DDS-R06, DDS-R07, DDS-R15]
+    scope_ref: [Q5_DDS]
+    status: open
+    blocks: G3
+  - id: Q6
+    title: Civil state basis - which quantity advances bands (measured vs claimed vs payable), cap/duplicate allocation, exclusion day counting
+    sources: ["CW Cl.30-32, 44 (pp6, 8)", "Sch 4 Parts 3-5 (pp24-26)", "Cl.46, P23"]
+    alternatives:
+      - {id: A, reading: "Bands advance by accepted measured quantity (rejected/duplicate quantities excluded); unpaid-for-want-of-record quantity included"}
+      - {id: B, reading: "Bands advance by payable quantity only"}
+      - {id: C, reading: "Exclusion 'within two days following': day+1 and day+2 excluded vs day+1 only"}
+    ordering_convention: "execution date, then application number, then line number (Cl.30 wording kept as a documented convention after substitution)"
+    rules: [CW-R07, CW-R14, CW-R15, CW-R16, CW-R17]
+    scope_ref: [Q6_CW]
+    status: open
+    blocks: G4
+  - id: Q7
+    title: Weekly evidence reuse (CW) and drilling duplicate allocation
+    sources: ["CW Cl.44 (p8)", "Sch 5 note, 47A (pp27, 33)", "DDS Cl.29 (p7)", "Sch 5 (p24)"]
+    alternatives:
+      - {id: A, reading: "Reuse of a DW week record on other dates is evidence of the same week, not a duplicate, unless the same item/area/date repeats"}
+      - {id: B, reading: "A week record supports one weekly charge; further charges citing it are unsupported (C-COND/C-CORR), not Cl.44 duplicates"}
+      - {id: C, reading: "DDS repeat on a well-day: which line is disallowed has no contractual allocation rule (CW's later-copy rule not imported)"}
+    rules: [CW-R06, CW-R17, DDS-R14, DDS-R16]
+    scope_ref: [Q7]
+    status: open
+    blocks: G4
+  - id: Q8
+    title: Background documents not supplied (call-offs, performance-section nominations, written uplift instructions, permits, well endpoints)
+    sources: ["CW Cl.5, 9 (p3)", "P11 (p13)", "H3 (p15)", "DDS Cl.3-4 (p3)", "Cl.23 (p6)", "App A (p29)"]
+    alternatives:
+      - {id: A, reading: "Use explicit contractual defaults (rest-day alone; class from header; section from DDR) and disclose proxies"}
+      - {id: B, reading: "Treat every charge depending on an unsupplied document as unresolved"}
+    rules: [CW-R13, CW-R18, CW-R19, DDS-R01, DDS-R15, DDS-R18, DDS-R19]
+    scope_ref: [Q8]
+    status: open
+    blocks: G3
+  - id: Q9
+    title: Reporting semantics - binary flag for payment-only or procedural defects; unknown-total encoding; confidence meaning; undefined severity
+    sources: ["README Task/Scoring", "guidelines principle 3, check 12"]
+    alternatives:
+      - {id: A, reading: "Flag any breach of the twelve checks, including procedural and payment-only defects; expected total unchanged where the breach has no monetary effect"}
+      - {id: B, reading: "Flag only defects that change the judged total"}
+      - {id: C, reading: "Unknown total: export billed total with low confidence vs a disclosed best-supported value - decide before G7"}
+    rules: [CW-R01, CW-R02, CW-R04, CW-R21, CW-R24, DDS-R01, DDS-R02, DDS-R04, DDS-R22]
+    scope_ref: [Q9]
+    status: open
+    blocks: G7
+  - id: Q10
+    title: Omitted charges and underbilling vs acceptable partial claiming
+    sources: ["CW Cl.28, 30 (p6)", "DDS Cl.21, 27, 38 (pp6-8)"]
+    alternatives:
+      - {id: A, reading: "Add only contractually required items (DS-900 discount, minimums, correct rates in both directions)"}
+      - {id: B, reading: "Also add unbilled chargeable events evidenced by records"}
+    rules: [DDS-R15, DDS-R20]
+    scope_ref: [Q10_DDS]
+    status: open
+    blocks: G5
+  - id: Q11
+    title: DDS quantity details - which metres enter the per-well annual accumulator; tolerance vs depth intervals; wrong-unit remedy under Cl.35
+    sources: ["DDS Sch 2 Part 2 (p17)", "Cl.23-25, 35 (pp6, 8)", "25A (p35)"]
+    alternatives:
+      - {id: A, reading: "Accumulator = performance-chargeable PD-210 metres only; wrong unit = unit breach with value per supported quantity"}
+      - {id: B, reading: "Accumulator = all metres drilled on the well; wrong unit = charge unsupported"}
+    observation: "Max billed PD-210 metres per well-year is 3,355, far below 40,000: the accumulator reading cannot change any band on the pinned data (scope_ref)."
+    rules: [DDS-R07, DDS-R08, DDS-R12]
+    scope_ref: [Q11_DDS]
+    status: open
+    blocks: G3
+  - id: Q12
+    title: "NEW (Phase 3). CW Contract Year for the Sch 4 Part 3 bands: does the count reset on 5 January 2026?"
+    sources: ["CW 3A (p32, verbatim in verification/second_pass_visual_log.txt)", "Sch 4 Part 3 (p24)", "A1, A2 (pp40, 42)"]
+    alternatives:
+      - {id: A, reading: "Anniversary reset: CY1 2025-01-05..2026-01-04; CY2 2026-01-05..2026-09-30 ('each following Contract Year runs from that anniversary'; the final CY is short, 'however long that leaves it')"}
+      - {id: B, reading: "No reset: CY1 was the final CY under the as-let completion (27 Sep 2025); 'an extension of time does not begin a new Contract Year', so CY1 runs to 2026-09-30 'however long that leaves it'"}
+    working_reading: "A (plan §6 states a 5 January reset); B retained because 3A's last sentence supports it"
+    rules: [CW-R14]
+    scope_ref: [Q12_CW_contract_year]
+    status: open
+    blocks: G4
+    plan_assumption_challenged: "Plan §6 treats the 5 January reset as settled."
+
+decisions:
+  - id: D1
+    title: PD-210 takes no well-class factor
+    settled_reading: "17B (p35) governs: class factor not applied to PD-210"
+    alternative: "Sch 2 note (p17) and Sch 3 Part 2 list (p20) class-rate PD-210, and Cl.2 says a Schedule prevails over a Part"
+    reason: "17B addresses PD-210 by name with a reason; App B's HPHT example (p30) prices PD-210 without the factor"
+    override: OV-DDS-02
+    scope_ref: [D_scopes]
+    scope_key: dds_pd210_lines_on_non_standard_wells
+  - id: D2
+    title: DDS A3 DD-120 416.00 supersedes S2 monthly rates from 2026-02-01
+    settled_reading: "A3, issued later, governs DD-120 from 2026-02-01 subject to pre-issue protection; 4%/7% discounts still apply by service date"
+    alternative: "S2 monthly table governs April-December 2026 because its months are later than A3's effective date"
+    reason: "Instruments read in the order issued; later instrument governs from its effective date (pp37, 42); plan §3"
+    override: OV-DDS-07
+    scope_ref: [Q1_Q2_DDS]
+    scope_key: dd120_lines_apr_dec_2026_where_s2_monthly_rate_exists
+  - id: D3
+    title: Illustrative worked examples do not displace operative indexation
+    settled_reading: "CW 29A and DDS 17A index C.31.010/D.41.030 and MW-310/HC-620 even though App B examples do not"
+    alternative: "Examples show the parties' intended practice (no indexation)"
+    reason: "Operative clauses are explicit; examples are illustrative forms"
+    override: [OV-CW-07, OV-DDS-03]
+    scope_ref: [D_scopes]
+    scope_key: cw_c31010_lines
+  - id: D4
+    title: DDS annual footage bands are per well and Contract Year
+    settled_reading: "Schedule 2 Part 2 'metres already drilled on the well in the Contract Year' (p17)"
+    alternative: "Contract-wide accumulation (rejected: contradicts explicit wording; Agent 2 Phase 1 B3)"
+    reason: "Explicit text"
+    scope_ref: [Q11_DDS]
+    scope_key: max_billed_pd210_metres_per_well_and_year
+  - id: D5
+    title: CW retention release timing follows 45A, not Cl.51
+    settled_reading: "Half of earlier retention released on the first application submitted after 30 Sep 2026, rounded down"
+    alternative: "Release on a Taking-Over Certificate (Cl.51), which is not supplied"
+    reason: "45A is the specific second-series payment formula"
+    override: OV-CW-11
+    scope_ref: [Q9]
+    scope_key: cw_applications_after_extended_completion_candidates_for_45A_release
