@@ -39,5 +39,5 @@ Legend: `[x]` closed with the evidence named; `[ ]` open; `[~]` closed with a re
 - [x] G1.12 Tests pass; commit and push.
 
 ## Close
-- [ ] Run every check and the full test suite on a clean checkout; record actual output.
-- [ ] Write `Phase3_G0_G1_Agent1b.md`; commit and push to `opus_stage2`.
+- [x] Run every check and the full test suite on a clean checkout (clone of bf40eb8): snapshot OK, 9 PASS, 36 passed.
+- [x] Write `Phase3_G0_G1_Agent1b.md`; commit and push to `opus_stage2`.
