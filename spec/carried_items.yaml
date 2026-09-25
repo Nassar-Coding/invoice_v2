@@ -1,0 +1,136 @@
+note: Register of evidence items that G2 discloses but does not decide (correction round, audit finding 4). Every G2 conflict
+  (verification/g2/conflicts.json) and every resolved drilling line whose required Schedule 5 part is absent is registered
+  here with its owning gate, rule, question and treatment. tools/verify_g2.py (S5) fails if such an item is unregistered or
+  a registered one no longer occurs. G2 decides none of them.
+items:
+- id: CI-01
+  kind: conflict
+  check: part_E_hours_vs_well_daily_sum
+  idents:
+  - DDR-010-20260128
+  - DDR-020-20250421
+  - DDR-024-20251030
+  - DDR-027-20260226
+  - DDR-030-20260702
+  - DDR-038-20250616
+  - DDR-044-20260218
+  - DDR-067-20260921
+  - DDR-073-20250520
+  - DDR-082-20260528
+  - DDR-090-20250418
+  - DDR-097-20260114
+  - DDR-113-20251103
+  - DDR-119-20260708
+  - DDR-136-20260524
+  - DDR-141-20250112
+  - DDR-149-20251218
+  - DDR-152-20260410
+  - DDR-172-20260630
+  - DDR-177-20250129
+  - DDR-181-20250802
+  - DDR-184-20251124
+  - DDR-187-20260417
+  - DDR-198-20250702
+  - DDR-212-20250326
+  - DDR-224-20260807
+  - DDR-226-20261009
+  lines:
+  - MDS-00018-033
+  - MDS-00072-015
+  - MDS-00232-019
+  - MDS-00292-039
+  - MDS-00307-006
+  - MDS-00383-050
+  - MDS-00463-033
+  - MDS-00515-008
+  - MDS-00593-023
+  - MDS-00838-032
+  - MDS-00853-005
+  - MDS-00911-005
+  - MDS-00968-032
+  - MDS-01050-019
+  - MDS-01089-032
+  - MDS-01139-051
+  - MDS-01167-028
+  - MDS-01296-018
+  - MDS-01319-005
+  - MDS-01426-006
+  - MDS-01436-005
+  - MDS-01521-033
+  - MDS-01533-015
+  - MDS-01550-020
+  - MDS-01626-051
+  - MDS-01764-005
+  - MDS-01803-081
+  subsets:
+    part_E_equals_run_daily_sum_only:
+    - DDR-010-20260128
+    - DDR-020-20250421
+    - DDR-044-20260218
+    - DDR-113-20251103
+    - DDR-119-20260708
+    - DDR-136-20260524
+    - DDR-141-20250112
+    - DDR-152-20260410
+    - DDR-177-20250129
+    - DDR-184-20251124
+    - DDR-198-20250702
+    - DDR-226-20261009
+    part_E_matches_neither_reading:
+    - DDR-024-20251030
+    - DDR-027-20260226
+    - DDR-030-20260702
+    - DDR-038-20250616
+    - DDR-067-20260921
+    - DDR-073-20250520
+    - DDR-082-20260528
+    - DDR-090-20250418
+    - DDR-097-20260114
+    - DDR-149-20251218
+    - DDR-172-20260630
+    - DDR-181-20250802
+    - DDR-187-20260417
+    - DDR-212-20250326
+    - DDR-224-20260807
+  owner_gate: G3
+  rules:
+  - DDS-R17
+  question: Q13
+  treatment: 'G3 values each LH line on these reports under Q13 and never uses the Part E figure silently: compute the depreciation
+    under A (Part E as recorded) and B (sum of Part A daily circulating hours on the well through the day of loss); where
+    the complete-25-hour steps give the same percentage the value is settled, otherwise the line is a query bounded by A and
+    B (alternative C) until Q13 is decided. The 15 losses matching neither reading are reported individually with both figures.'
+- id: CI-02
+  kind: conflict
+  check: gyro_surveys_without_part_C
+  idents:
+  - DDR_NGP-WS-009_20251211.txt
+  lines:
+  - MDS-00954-021
+  owner_gate: G3
+  rules:
+  - DDS-R05
+  - DDS-R07
+  question: Q3
+  treatment: 'DD-130 on 2025-12-11 (DDR-009-20251211): Part A records ''Gyro surveys: 1'' but the report has no Part C, the
+    Schedule 5 record for gyro surveys. G3 decides under DDS-R05 whether the survey is evidenced (Part C absent: record condition
+    not met; how a missing record is treated is Q3); the count, if evidenced, is the recorded one (DDS-R07). G2 records only
+    the absence.'
+- id: CI-03
+  kind: missing_required_part
+  check: required_part_present=false (LW-420, Part D)
+  idents:
+  - DDR-201-20251115
+  - DDR-029-20260515
+  lines:
+  - MDS-00876-062
+  - MDS-01393-036
+  owner_gate: G3
+  rules:
+  - DDS-R05
+  - DDS-R15
+  question: Q3
+  treatment: 'LW-420 is charged per BHA run on the first day of a source run (DDS-R15); both lines are dated on their run''s
+    first day and Part B says ''Radioactive source carried: Yes'', but no day of either run (NGP-WS-201 run 7, NGP-WS-029
+    run 4) has a Part D, the Schedule 5 source-handling record (H6). G3 decides under DDS-R05/Q3 whether the charge is evidenced;
+    G2 records only the absence.'

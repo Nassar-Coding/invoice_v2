@@ -55,6 +55,7 @@ class Row:
     raw: dict[str, str]
     values: dict = field(default_factory=dict)
 
+    ctx: str | None = None                      # run context id (audit.provenance)
 
 @dataclass
 class Claims:

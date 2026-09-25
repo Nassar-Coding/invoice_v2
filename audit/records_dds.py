@@ -63,6 +63,7 @@ class Ddr:
     signatures_after_last_part: bool = True
     spans: dict = field(default_factory=dict)
 
+    ctx: str | None = None                      # run context id (audit.provenance)
 
 def _typed(part: str, key: str, value: str, ident: str, src: Source, q: Queue):
     s = SPEC["parts"][part]

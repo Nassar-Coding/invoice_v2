@@ -93,6 +93,45 @@ def link_branches(prefix, link) -> set[str]:
     return b
 
 
+def carried_items_check(w, register: dict, rule_ids: set, question_ids: set) -> list[str]:
+    """Every conflict and every missing required Schedule 5 part is registered with owner, rule, question, treatment."""
+    errs = []
+    reg_conf = {(it["check"], i) for it in register["items"] if it["kind"] == "conflict" for i in it["idents"]}
+    reg_lines = {l for it in register["items"] for l in it.get("lines", [])}
+    for c in w.queue.conflicts:
+        if (c.check, c.ident) not in reg_conf:
+            errs.append(f"conflict {c.check} {c.ident} is not registered in spec/carried_items.yaml")
+    current = {(c.check, c.ident) for c in w.queue.conflicts}
+    errs += [f"registered conflict {c} {i} no longer occurs" for c, i in sorted(reg_conf - current)]
+    for ident, l in w.dds_links.items():
+        if l.semantic.get("required_part_present") is False and ident not in reg_lines:
+            errs.append(f"line {ident} lacks its Schedule 5 part {l.semantic['required_part']} and is not registered")
+    for it in register["items"]:
+        if it.get("owner_gate") not in {"G3", "G4", "G5", "G6", "G7"} or not it.get("treatment"):
+            errs.append(f"{it['id']}: owner gate or treatment missing")
+        errs += [f"{it['id']}: unknown rule {r}" for r in it.get("rules", []) if r not in rule_ids]
+        if it.get("question") and it["question"] not in question_ids:
+            errs.append(f"{it['id']}: unknown question {it['question']}")
+        for l in it.get("lines", []):
+            if l not in w.dds_links:
+                errs.append(f"{it['id']}: unknown line {l}")
+    return errs
+
+
+def provenance_check(w) -> list[str]:
+    """Every derived fact references the run context, and the context covers every module of the audit package."""
+    from audit import provenance
+    ctx = w.run_context
+    errs = [f"{type(f).__name__} without the run context" for f in provenance.facts(w) if f.ctx != ctx["id"]][:5]
+    modules = {str(p.relative_to(ROOT)) for p in (ROOT / "audit").glob("*.py")}
+    errs += [f"run context does not cover {m}" for m in sorted(modules - set(ctx["code"]))]
+    if provenance.run_context() != ctx:
+        errs.append("run context not reproducible")
+    if json.loads((build.OUT / "run_context.json").read_text()) != ctx:
+        errs.append("verification/g2/run_context.json does not match the current code and inputs")
+    return errs
+
+
 # ---------------------------------------------------------------- checks
 def main() -> int:
     w = build.build()
@@ -260,10 +299,22 @@ def main() -> int:
                 f"{ {c: (h, links.TOOL_PRESENCE['no_tool'][c]['question']) for c, h in high.items() if c in links.TOOL_PRESENCE['no_tool']} }; "
                 f"substitutes {dict((k, v) for k, v in links.TOOL_BASIS.items() if v not in (k, None))}; other codes not established {low or 0}", errs))
 
+    # Provenance context and carried items (audit finding 4) -----------------------------------------
+    from audit import provenance
+    register = yaml.safe_load((ROOT / "spec" / "carried_items.yaml").read_text())
+    rules_ids = {r["id"] for r in yaml.safe_load((ROOT / "spec" / "rules.yaml").read_text())["rules"]}
+    qids = {q["id"] for q in yaml.safe_load((ROOT / "spec" / "open_questions.yaml").read_text())["questions"]}
+    errs = provenance_check(w) + carried_items_check(w, register, rules_ids, qids)
+    n_facts = len(provenance.facts(w))
+    res.append((f"S5 every derived fact ({n_facts}) references run context {w.run_context['id']} (code {len(w.run_context['code'])} files, "
+                f"reviewed inputs {len(w.run_context['reviewed_inputs'])}, snapshot {w.run_context['snapshot']['commit'][:8]}); "
+                f"carried items registered with owner gate and treatment: "
+                + ", ".join(f"{it['id']} {it['check'].split(' ')[0]} x{len(it['idents'])} -> {it['owner_gate']}/{it.get('question')}" for it in register["items"]), errs))
+
     # Committed outputs reproduce --------------------------------------------------------------
     errs = []
     cov = json.loads(json.dumps(build.coverage(w), default=build._j))
-    for name, obj in (("coverage.json", cov), ("unresolved.json", json.loads(json.dumps(q.items, default=build._j))),
+    for name, obj in (("run_context.json", w.run_context), ("coverage.json", cov), ("unresolved.json", json.loads(json.dumps(q.items, default=build._j))),
                       ("conflicts.json", json.loads(json.dumps(q.conflicts, default=build._j)))):
         if json.loads((build.OUT / name).read_text()) != obj:
             errs.append(f"verification/g2/{name} does not reproduce")

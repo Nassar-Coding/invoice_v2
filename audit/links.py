@@ -59,6 +59,7 @@ class Link:
     record: str | None = None
     semantic: dict = field(default_factory=dict)
 
+    ctx: str | None = None                      # run context id (audit.provenance)
 
 def link_cw(lines, records) -> dict[str, Link]:
     use = Counter(r.values["record_ref"] for r in lines if r.values["record_ref"])

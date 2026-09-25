@@ -1,6 +1,7 @@
 """G2 build: load claims and records, identify record events, link claims to evidence, summarise coverage.
 
-Writes (deterministic, committed): verification/g2/coverage.json, unresolved.json, conflicts.json.
+Writes (deterministic, committed): verification/g2/coverage.json, unresolved.json, conflicts.json, run_context.json.
+Every derived fact carries the run context id (audit.provenance) in its ctx field.
 With --dump also writes build/evidence.jsonl (every parsed record, event and link; gitignored).
 
 Usage::  python -m audit.build [--dump] [--quiet]
@@ -16,8 +17,8 @@ import sys
 from collections import Counter
 from decimal import Decimal
 
-from . import claims, events, links, records_cw, records_dds
-from .common import ROOT, Queue, SNAPSHOT, extraction_version
+from . import claims, events, links, provenance, records_cw, records_dds
+from .common import ROOT, Queue, SNAPSHOT
 
 OUT = ROOT / "verification" / "g2"
 
@@ -33,6 +34,7 @@ class World:
     cw_links: dict
     dds_links: dict
     queue: Queue
+    run_context: dict | None = None
 
 
 def build(snapshot=SNAPSHOT) -> World:
@@ -41,8 +43,10 @@ def build(snapshot=SNAPSHOT) -> World:
     cw, _ = records_cw.load(snapshot, q)
     ddr, by_file, _ = records_dds.load(snapshot, q)
     runs, wells = events.identify(ddr, q)
-    return World(c, cw, ddr, by_file, runs, wells, links.link_cw(c.rows["cw_lines"], cw),
-                 links.link_dds(c.rows["dds_lines"], c.rows["dds_headers"], ddr), q)
+    w = World(c, cw, ddr, by_file, runs, wells, links.link_cw(c.rows["cw_lines"], cw),
+              links.link_dds(c.rows["dds_lines"], c.rows["dds_headers"], ddr), q, provenance.run_context())
+    provenance.stamp(w, w.run_context["id"])          # every derived fact references the run context
+    return w
 
 
 def _j(o):
@@ -69,7 +73,7 @@ def coverage(w: World) -> dict:
     q = w.queue
     ddrs = w.ddr.values()
     return {
-        "extraction_version": extraction_version(),
+        "run_context": w.run_context,
         "claims_rows": {k: len(v) for k, v in w.claims.rows.items()},
         "claims_input_assertions": w.claims.assertions,
         "cw_records_parsed": len(w.cw),
@@ -141,6 +145,7 @@ def write(w: World, dump=False) -> dict:
     (OUT / "coverage.json").write_text(json.dumps(cov, indent=1, default=_j) + "\n")
     (OUT / "unresolved.json").write_text(json.dumps(w.queue.items, indent=1, default=_j) + "\n")
     (OUT / "conflicts.json").write_text(json.dumps(w.queue.conflicts, indent=1, default=_j) + "\n")
+    (OUT / "run_context.json").write_text(json.dumps(w.run_context, indent=1) + "\n")
     if dump:
         b = ROOT / "build"
         b.mkdir(exist_ok=True)
@@ -148,7 +153,7 @@ def write(w: World, dump=False) -> dict:
             for kind, coll in (("cw_record", w.cw), ("ddr", w.ddr), ("run", {f"{k[0]}#{k[1]}": v for k, v in w.runs.items()}),
                                ("cw_link", w.cw_links), ("dds_link", w.dds_links)):
                 for k, v in coll.items():
-                    fh.write(json.dumps({"kind": kind, "id": k, "data": v}, default=_j) + "\n")
+                    fh.write(json.dumps({"kind": kind, "id": k, "ctx": v.ctx, "data": v}, default=_j) + "\n")
     return cov
 
 

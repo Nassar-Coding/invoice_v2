@@ -53,6 +53,7 @@ class CwRecord:
     engineer_signed: bool = False
     spans: dict = field(default_factory=dict)        # field -> Source
 
+    ctx: str | None = None                      # run context id (audit.provenance)
 
 def depth_candidates(depth: Decimal) -> list[str]:
     for band in SPEC["depth_rule"]["bands"]:

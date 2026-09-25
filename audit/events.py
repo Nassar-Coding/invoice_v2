@@ -30,6 +30,7 @@ class Run:
     source_days: list[dt.date] = field(default_factory=list)  # days with Part D
     losses: list[dict] = field(default_factory=list)
 
+    ctx: str | None = None                      # run context id (audit.provenance)
 
 @dataclass
 class WellSpan:
@@ -39,6 +40,7 @@ class WellSpan:
     reports: int
     missing_days: list[dt.date]
 
+    ctx: str | None = None                      # run context id (audit.provenance)
 
 def identify(ddrs: dict, q: Queue) -> tuple[dict[tuple[str, int], Run], dict[str, WellSpan]]:
     runs: dict[tuple[str, int], Run] = {}

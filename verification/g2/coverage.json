@@ -1,5 +1,31 @@
 {
- "extraction_version": "3d55658bad553b80",
+ "run_context": {
+  "id": "1e811976876405d1",
+  "code": {
+   "audit/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "audit/build.py": "63d56a4580ef678cc6fdfa3689944f6a0a64ef5fa69bb384a89bc945a3c66d64",
+   "audit/claims.py": "4485dcf1e9bee4bc808d74ca02eac3a978c3294cc1671dce185849468ad3f26b",
+   "audit/common.py": "55aa9d116b88a53683cd6f131decb140c89685c52d4408cd86ddfb0f3c4edd41",
+   "audit/events.py": "561a799b84ab9ad5c5baa314363e5a32a761625325326f782eb6b46396429106",
+   "audit/links.py": "02e15f5c3ffe5eb5a3d372c99ebef26852e59db2e1564f0ac23d23409d26fc94",
+   "audit/provenance.py": "800b0b680447d79d31ce79f2b4250d8bda113a130a57b63d5cdd933ef862649e",
+   "audit/records_cw.py": "c9e4895cc639e1db9aea23ba0729090f75b9be345e46fd9f5f82be80ba121a83",
+   "audit/records_dds.py": "91c5719bb1ee7fe00f355f99d7534b0e9dd2585c271f871f8825a29e93babe64",
+   "tools/snapshot.py": "2bc7c0958416c5d763e2d3efeecbed5de56fffa95a1e8e360d2d928d23374659",
+   "tools/spec_lib.py": "8d9e1a23ad83fa8284fdea0388ae4034c7deba630fd0566d66e6e1b0b0a153e3"
+  },
+  "reviewed_inputs": {
+   "spec/evidence_cw.yaml": "959c29ffabd75ebe72ba13ab0a3f4535c27355b8e422b75986ad9b1540d267c5",
+   "spec/evidence_dds.yaml": "b6b440c07abaa39a475dd01c9f901ca6a66e444746120e177513d2ef20cad7be",
+   "spec/terms_cw.yaml": "d0a14046c72506e7d5a749f1dc89e2d4f85dcb14904e3fa40bdd1b8f49e4509e",
+   "spec/terms_dds.yaml": "89769a6f85efac55fa39209b6972da6a00248d1d2d7c18ce07396058f49eedfa"
+  },
+  "snapshot": {
+   "repo": "https://github.com/majedzahrani3/invoice-auditing-level-2",
+   "commit": "aef4924dc32506b4587de8b788b5a947e6beffec",
+   "source/manifest.tsv": "2700c625e54bf1ed0d8b4445ec485482f0ff29299cb25df06714f98e9ecdd56a"
+  }
+ },
  "claims_rows": {
   "cw_headers": 900,
   "cw_lines": 7746,

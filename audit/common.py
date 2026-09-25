@@ -8,7 +8,6 @@ in this package prices, applies an entitlement rule, classifies or totals anythi
 from __future__ import annotations
 
 import datetime as dt
-import hashlib
 import os
 import re
 import sys
@@ -24,15 +23,6 @@ import spec_lib  # noqa: E402
 
 SNAPSHOT = Path(os.environ.get("INVOICE_SNAPSHOT", snapshot.DEFAULT_SNAPSHOT))
 PLACEHOLDER = re.compile(r"^[_\s]*$")
-
-
-def extraction_version() -> str:
-    """Hash of the evidence specifications and the Appendix G table: every derived fact carries it."""
-    h = hashlib.sha256()
-    for name in ("evidence_cw.yaml", "evidence_dds.yaml"):
-        h.update((spec_lib.SPEC / name).read_bytes())
-    h.update(spec_lib.canonical_hash(spec_lib.load_terms("DDS")["tables"]["DDS.T20_GLOSSARY"]).encode())
-    return h.hexdigest()[:16]
 
 
 @dataclass(frozen=True)
@@ -52,6 +42,7 @@ class Unresolved:
     reason: str
     source: Source | None = None
 
+    ctx: str | None = None                      # run context id (audit.provenance)
 
 @dataclass
 class Conflict:
@@ -61,6 +52,7 @@ class Conflict:
     check: str
     detail: str
 
+    ctx: str | None = None                      # run context id (audit.provenance)
 
 @dataclass
 class Queue:
