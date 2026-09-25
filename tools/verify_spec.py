@@ -2,7 +2,7 @@
 
 G0: every guideline check and material contract section has an owner; independent-audit corrections recorded
     (snapshot hashes/inventory are checked by tools/snapshot.py).
-G1: every active numeric cell and rule has a page/clause reference and a second verification against the scan;
+G1: every active numeric cell, parameter and rule has a page/clause reference and a second verification against the\n    scan bound to its content hash;
     explicit overrides recorded; open interpretations have bounded alternatives and affected scopes;
     no unverified table feeds pricing.
 
@@ -31,6 +31,7 @@ def load_all():
           "corrections", "instruments", "terms_cw", "terms_dds")}
     s["scopes"] = json.loads((sl.SPEC / "question_scopes.json").read_text())
     s["log"] = sl.load_yaml(sl.VERIF / "second_pass_log.yaml")
+    s["pr_log"] = sl.load_yaml(sl.VERIF / "param_rule_log.yaml")
     return s
 
 
@@ -172,6 +173,59 @@ def main() -> int:
         elif e["content_sha256"] != sl.canonical_hash(sl.instrument_content(i)):
             errs.append(f"{iid}: content changed since verification")
     check(res, f"G1 second verification against the scan recorded and current for every table and instrument ({len(tables) + len(insts)})", errs)
+
+    # Parameters and rules (correction round, audit finding 1): the second reading is recorded against the
+    # WHOLE entry's content hash, so any edit to a value, page, provision, title, source or case invalidates it.
+    errs = []
+    pr = s["pr_log"]["entries"]
+    params = [p for c in ("terms_cw", "terms_dds") for p in s[c]["parameters"]]
+    low_pages = set()
+    for kind, objs, content in (("parameter", params, dict), ("rule", list(rules.values()), dict)):
+        for o in objs:
+            e = pr.get(o["id"])
+            if not e or e.get("kind") != kind:
+                errs.append(f"{o['id']}: no second reading recorded")
+            elif e["content_sha256"] != sl.canonical_hash(content(o)):
+                errs.append(f"{o['id']}: content changed since its second reading")
+            elif e.get("status") != "verified":
+                errs.append(f"{o['id']}: second reading not completed ({e.get('reason') or e['reading']['verdict']})")
+            elif e.get("value_equivalent") is False:
+                errs.append(f"{o['id']}: printed value differs from the specification value")
+            else:
+                low_pages |= {q["page"] for q in e["quotes"] if e["contract"] == "DDS" and isinstance(q.get("page"), int) and 9 <= q["page"] <= 14}
+    for extra in sorted(set(pr) - {o["id"] for o in params} - set(rules)):
+        errs.append(f"{extra}: log entry for an item that no longer exists")
+    check(res, f"G1 second verification against the scan recorded and current for every parameter ({len(params)}) and rule "
+               f"({len(rules)}), whole-entry content hash (DDS pp.9-14 quoted: {sorted(low_pages)})", errs)
+
+    # Pages not re-read before the correction round: every section on them has a current second reading.
+    errs = []
+    import json as _json
+    packet = [_json.loads(x) for x in (sl.VERIF / "param_rule_packets" / "sections_S.jsonl").read_text().splitlines() if x.strip()]
+    readings = {(r["contract"], r["section"]): r for r in
+                (_json.loads(x) for x in (sl.VERIF / "section_readings.jsonl").read_text().splitlines() if x.strip())}
+    dispo_path = sl.VERIF / "section_dispositions.yaml"
+    sdispo = (sl.load_yaml(dispo_path) or {}).get("dispositions", {}) if dispo_path.exists() else {}
+    current = {}
+    for key in ("sections_cw", "sections_dds"):
+        for sec in s[key]["sections"]:
+            current[(key[-3:].upper().replace("_", ""), sec["section"])] = (
+                ("not material: " + sec["not_material"]) if sec.get("not_material") else f"owned by {sec.get('owners')}")
+    n_prov = 0
+    for it in packet:
+        k = (it["contract"], it["section"])
+        r = readings.get(k)
+        disposed = sdispo.get(f"{k[0]}|{k[1]}", {})
+        if current.get(k) != it["classification"] and disposed.get("classification") != current.get(k):
+            errs.append(f"{k}: classification changed since its second reading")
+        elif r is None:
+            errs.append(f"{k}: no second reading")
+        elif not r["classification_supported"] and disposed.get("classification") != current.get(k):
+            errs.append(f"{k}: classification not supported by the second reading and not disposed")
+        else:
+            n_prov += len(r["provisions"])
+    check(res, f"G1 pages not re-read before the correction round now second-read: {len(packet)} sections, {n_prov} provisions "
+               "(CW pp.2, 4-5, 35, 37; DDS pp.2, 9-10, 12-14, 26, 31-33)", errs)
 
     errs = []
     for o in s["overrides"]["overrides"]:

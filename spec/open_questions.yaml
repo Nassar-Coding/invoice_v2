@@ -91,7 +91,7 @@ questions:
     alternatives:
       - {id: A, reading: "Use explicit contractual defaults (rest-day alone; class from header; section from DDR) and disclose proxies"}
       - {id: B, reading: "Treat every charge depending on an unsupplied document as unresolved"}
-    rules: [CW-R13, CW-R18, CW-R19, DDS-R01, DDS-R15, DDS-R18, DDS-R19]
+    rules: [CW-R13, CW-R18, CW-R19, CW-R23, DDS-R01, DDS-R15, DDS-R18, DDS-R19]
     scope_ref: [Q8]
     status: open
     blocks: G3
@@ -112,7 +112,7 @@ questions:
     alternatives:
       - {id: A, reading: "Add only contractually required items (DS-900 discount, minimums, correct rates in both directions)"}
       - {id: B, reading: "Also add unbilled chargeable events evidenced by records"}
-    rules: [DDS-R15, DDS-R20]
+    rules: [CW-R07, DDS-R15, DDS-R20]
     scope_ref: [Q10_DDS]
     status: open
     blocks: G5
@@ -122,7 +122,7 @@ questions:
     alternatives:
       - {id: A, reading: "Accumulator = performance-chargeable PD-210 metres only; wrong unit = unit breach with value per supported quantity"}
       - {id: B, reading: "Accumulator = all metres drilled on the well; wrong unit = charge unsupported"}
-    observation: "Max billed PD-210 metres per well-year is 3,355, far below 40,000: the accumulator reading cannot change any band on the pinned data (scope_ref)."
+    observation: "Records-based bound (correction round; replaces a bound taken from billed PD-210 metres, which cannot bound reading B): the sum of the daily physical depth increments (Part A depth end - depth start) on any well over ALL supplied dates is at most 6,026 m (NGP-BD-027), and drilled + logged + reamed metres at most 10,002 m per well - far below the 40,000 m band edge, so neither accumulator reading can change a band on the pinned data (scope_ref Q11_DDS)."
     rules: [DDS-R07, DDS-R08, DDS-R12]
     scope_ref: [Q11_DDS]
     status: open
@@ -139,6 +139,18 @@ questions:
     status: open
     blocks: G4
     plan_assumption_challenged: "Plan §6 treats the 5 January reset as settled."
+  - id: Q13
+    title: "NEW (correction round). Lost in hole - accumulated circulating hours: the Part E figure vs the well's daily history through the day of loss"
+    sources: ["DDS Cl.31 (p7)", "31A (p35)", "P12 (p11)", "Sch 5 Part E (p24)", "Sch 6 (p25)"]
+    alternatives:
+      - {id: A, reading: "Part E 'Circulating hours accumulated on the well' as recorded governs: it is the Schedule 5 record of the loss"}
+      - {id: B, reading: "The hours are the circulating hours accumulated on the well through the day of loss, i.e. the sum of Part A daily circulating hours on that well (P12; Cl.31 'accumulated on the well'); Part E is corroborated against it"}
+      - {id: C, reading: "Where Part E and the daily history disagree the depreciation cannot be fixed from the records: the LH line is a query valued only within the A/B bounds"}
+    observation: "G2 (verification/g2/conflicts.json, part_E_hours_vs_well_daily_sum): Part E differs from the whole-well daily sum in 27 of 54 losses; it equals the run-only sum in 12 of them and matches neither reading in 15 (spec/carried_items.yaml CI-01)."
+    rules: [DDS-R17]
+    scope_ref: [Q13_DDS]
+    status: open
+    blocks: G3
 
 decisions:
   - id: D1
@@ -171,7 +183,7 @@ decisions:
     alternative: "Contract-wide accumulation (rejected: contradicts explicit wording; Phase 1 audit B3)"
     reason: "Explicit text"
     scope_ref: [Q11_DDS]
-    scope_key: max_billed_pd210_metres_per_well_and_year
+    scope_key: max_physical_depth_increment_per_well_all_dates
   - id: D5
     title: CW retention release timing follows 45A, not Cl.51
     settled_reading: "Half of earlier retention released on the first application submitted after 30 Sep 2026, rounded down"
@@ -180,3 +192,17 @@ decisions:
     override: OV-CW-11
     scope_ref: [Q9]
     scope_key: cw_applications_after_extended_completion_candidates_for_45A_release
+  - id: D6
+    title: DDS daily limits (Cl.22) are counted per well-day
+    settled_reading: "A service's Sch 3 Part 5 limit applies to the quantity charged for one well on one day: each well is invoiced separately (Cl.32, p8) and each Daily Drilling Report is for one well and one day (Cl.15, p5; Sch 5, p24)"
+    alternative: "Cl.22 'No service is charged on any day in a quantity above the daily limit in Schedule 3 Part 5' read literally: all wells together on a calendar day"
+    reason: "The literal reading would cap the whole contract at one well's crew and tools (e.g. DD-101 2 person-day) although the contract runs several rigs at once (S2 p40: 'the Operator having committed a second rig to this Contract'); the text does not say 'per well', so the reading is recorded with its alternative (second-reading finding, correction round)"
+    scope_ref: [D_scopes]
+    scope_key: dds_service_days_over_limit_only_when_wells_are_summed
+  - id: D7
+    title: A stated trench depth of exactly 2 m belongs to A.12.020
+    settled_reading: "A.12.020 'depth not exceeding 2 m' includes 2 m; A.12.030 '2 m to 4 m' covers above 2 m up to and including 4 m; A.12.040 'exceeding 4 m' (Sch 1 p17; P13 p13)"
+    alternative: "2 m read into A.12.030 ('2 m to 4 m' read inclusively at its lower end)"
+    reason: "'not exceeding' is the explicit bound and makes the bands contiguous without overlap, as the drilling contract states for its depth bands (boundary belongs to the shallower band, DDS Cl.23); no supplied record states 2 m or 4 m (scope), so the reading changes nothing on the pinned data"
+    scope_ref: [D_scopes]
+    scope_key: cw_dx_records_with_stated_depth_exactly_2_or_4_m

@@ -1,8 +1,10 @@
-"""Affected scopes for the open-question and decision register (G1), from read-only CSV counts.
+"""Affected scopes for the open-question and decision register (G1), from read-only counts.
 
 These are populations a question CAN affect (lines/invoices whose outcome depends on the reading), not
-findings: no record is parsed, no line is priced, and nothing is classified. Output:
-spec/question_scopes.json, referenced by spec/open_questions.yaml.
+findings: no line is priced and nothing is classified. Most scopes are CSV counts; Q11, Q13 and D7 need
+the records and use the G2 evidence parser (audit/) read-only (correction round: Q11's bound comes from the
+recorded depths, not from billed quantities). Output: spec/question_scopes.json, referenced by
+spec/open_questions.yaml.
 
 Usage::
 
@@ -164,15 +166,45 @@ def main() -> int:
         "of_which_without_ds900": sum(1 for i, v in svc.items() if v > 250000 and i not in has_ds),
         "invoices_with_ds900_at_or_below_250000": sum(1 for i in has_ds if svc[i] <= 250000),
     }
-    # ---- Q11: annual footage reachability (billed PD-210 metres per well and calendar year) ----------
+    # ---- Q11: annual footage reachability, bounded by the RECORDED depths (not billed metres) ------
+    # Alternative B counts all metres drilled on the well; the records bound it: the sum of each day's physical
+    # depth increment (Part A depth end - depth start) per well over ALL supplied dates, and the same plus the
+    # run totals of metres logged and reamed. Either is an upper bound for any well-and-Contract-Year figure.
+    world = _world()
+    inc: dict[str, int] = defaultdict(int)
+    neg = 0
+    for d in world.ddr.values():
+        a = d.parts["A"]
+        step = a["Depth end (m MD)"] - a["Depth start (m MD)"]
+        neg += step < 0
+        inc[d.well] += max(step, 0)
+    lr: dict[str, int] = defaultdict(int)
+    for (well, _run), r in world.runs.items():
+        lr[well] += (r.metadata.get("Metres logged") or 0) + (r.metadata.get("Metres reamed") or 0)
+    top = max(inc.items(), key=lambda kv: (kv[1], kv[0]))
+    top_all = max(((w, inc[w] + lr[w]) for w in inc), key=lambda kv: (kv[1], kv[0]))
     foot = defaultdict(Decimal)
     for r in dl:
         if r["service_code"] == "PD-210":
             foot[(d_well[r["invoice_no"]], ddate(r["service_date"]).year)] += Decimal(r["quantity"])
     out["Q11_DDS"] = {
         "pd210_lines": cnt["PD-210"],
-        "max_billed_pd210_metres_per_well_and_year": str(max(foot.values())),
-        "well_years_at_or_above_40000": sum(1 for v in foot.values() if v >= 40000),
+        "wells_with_records": len(inc),
+        "negative_daily_depth_increments": neg,
+        "max_physical_depth_increment_per_well_all_dates": top[1],
+        "well_with_max_physical_depth_increment": top[0],
+        "max_drilled_logged_reamed_metres_per_well_all_dates": top_all[1],
+        "wells_at_or_above_40000_under_any_reading": sum(1 for w in inc if inc[w] + lr[w] >= 40000),
+        "billed_pd210_metres_max_per_well_and_year_not_used_as_bound": str(max(foot.values())),
+    }
+    # ---- Q13: loss-in-hole accumulated hours, Part E vs the well's daily history ---------------------
+    losses = [l for r in world.runs.values() for l in r.losses]
+    out["Q13_DDS"] = {
+        "lh_lines": sum(cnt[c] for c in ("LH-711", "LH-712", "LH-713", "LH-714")),
+        "losses_recorded": len(losses),
+        "part_e_differs_from_well_daily_sum": sum(l["hours_on_well"] != l["well_daily_hours_through_loss_day"] for l in losses),
+        "part_e_equals_run_daily_sum_only": sum(l["hours_on_well"] == l["run_daily_hours_through_loss_day"] != l["well_daily_hours_through_loss_day"] for l in losses),
+        "part_e_matches_neither": sum(l["hours_on_well"] not in (l["well_daily_hours_through_loss_day"], l["run_daily_hours_through_loss_day"]) for l in losses),
     }
     # ---- Settled decisions with recorded alternatives ---------------------------------------------
     out["D_scopes"] = {
@@ -185,11 +217,35 @@ def main() -> int:
         "cw_ground_lines_after_2025_09_27_not_G2": sum(
             1 for r in cl if idate(r["work_date"]) > dt.date(2025, 9, 27) and r["ground_class"] not in ("", "G2")),
         "dds_lh_lines": sum(cnt[c] for c in ("LH-711", "LH-712", "LH-713", "LH-714")),
+        "dds_service_days_over_limit_only_when_wells_are_summed": _limit_scope(dl),
+        "cw_dx_records_with_stated_depth_exactly_2_or_4_m": sum(
+            1 for r in world.cw.values() if r.attributes.get("depth_m") in ("2", "4", "2.0", "4.0")),
+        "cw_dx_records_with_stated_depth": sum(1 for r in world.cw.values() if "depth_m" in r.attributes),
     }
     path = sl.SPEC / "question_scopes.json"
     path.write_text(json.dumps(out, indent=1) + "\n")
     print(json.dumps(out, indent=1))
     return 0
+
+
+def _world():
+    """The G2 evidence world, read-only (records parsed from the pinned snapshot)."""
+    sys.path.insert(0, str(sl.ROOT))
+    from audit import build
+    return build.build()
+
+
+def _limit_scope(dl) -> int:
+    """(date, service) pairs where every well-day is within its Sch 3 Part 5 limit but the sum over wells is not (D6)."""
+    limits = {r[0]: Decimal(r[1]) for r in sl.load_terms("DDS")["tables"]["DDS.T13_DAILY_LIMITS"]["rows"]}
+    per = defaultdict(Decimal)
+    for r in dl:
+        if r["service_code"] in limits and r["service_date"]:
+            per[(r["service_date"], r["service_code"], r["well_name"])] += Decimal(r["quantity"])
+    by_day = defaultdict(list)
+    for (day, code, _well), q in per.items():
+        by_day[(day, code)].append(q)
+    return sum(1 for (day, code), qs in by_day.items() if all(q <= limits[code] for q in qs) and sum(qs) > limits[code])
 
 
 def cnt_c(rows, code):

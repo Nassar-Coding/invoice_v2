@@ -11,7 +11,7 @@ import verify_spec
 def test_real_spec_passes(capsys):
     assert verify_spec.main() == 0
     out = capsys.readouterr().out
-    assert out.count("PASS ") == 9 and "FAIL" not in out
+    assert out.count("PASS ") == 11 and "FAIL" not in out
 
 
 @pytest.fixture
@@ -21,6 +21,11 @@ def sandbox(tmp_path, monkeypatch):
     shutil.copytree(sl.SPEC, spec)
     verif.mkdir()
     shutil.copy(sl.VERIF / "second_pass_log.yaml", verif / "second_pass_log.yaml")
+    shutil.copy(sl.VERIF / "param_rule_log.yaml", verif / "param_rule_log.yaml")
+    shutil.copytree(sl.VERIF / "param_rule_packets", verif / "param_rule_packets")
+    for f in ("section_readings.jsonl", "section_dispositions.yaml"):
+        if (sl.VERIF / f).exists():
+            shutil.copy(sl.VERIF / f, verif / f)
     monkeypatch.setattr(sl, "SPEC", spec)
     monkeypatch.setattr(sl, "VERIF", verif)
     return spec
@@ -123,3 +128,78 @@ def test_regenerating_log_never_recertifies_a_changed_table(sandbox, monkeypatch
     capsys.readouterr()
     rc, out = run(capsys)
     assert rc == 1 and "DDS.T05_RSI feeds pricing but is not verified" in out
+
+
+# ---- correction round, audit finding 1: parameters and rules are content-verified like tables ----------------
+def test_vat_15_to_16_fails(sandbox, capsys):
+    def f(d):
+        next(p for p in d["parameters"] if p["id"] == "DDS.P.vat_pct")["value"] = "16"
+    edit(sandbox / "terms_dds.yaml", f)
+    rc, out = run(capsys)
+    assert rc == 1 and "DDS.P.vat_pct: content changed since its second reading" in out
+
+
+def test_edited_rule_fails(sandbox, capsys):
+    def f(d):
+        r = next(r for r in d["rules"] if r["id"] == "DDS-R07")
+        r["title"] = r["title"].replace("six-hour", "eight-hour")
+    edit(sandbox / "rules.yaml", f)
+    rc, out = run(capsys)
+    assert rc == 1 and "DDS-R07: content changed since its second reading" in out
+
+
+def test_edited_rule_source_or_case_fails(sandbox, capsys):
+    def f(d):
+        r = next(r for r in d["rules"] if r["id"] == "CW-R07")
+        r["validation"][0] = "102.50% payable as measured"
+    edit(sandbox / "rules.yaml", f)
+    rc, out = run(capsys)
+    assert rc == 1 and "CW-R07: content changed since its second reading" in out
+
+
+def test_edited_parameter_provision_fails(sandbox, capsys):
+    def f(d):
+        next(p for p in d["parameters"] if p["id"] == "DDS.P.circulating_hour_rounding")["page"] = 13
+    edit(sandbox / "terms_dds.yaml", f)
+    rc, out = run(capsys)
+    assert rc == 1 and "DDS.P.circulating_hour_rounding: content changed since its second reading" in out
+
+
+def test_missing_reading_fails(sandbox, capsys):
+    log = sl.VERIF / "param_rule_log.yaml"
+    data = yaml.safe_load(log.read_text())
+    del data["entries"]["CW.P.retention_pct"]
+    log.write_text(yaml.safe_dump(data, sort_keys=False))
+    rc, out = run(capsys)
+    assert rc == 1 and "CW.P.retention_pct: no second reading recorded" in out
+
+
+def test_recorder_refuses_reading_of_an_older_statement(tmp_path, monkeypatch):
+    """A reading made before an edit does not certify the edited item: record() leaves it pending."""
+    import param_rule_verification as prv
+    spec, verif = tmp_path / "spec", tmp_path / "verification"
+    shutil.copytree(sl.SPEC, spec)
+    shutil.copytree(sl.VERIF / "param_rule_readings", verif / "param_rule_readings")
+    shutil.copytree(sl.VERIF / "param_rule_packets", verif / "param_rule_packets")
+    shutil.copy(sl.VERIF / "param_rule_dispositions.yaml", verif / "param_rule_dispositions.yaml")
+    shutil.copytree(sl.VERIF / "ocr", verif / "ocr")
+    monkeypatch.setattr(sl, "SPEC", spec)
+    monkeypatch.setattr(sl, "VERIF", verif)
+    for k, v in {"READINGS": verif / "param_rule_readings", "LOG": verif / "param_rule_log.yaml",
+                 "DISPOSITIONS": verif / "param_rule_dispositions.yaml", "OCR": verif / "ocr"}.items():
+        monkeypatch.setattr(prv, k, v)
+    def f(d):
+        next(p for p in d["parameters"] if p["id"] == "DDS.P.vat_pct")["value"] = "16"
+    edit(spec / "terms_dds.yaml", f)
+    assert prv.record([]) == 0
+    e = yaml.safe_load((verif / "param_rule_log.yaml").read_text())["entries"]["DDS.P.vat_pct"]
+    assert e["status"] == "pending" and e["read_current_statement"] is False and e["value_equivalent"] is False
+
+
+def test_section_classification_edit_after_reading_fails(sandbox, capsys):
+    def f(d):
+        sec = next(x for x in d["sections"] if x["pages"] == [9, 10])
+        sec["not_material"] = "technical obligations only"
+    edit(sandbox / "sections_dds.yaml", f)
+    rc, out = run(capsys)
+    assert rc == 1 and "('DDS', 'Part V Technical T1-T16'): classification changed since its second reading" in out

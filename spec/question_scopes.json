@@ -91,8 +91,20 @@
  },
  "Q11_DDS": {
   "pd210_lines": 2390,
-  "max_billed_pd210_metres_per_well_and_year": "3355",
-  "well_years_at_or_above_40000": 0
+  "wells_with_records": 214,
+  "negative_daily_depth_increments": 0,
+  "max_physical_depth_increment_per_well_all_dates": 6026,
+  "well_with_max_physical_depth_increment": "NGP-BD-027",
+  "max_drilled_logged_reamed_metres_per_well_all_dates": 10002,
+  "wells_at_or_above_40000_under_any_reading": 0,
+  "billed_pd210_metres_max_per_well_and_year_not_used_as_bound": "3355"
+ },
+ "Q13_DDS": {
+  "lh_lines": 54,
+  "losses_recorded": 54,
+  "part_e_differs_from_well_daily_sum": 27,
+  "part_e_equals_run_daily_sum_only": 12,
+  "part_e_matches_neither": 15
  },
  "D_scopes": {
   "dds_pd210_lines_on_non_standard_wells": 941,
@@ -102,6 +114,9 @@
   "dds_lines_after_2026_12_31": 3,
   "cw_lines_before_2025_01_05": 0,
   "cw_ground_lines_after_2025_09_27_not_G2": 1052,
-  "dds_lh_lines": 54
+  "dds_lh_lines": 54,
+  "dds_service_days_over_limit_only_when_wells_are_summed": 10207,
+  "cw_dx_records_with_stated_depth_exactly_2_or_4_m": 0,
+  "cw_dx_records_with_stated_depth": 73
  }
 }

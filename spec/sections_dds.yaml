@@ -36,7 +36,8 @@ sections:
   - {pages: [11], section: "P12 LIH hours on the well incl. day of loss; P13 Standby personnel", owners: [DDS-R17, DDS-R11]}
   - {pages: [12], section: "P14 USD invoicing", owners: [DDS-R20]}
   - {pages: [13], section: "Part VII HSE H1-H12", not_material: "HSE obligations; H6 source certificate is DDR Part D (DDS-R15)"}
-  - {pages: [14], section: "Part VIII Reporting R1-R12", owners: [DDS-R05, OV-DDS-05, DDS.P.circulating_hour_rounding]}
+  - {pages: [14], section: "Part VIII Reporting R1-R12", owners: [DDS-R05, DDS-R06, DDS-R07, DDS-R15, OV-DDS-05, DDS.P.circulating_hour_rounding],
+     by_provision: "R3 whole metres from the rotary table and R4 whole hours: DDS-R07 (metres from Part A depths, hours) and DDS.P.circulating_hour_rounding; R5/R6 service codes on the report: DDS-R06 via OV-DDS-05 (19A: the report carries rig words, read through App G); R7 day status final and R8 corrections by a signed revision: DDS-R05; R9 BHA Run Report totals = DDR sums for the run: DDS-R15 (and the G2 run check run_hours_vs_daily_sum); R1, R2, R10-R12 no valuation effect (second reading, correction round)"}
   - {pages: [15, 16], section: "Schedule 1 Service rates", owners: [DDS.T01_SCH1, DDS-R09]}
   - {pages: [17], section: "Schedule 2 Depth bands and Part 2 annual bands", owners: [DDS.T02_DEPTH_BANDS, DDS.T03_ANNUAL_BANDS, DDS-R12, OV-DDS-02]}
   - {pages: [18], section: "Schedule 2C Indexed services", owners: [DDS.T04_RSI_ITEMS, DDS.T05_RSI, DDS-R10]}

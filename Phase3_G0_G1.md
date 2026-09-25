@@ -1,5 +1,7 @@
 # Phase 3 — Gates G0 and G1
 
+> **Correction round:** G1 was re-closed after an independent audit; see `Phase3_G1_G2_corrections.md` (parameters, rules and previously un-re-read pages now second-read; supersedes this report where they differ).
+
 **Governing plan:** `artifacts/phase_inputs/Phase2_plan.md` §2 (G0/G1 exit conditions), §3, §8, §9. **Branch:** `opus_stage2` only.
 **Source:** `majedzahrani3/invoice-auditing-level-2` @ `aef4924dc32506b4587de8b788b5a947e6beffec`.
 **Boundary kept:** there is no evidence parser, valuation engine, cross-invoice state, classification, flag, total or `submission.csv`. The only data code is read-only counting, used for the inventory and the question scopes.

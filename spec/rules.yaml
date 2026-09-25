@@ -71,17 +71,17 @@ rules:
     pricing: true
     validation: ["blank ref on Sch 5 item", "ref with no file", "ref of wrong series", "underscore placeholder signature", "non-Sch 5 item with blank ref is not a breach"]
   - id: CW-R06
-    title: Record content agrees with the line (work area, date or week, activity, quantity, unit sense)
+    title: The record identifies what the line claims - work area, date (a weekly record lists each day worked), item and quantity; the line is compared with it
     checks: [4, 5, 6]
     scope: lines with a record
     prerequisites: [CW-R05]
     consequence: C-CORR
-    sources: ["Cl.47 (p8)", "47A (p33)", "Sch 5 note (p27)"]
+    sources: ["Cl.47 (p8)", "47A (p33)", "Sch 5 note (p27)", "guideline check 4"]
     tables: [CW.T16_RECORDS]
     questions: [Q7]
     status: settled
     pricing: true
-    validation: ["DW week crossing a month boundary", "record date differs from line date (mismatch, not duplicate)"]
+    validation: ["weekly record whose week crosses a month boundary: each day worked is still identified (47A)", "record date differs from line date: a mismatch fact, kept separate from reuse and duplication (Q7)", "record wording differs from the Bill of Quantities description: not a mismatch by itself (Sch 5 introduction p27; 47A p33)"]
   - id: CW-R07
     title: Measured quantity - record quantity; hourly items one hour fewer; weekly items need >= 5 days; survey tolerance 2%
     checks: [5]
@@ -92,10 +92,10 @@ rules:
     tables: [CW.T15_SURVEYED]
     parameters: [CW.P.first_hour_excluded, CW.P.weekly_min_days, CW.P.survey_tolerance_pct]
     overrides: [OV-CW-03, OV-CW-09]
-    questions: [Q6]
+    questions: [Q6, Q10]
     status: settled
     pricing: true
-    validation: ["102.00% payable as measured", "102.01% -> surveyed quantity", "4 days worked -> week not measurable", "1 hour attended -> 0 chargeable", "claim below record is not increased"]
+    validation: ["102.00% payable as measured", "102.01% -> surveyed quantity", "4 days worked -> week not measurable", "1 hour attended -> 0 chargeable", "billed above the record: payable up to the record (guideline check 5)", "billed below the record: payable as billed, never raised to the record (underbilling is Q10)"]
   - id: CW-R08
     title: Scheduled unit only; a quantity in another unit is rejected in its entirety, not converted
     checks: [6]
@@ -288,29 +288,29 @@ rules:
     pricing: true
     validation: ["submission before/at/after 2026-05-12", "adjustment posted exactly once"]
   - id: CW-R23
-    title: Unsupported codes (daywork, provisional sums, preliminaries, anything outside Sch 1) fail visibly
+    title: Codes outside Sch 1 (daywork, provisional and prime cost sums, preliminaries, unrated work) are valued only by their own route and its conditions; a condition the supplied data cannot evidence leaves the line an unresolved query, never priced by default
     checks: [6]
     scope: every line
     prerequisites: []
     consequence: C-UNKNOWN
-    sources: ["Sch 6-8 (pp28-31)", "Cl.16, Cl.17 (p4)", "P24 (p14)"]
+    sources: ["Sch 6-8 (pp28-31)", "Cl.16, Cl.17 (p4)", "P24 (p14)", "guideline principle 3"]
     tables: [CW.T17_DAYWORK_LABOUR, CW.T18_DAYWORK_PLANT, CW.T19_DAYWORK_ADDITIONS, CW.T20_PROVISIONAL_SUMS, CW.T21_PRELIMINARIES]
-    questions: []
+    questions: [Q8]
     status: settled
     pricing: false
-    validation: ["synthetic PR.01 line -> unresolved query, not priced"]
+    validation: ["daywork line: Sch 6 rates plus Part 3 additions only with a daywork sheet signed on the day (Cl.17); none supplied -> query", "provisional sum line: only on the Engineer's written instruction (Cl.16); none supplied (Q8) -> query", "synthetic PR.01 line: a fixed item 486,000.00 valued once when the obligation is discharged (Sch 8); discharge not evidenced -> query"]
   - id: CW-R24
-    title: Outcome recorded - result per check, clause, payable figure or unknown, and what could not be determined
+    title: Outcome recorded per application - pass, query or part-reject, with the clause relied on, the figure payable, and anything that could not be determined
     checks: [12]
     scope: every application
     prerequisites: []
     consequence: C-PROC
-    sources: ["guideline check 12", "README Task"]
+    sources: ["guideline check 12", "guideline principle 3", "README Task"]
     tables: []
     questions: [Q9]
     status: settled
     pricing: false
-    validation: ["unpriceable application stays a query with no invented total"]
+    validation: ["unpriceable application stays a query; what is missing is recorded rather than a guessed figure (guideline principle 3); the unknown-total encoding is Q9"]
 
   # ------------------------------------------------------------------ DRILLING (DDS-2025-118)
   - id: DDS-R01
@@ -419,14 +419,14 @@ rules:
     scope: every priced line
     prerequisites: [DDS-R06]
     consequence: C-CORR
-    sources: ["SoV (p37)", "S1 (p38)", "A1 (p39)", "S2 (p40)", "A2 (p41)", "A3 (p42)"]
+    sources: ["SoV (p37)", "S1 (p38)", "A1 (p39)", "S2 (p40)", "A2 (p41)", "A3 (p42)", "36A (p35)"]
     tables: [DDS.T01_SCH1]
     instruments: [DDS.S1, DDS.A1, DDS.S2, DDS.A2, DDS.A3]
     overrides: [OV-DDS-06, OV-DDS-07]
     questions: [Q1, Q2]
     status: settled
     pricing: true
-    validation: ["DD-120 2025-06-30/2025-07-01", "HC-601 Jan-2026 carries Dec-2025 736.40", "DD-120 Apr-2026: 416.00 (A3) not 406.00 (S2)"]
+    validation: ["DD-120 2025-06-30/2025-07-01", "HC-601 Jan-2026 carries Dec-2025 736.40", "DD-120 Apr-2026: the rate in force once A3 is issued is 416.00 (A3; D2), not 406.00 (S2); an invoice submitted before A3's issue (2026-08-17) was correct at 406.00 (36A) and the difference is carried only by the single adjustment (DDS-R21, Q1)"]
   - id: DDS-R10
     title: Indexed services - base x Rig Services Index(month)/100, half-even, before the build-up
     checks: [7, 8]
@@ -481,12 +481,12 @@ rules:
     pricing: true
     validation: ["DD-120 on a Standby day", "DD-121 on an Operating day"]
   - id: DDS-R14
-    title: Daily limits per well per day across invoices
+    title: Daily limits - no service is charged on any day above its Sch 3 Part 5 limit (Cl.22), whichever invoice carries it; counted per well-day (D6)
     checks: [9]
     scope: 22 limited services
     prerequisites: [DDS-R07]
     consequence: C-CORR
-    sources: ["Cl.22 (p6)", "Sch 3 Part 5 (pp21-22)"]
+    sources: ["Cl.22 (p6)", "Sch 3 Part 5 (pp21-22)", "Cl.32 (p8)"]
     tables: [DDS.T13_DAILY_LIMITS]
     questions: [Q7]
     status: settled
@@ -526,8 +526,8 @@ rules:
     tables: [DDS.T06_SAR_VALUES, DDS.T07_FX, DDS.T19_SCH6_USD, DDS.T22_APPF_EXAMPLE]
     parameters: [DDS.P.lih_depreciation]
     overrides: [OV-DDS-04]
-    questions: []
-    status: settled
+    questions: [Q13]
+    status: open
     pricing: true
     validation: ["412 h -> 16%", "24 h -> 0%, 25 h -> 1%", "1,250 h -> 50% cap", "month-of-loss FX at a half cent"]
   - id: DDS-R18
@@ -581,14 +581,14 @@ rules:
     pricing: true
     validation: ["invoice 2026-08-17 vs 2026-08-18", "per-well vs contract-wide recipient", "adjustment and DS-900/VAT interaction"]
   - id: DDS-R22
-    title: Outcome recorded - result per check, clause, payable figure or unknown
+    title: Outcome recorded per invoice - pass, query or part-reject, with the clause relied on, the figure payable, and anything that could not be determined
     checks: [12]
     scope: every invoice
     prerequisites: []
     consequence: C-PROC
-    sources: ["guideline check 12", "README Task", "Cl.41 (p8)"]
+    sources: ["guideline check 12", "guideline principle 3", "README Task", "Cl.41 (p8)"]
     tables: []
     questions: [Q9]
     status: settled
     pricing: false
-    validation: ["disputed charge withheld; undisputed balance still valued"]
+    validation: ["disputed charge withheld; undisputed balance still valued (Cl.41)", "unpriceable invoice stays a query with what is missing recorded (guideline principle 3); the unknown-total encoding is Q9"]

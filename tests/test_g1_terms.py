@@ -206,7 +206,8 @@ def test_question_scopes_reproduce(tmp_path, monkeypatch, capsys):
     frozen = json.loads((ROOT / "spec" / "question_scopes.json").read_text())
     monkeypatch.setattr(sl, "SPEC", tmp_path)
     monkeypatch.setattr(question_scopes.sl, "SPEC", tmp_path)
-    (tmp_path / "terms_cw.yaml").write_text((ROOT / "spec" / "terms_cw.yaml").read_text())
+    for f in (ROOT / "spec").glob("*.yaml"):          # Q11/Q13/D7 scopes read the records through the G2 parser
+        (tmp_path / f.name).write_text(f.read_text())
     assert question_scopes.main() == 0
     capsys.readouterr()
     assert json.loads((tmp_path / "question_scopes.json").read_text()) == frozen

@@ -10,14 +10,14 @@ minor_unit: halala
 source_pdf: civilwork/contract/CW-2025-0417-CIV.pdf
 
 parameters:
-  - {id: CW.P.commencement, value: "2025-01-05", page: 1, provision: "Agreement particulars; App A Commencement Date"}
+  - {id: CW.P.commencement, value: "2025-01-05", page: 1, provision: "Agreement particulars (p1); App A Commencement Date (p34)"}
   - {id: CW.P.completion_as_let, value: "2025-09-27", page: 1, provision: "Agreement particulars (Date for completion)"}
   - {id: CW.P.completion_A1, value: "2026-03-31", page: 40, provision: "A1 1.1"}
   - {id: CW.P.completion_A2, value: "2026-09-30", page: 42, provision: "A2 2.1"}
   - {id: CW.P.retention_pct, value: "5", page: 8, provision: "Cl.45 (also p1 particulars)", note: "on the application total, rounded DOWN to the halala"}
   - {id: CW.P.submission_window_days, value: "21", page: 8, provision: "Cl.41", note: "not before last day of period; within 21 days of its end"}
-  - {id: CW.P.working_hours, value: "06:00-18:00", page: 3, provision: "Cl.7", note: "18:00-06:00 is Night Work (App A)"}
-  - {id: CW.P.rest_days, value: "Friday, Saturday", page: 3, provision: "Cl.8; App A; p1 particulars"}
+  - {id: CW.P.working_hours, value: "06:00-18:00", page: 3, provision: "Cl.7", note: "18:00-06:00 is Night Work (App A, p34)"}
+  - {id: CW.P.rest_days, value: "Friday, Saturday", page: 3, provision: "Cl.8 (p3); App A Rest day (p34); p1 particulars"}
   - {id: CW.P.rounding, value: "once, on the built-up rate, to the halala, half up", page: 6, provision: "Cl.28"}
   - {id: CW.P.rounding_fx_index, value: "converted/indexed rate rounded to the halala half-even, before the build-up", page: 32, provision: "26A; 29A"}
   - {id: CW.P.first_hour_excluded, value: "1", page: 32, provision: "6A", note: "hourly items: quantity = hours attended less one"}
