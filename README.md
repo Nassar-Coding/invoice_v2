@@ -21,6 +21,8 @@ Rebuild G2 outputs: `python -m audit.build` (writes `verification/g2/`; `--dump`
 | `prompts/phase3/` | versioned prompts used with AI subagents |
 | `spec/evidence_*.yaml` | G2 evidence mapping: civil narrative templates, DDR Parts A–E keys, Appendix G/crew terms |
 | `audit/` | G2 claims loader, civil and DDR parsers, run/loss events, reference + semantic links, unresolved queue |
-| `verification/g2/` | G2 coverage, unresolved queue, conflicts; blind annotation sample and comparison |
+| `verification/g2/` | G2 coverage, unresolved queue, conflicts, run context; blind transcription and independent semantic review (`semantic/`) |
+| `spec/carried_items.yaml` | disclosed G2 conflicts and missing records, each with owning gate, rule, question and treatment |
+| `verification/param_rule_*`, `section_readings.jsonl` | G1 second reading of every parameter, rule and previously un-re-read page (correction round) |
 
-Reports: `Phase3_G0_G1.md`, `Phase3_G2.md`. Task list: `Phase3_TASKS.md`.
+Reports: `Phase3_G0_G1.md`, `Phase3_G2.md`, `Phase3_G1_G2_corrections.md` (supersedes the G1/G2 reports where they differ). Task list: `Phase3_TASKS.md`.

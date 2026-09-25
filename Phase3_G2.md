@@ -1,5 +1,7 @@
 # Phase 3 — Gate G2: load claims and extract evidence
 
+> **Correction round:** G2 was re-closed after an independent audit; see `Phase3_G1_G2_corrections.md`. It supersedes this report where they differ — notably the DD-121 tool-presence facts (§4), the 'source carried is not the density-neutron tool' observation (§6 item 2, withdrawn: by Appendix G code the source-carried days are the LW-411 density-and-neutron service), and the extraction-version claim.
+
 **Governing plan:** `artifacts/phase_inputs/Phase2_plan.md` §2 (G2 row), §4, §10.3. **Branch:** `main`. **Built on:** gate1 @ `bf40eb8`, cleanup @ `d76e8a2`.
 **Source:** `majedzahrani3/invoice-auditing-level-2` @ `aef4924dc32506b4587de8b788b5a947e6beffec`. Contract wording, including Appendix G, is taken from the verified terms in `spec/`. It was not read afresh, and no G0/G1 term was modified.
 **Boundary kept:** G2 does no pricing, applies no entitlement rules, keeps no cross-invoice state, and produces no classification, flag, total or `submission.csv`. A test checks that the `audit/` package defines none of them.
