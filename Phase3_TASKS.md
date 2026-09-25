@@ -41,3 +41,17 @@ Legend: `[x]` closed with the evidence named; `[ ]` open; `[~]` closed with a re
 ## Close
 - [x] Run every check and the full test suite on a clean checkout (clone of bf40eb8): snapshot OK, 9 PASS, 36 passed.
 - [x] Write `Phase3_G0_G1.md`; commit and push to `opus_stage2`.
+
+## G2 — Load claims and extract evidence (from gate1 @ bf40eb8; main @ d76e8a2)
+Exit (plan §2): every source row/file is accounted for; each required field is parsed or explicitly unresolved;
+reference validity and semantic validity are separate; reviewed examples cover every record family and
+encountered wording/layout branch. Boundary: no pricing, entitlement, cross-invoice state, flags, totals or submission.
+- [ ] G2.1 Evidence-mapping specification `spec/evidence_cw.yaml`, `spec/evidence_dds.yaml` (record wording → meaning, unit, candidate items, source).
+- [ ] G2.2 Claims loader with provenance and original strings; exact Decimal from strings; blank ≠ zero; input assertions (uniqueness, joins, template coverage).
+- [ ] G2.3 Civil record parser: 9 families, weekly day lists across month/year, placeholder signatures, narrative templates.
+- [ ] G2.4 DDR parser: header, Parts A–E, Appendix G terms (loss context), crew, signatures; index by internal report number.
+- [ ] G2.5 Events from records only: BHA runs (repeated Part B metadata = one fact), source runs, losses, DW weeks; intra-record and run consistency conflicts kept visible.
+- [ ] G2.6 Links: reference validity kept separate from semantic facts; accounting of every file (linked / unreferenced).
+- [ ] G2.7 Unresolved queue (never default); negative controls prove it fires.
+- [ ] G2.8 Reviewed fixtures typed from raw text covering every family and wording/layout branch; blind subagent annotation of a seeded sample compared field by field.
+- [ ] G2.9 `tools/verify_g2.py` exit checks; tests; G0/G1 checks still pass; report `Phase3_G2.md`; gate2 tag text.
