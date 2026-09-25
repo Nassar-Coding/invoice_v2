@@ -55,3 +55,11 @@ encountered wording/layout branch. Boundary: no pricing, entitlement, cross-invo
 - [x] G2.7 Unresolved queue (never default); negative controls prove it fires. — `tests/test_g2_controls.py`
 - [x] G2.8 Reviewed fixtures typed from raw text covering every family and wording/layout branch; blind subagent annotation of a seeded sample compared field by field. — `tests/fixtures/g2_reviewed.yaml`; blind 646/646 civil, 1029/1029 DDR fields
 - [x] G2.9 `tools/verify_g2.py` exit checks; tests; G0/G1 checks still pass; report `Phase3_G2.md`; gate2 tag text. — 95 passed; G0/G1 SPEC VERIFY OK; G2 VERIFY OK (E1–E4, S1, S2)
+
+## Correction round — G1/G2 re-close (independent G0–G2 audit of 76e9518: G0 PASS, G1/G2 NOT PASS)
+Governing: the audit (Phase0-1-2-audit.docx) and plan §2 exit conditions. Boundary: no G3 work; tags gate0/gate1/gate2 untouched.
+- [ ] C1 (finding 1, G1) Second verification of every active parameter (33) and operative rule (46) against the scans, DDS pp.9–14 included, with attributable evidence; content hashes for parameters and rules so any edit invalidates verification; controls: vat_pct 15→16 and an edited rule fail.
+- [ ] C2 (finding 2, G2) DD-121 = rotary steerable Standby charge in place of DD-120 (Cl.21 p6; Sch 3 Part 4 p21): fix `link_dds()`, regenerate outputs; per-code population check of tool-in-hole false shares with cited explanations; control: reintroduced defect fails.
+- [ ] C3 (finding 3, G2) Independent semantic review of derived meanings (tool term→code, service-keyed crew counts, invoice-to-tool, civil numbers by attribute name); sample completeness enforced; controls: wrong tool code, wrong crew count, mislabelled civil number, missing sample fail.
+- [ ] C4 (finding 4, G2) Run/version context over parser/link code and reviewed inputs, referenced by every derived fact (code-only change changes it); register of carried conflicts with owning gate and treatment; Q11 corrected to the records-based depth bound.
+- [ ] C5 Report `Phase3_G1_G2_corrections.md`; all G0/G1/G2 checks and tests in a fresh clone at the final commit; annotation text for gate1-r1 and gate2-r1.
