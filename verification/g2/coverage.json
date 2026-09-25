@@ -197,9 +197,10 @@
  },
  "observations": {
   "source_carried_reports": 2590,
-  "source_carried_with_resistivity_tool": 2590,
-  "source_carried_without_density_neutron_tool": 1497,
-  "part_D_days_without_density_neutron_tool": 211,
+  "source_carried_with_LW-411_in_hole": 2590,
+  "source_carried_without_LW-411_in_hole": 0,
+  "LW-411_in_hole_without_source_carried": 0,
+  "part_D_days_without_LW-411_in_hole": 0,
   "part_D_on_run_first_day": 367,
   "pressure_points_reported_days": 445,
   "run_metres_logged_equals_drilled_or_zero": 1369,

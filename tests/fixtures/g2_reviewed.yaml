@@ -224,3 +224,6 @@ links:
     MDS-00022-030: {reference: resolved, record: DDR-194-20250114, report_status: Standby, status_match: true, tool_basis_code: DD-120, tool_in_hole: true}   # DD-121 standby; "rotary steerable" in the hole
     MDS-00287-082: {reference: resolved, record: DDR-054-20250419, tool_basis_code: RM-511, tool_in_hole: false}   # RM-511; no "hole opener" in the hole
     MDS-00001-002: {reference: resolved, record: DDR-194-20250101, tool_basis_code: null, tool_in_hole: null, crew_recorded: 1}   # DD-102; "1 night man" (Q5)
+    MDS-00001-005: {reference: resolved, record: DDR-194-20250101, tool_basis_code: HC-620, tool_in_hole: true}   # HC-620; "drilling jars" in the hole
+    MDS-00954-021: {reference: resolved, record: DDR-009-20251211, required_part: C, required_part_present: false}   # DD-130; Part A "Gyro surveys: 1", no PART C
+    MDS-00853-005: {reference: resolved, record: DDR-113-20251103, lost_tool_code: LH-714}   # LH-714; PART E "Lost in hole tool: gamma tool"

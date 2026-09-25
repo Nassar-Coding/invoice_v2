@@ -4,7 +4,8 @@ E1 Every source row/file is accounted for.
 E2 Each required field is parsed or explicitly unresolved.
 E3 Reference validity and semantic validity are separate.
 E4 Reviewed examples cover every record family and encountered wording/layout branch.
-Also: independent blind annotation agrees with the parser, and the committed outputs reproduce.
+Also: blind transcription agrees (S1); per-service tool presence explained (S3); independent semantic review
+of derived meanings agrees by name with the sample complete (S4); committed outputs reproduce (S2).
 
 Usage::  python tools/verify_g2.py
 """
@@ -77,9 +78,18 @@ def claim_branches(kind, row) -> set[str]:
 
 def link_branches(prefix, link) -> set[str]:
     b = {f"{prefix}.reference:{link.reference}"}
-    for k in ("date_match", "work_date_is_day_on"):
-        if link.semantic.get(k) is False:
+    sem = link.semantic
+    for k in ("date_match", "work_date_is_day_on", "required_part_present"):
+        if sem.get(k) is False:
             b.add(f"{prefix}.semantic:{k}=False")
+    if "tool_in_hole" in sem:            # tool presence outcome by kind of basis (own term / contract substitute / none)
+        code = link.line_code
+        kind = "none" if sem["tool_basis_code"] is None else ("own" if sem["tool_basis_code"] == code else "substitute")
+        b.add(f"{prefix}.tool:{kind}={sem['tool_in_hole']}")
+    if "crew_recorded" in sem:
+        b.add(f"{prefix}.crew_recorded:{'0' if sem['crew_recorded'] == 0 else '>0'}")
+    if "lost_tool_code" in sem:
+        b.add(f"{prefix}.lost_tool_code:{'set' if sem['lost_tool_code'] else 'none'}")
     return b
 
 
@@ -197,6 +207,11 @@ def main() -> int:
             corpus |= claim_branches(kind, r)
         for ident in fix["claims"][kind]:
             covered |= claim_branches(kind, by_id[ident])
+    codes = {r.ident: r.values.get("service_code") for r in w.claims.rows["dds_lines"]}
+    for l in w.dds_links.values():
+        l.line_code = codes[l.line_ref]
+    for l in w.cw_links.values():
+        l.line_code = None
     for prefix, lk in (("cw_link", w.cw_links), ("dds_link", w.dds_links)):
         for l in lk.values():
             corpus |= link_branches(prefix, l)
@@ -212,15 +227,29 @@ def main() -> int:
                 f"fixtures: {len(fix['civil_records'])} civil, {len(fix['drilling_reports'])} DDR, "
                 f"{sum(len(v) for v in fix['claims'].values())} claim rows, {sum(len(v) for v in fix['links'].values())} links", errs))
 
-    # Independent blind annotation (supporting evidence for E2/E4) -----------------------------
+    # Independent blind annotation: TRANSCRIPTION of raw fields (supporting evidence for E2; not semantic proof) ----
     errs = []
     import compare_blind_g2 as cb
     cmp = {"cw": cb.compare_cw(w.cw), "dds": cb.compare_dds(w.ddr_by_file)}
+    errs += cb.completeness()
     for k, v in cmp.items():
         errs += [f"{k} {x['id']} {x['field']}: blind {x['blind']!r} parser {x['parser']!r}" for x in v if not x["agree"]]
-    res.append((f"S1 blind subagent annotation agrees with the parser: civil {sum(x['agree'] for x in cmp['cw'])}/{len(cmp['cw'])} fields "
+    res.append((f"S1 blind transcription agrees with the parser, sample complete: civil {sum(x['agree'] for x in cmp['cw'])}/{len(cmp['cw'])} fields "
                 f"({len({x['id'] for x in cmp['cw']})} records), DDR {sum(x['agree'] for x in cmp['dds'])}/{len(cmp['dds'])} fields "
                 f"({len({x['id'] for x in cmp['dds']})} reports)", errs))
+
+    # Independent SEMANTIC review of derived meanings (audit finding 3) ---------------------------
+    import semantic_review_g2 as sr
+    sem = sr.run(w)
+    errs = list(sem["failures"])
+    committed = json.loads((sr.DIR / "comparison.json").read_text())
+    if json.loads(json.dumps(sem, default=str)) != committed:
+        errs.append("verification/g2/semantic/comparison.json does not reproduce")
+    res.append(("S4 independent semantic review agrees by name, every sampled item annotated: "
+                + "; ".join(f"{k} {sem[k]['annotated']}/{sem[k]['sampled']} items, {sem[k]['agree']}/{sem[k]['fields']} fields"
+                            + (f" ({sem[k]['disposed']} disposed)" if sem[k]["disposed"] else "")
+                            for k in ("ddr", "lines", "civil"))
+                + " (tool term->code, crew by service, invoice->tool/part/crew/LH, civil attributes by name, candidate items)", errs))
 
     # Tool presence per service (audit finding 2) ------------------------------------------------
     pop = links.tool_presence_population(w.dds_links, w.claims.rows["dds_lines"])

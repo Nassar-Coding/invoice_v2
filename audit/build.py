@@ -100,9 +100,12 @@ def coverage(w: World) -> dict:
             for r in w.runs.values() for l in r.losses)),
         "observations": {
             "source_carried_reports": sum(d.parts["B"].get("Radioactive source carried") is True for d in ddrs),
-            "source_carried_with_resistivity_tool": sum(d.parts["B"].get("Radioactive source carried") is True and "resistivity tool" in d.tools_in_hole for d in ddrs),
-            "source_carried_without_density_neutron_tool": sum(d.parts["B"].get("Radioactive source carried") is True and "density-neutron" not in d.tools_in_hole for d in ddrs),
-            "part_D_days_without_density_neutron_tool": sum("D" in d.parts and "density-neutron" not in d.tools_in_hole for d in ddrs),
+            # Keyed by Appendix G service code, never by the rig word: 'resistivity tool' is LW-411 (LWD density and
+            # neutron, the radioactive-source service) and 'density-neutron' is LW-412 (LWD sonic) (App G p36).
+            "source_carried_with_LW-411_in_hole": sum(d.parts["B"].get("Radioactive source carried") is True and "LW-411" in d.tools_in_hole.values() for d in ddrs),
+            "source_carried_without_LW-411_in_hole": sum(d.parts["B"].get("Radioactive source carried") is True and "LW-411" not in d.tools_in_hole.values() for d in ddrs),
+            "LW-411_in_hole_without_source_carried": sum(d.parts["B"].get("Radioactive source carried") is not True and "LW-411" in d.tools_in_hole.values() for d in ddrs),
+            "part_D_days_without_LW-411_in_hole": sum("D" in d.parts and "LW-411" not in d.tools_in_hole.values() for d in ddrs),
             "part_D_on_run_first_day": sum("D" in d.parts and d.date == d.parts["B"].get("Run first day") for d in ddrs),
             "pressure_points_reported_days": sum((d.parts["A"].get("Pressure points") or 0) > 0 for d in ddrs),
             "run_metres_logged_equals_drilled_or_zero": sum(r.metadata.get("Metres logged") in (0, r.daily_metres_drilled) for r in w.runs.values()),

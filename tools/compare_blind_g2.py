@@ -1,9 +1,10 @@
-"""Compare the G2 parser with the blind subagent annotations (verification/g2/blind/*_annotations.jsonl).
+"""Transcription check: compare the G2 parser with the blind subagent annotations (verification/g2/blind/*_annotations.jsonl).
 
 The annotators read raw record text only (prompts/phase3/blind_annotation_g2_v1.md). Every field they
 typed is compared with the parser's value for the same file. Unit words are mapped with the explicit table
 below (the only normalisation applied); everything else must agree exactly. Disagreements are listed for
 review against the raw file; the result is written to verification/g2/blind/comparison.json.
+This proves transcription of raw fields only; derived meanings are checked by tools/semantic_review_g2.py.
 
 Usage::  python tools/compare_blind_g2.py
 """
@@ -82,6 +83,18 @@ def compare_dds(by_file) -> list[dict]:
     return out
 
 
+def completeness() -> list[str]:
+    """The annotation files must hold exactly the seeded sample (verification/g2/blind/sample.json), once each."""
+    s = json.loads((BLIND / "sample.json").read_text())
+    errs = []
+    for key, fname, idk in (("civil", "cw_annotations.jsonl", "ticket"), ("drilling", "dds_annotations.jsonl", "file")):
+        ids = [json.loads(x)[idk] for x in (BLIND / fname).read_text().splitlines() if x.strip()]
+        errs += [f"{key}: sampled {i} has no annotation" for i in sorted(set(s[key]) - set(ids))]
+        errs += [f"{key}: {i} annotated but not sampled" for i in sorted(set(ids) - set(s[key]))]
+        errs += [f"{key}: {i} annotated more than once" for i in sorted({i for i in ids if ids.count(i) > 1})]
+    return errs
+
+
 def main() -> int:
     q = Queue()
     cw, _ = records_cw.load(q=q)
@@ -90,6 +103,8 @@ def main() -> int:
     summary = {k: {"records": len({x["id"] for x in v}), "fields": len(v), "agree": sum(x["agree"] for x in v),
                    "disagreements": [x for x in v if not x["agree"]]} for k, v in res.items()}
     (BLIND / "comparison.json").write_text(json.dumps(summary, indent=1, default=str) + "\n")
+    for e in completeness():
+        print("   INCOMPLETE", e)
     for k, s in summary.items():
         print(f"{k}: {s['records']} records, {s['agree']}/{s['fields']} fields agree")
         for x in s["disagreements"]:
