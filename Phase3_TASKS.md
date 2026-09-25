@@ -46,12 +46,12 @@ Legend: `[x]` closed with the evidence named; `[ ]` open; `[~]` closed with a re
 Exit (plan §2): every source row/file is accounted for; each required field is parsed or explicitly unresolved;
 reference validity and semantic validity are separate; reviewed examples cover every record family and
 encountered wording/layout branch. Boundary: no pricing, entitlement, cross-invoice state, flags, totals or submission.
-- [ ] G2.1 Evidence-mapping specification `spec/evidence_cw.yaml`, `spec/evidence_dds.yaml` (record wording → meaning, unit, candidate items, source).
-- [ ] G2.2 Claims loader with provenance and original strings; exact Decimal from strings; blank ≠ zero; input assertions (uniqueness, joins, template coverage).
-- [ ] G2.3 Civil record parser: 9 families, weekly day lists across month/year, placeholder signatures, narrative templates.
-- [ ] G2.4 DDR parser: header, Parts A–E, Appendix G terms (loss context), crew, signatures; index by internal report number.
-- [ ] G2.5 Events from records only: BHA runs (repeated Part B metadata = one fact), source runs, losses, DW weeks; intra-record and run consistency conflicts kept visible.
-- [ ] G2.6 Links: reference validity kept separate from semantic facts; accounting of every file (linked / unreferenced).
-- [ ] G2.7 Unresolved queue (never default); negative controls prove it fires.
-- [ ] G2.8 Reviewed fixtures typed from raw text covering every family and wording/layout branch; blind subagent annotation of a seeded sample compared field by field.
+- [x] G2.1 Evidence-mapping specification `spec/evidence_cw.yaml`, `spec/evidence_dds.yaml` (record wording → meaning, unit, candidate items, source). — 992cd6c
+- [x] G2.2 Claims loader with provenance and original strings; exact Decimal from strings; blank ≠ zero; input assertions (uniqueness, joins, template coverage). — 992cd6c (101,796 rows, file/line/raw kept)
+- [x] G2.3 Civil record parser: 9 families, weekly day lists across month/year, placeholder signatures, narrative templates. — 992cd6c (2,169 records, 26 templates)
+- [x] G2.4 DDR parser: header, Parts A–E, Appendix G terms (loss context), crew, signatures; index by internal report number. — 992cd6c (8,151 reports keyed by report number)
+- [x] G2.5 Events from records only: BHA runs (repeated Part B metadata = one fact), source runs, losses, DW weeks; intra-record and run consistency conflicts kept visible. — 992cd6c, 75926d0 (1,369 runs; loss hours corroborated against daily history)
+- [x] G2.6 Links: reference validity kept separate from semantic facts; accounting of every file (linked / unreferenced). — 992cd6c (0 unreferenced record files)
+- [x] G2.7 Unresolved queue (never default); negative controls prove it fires. — `tests/test_g2_controls.py`
+- [x] G2.8 Reviewed fixtures typed from raw text covering every family and wording/layout branch; blind subagent annotation of a seeded sample compared field by field. — `tests/fixtures/g2_reviewed.yaml`; blind 646/646 civil, 1029/1029 DDR fields
 - [ ] G2.9 `tools/verify_g2.py` exit checks; tests; G0/G1 checks still pass; report `Phase3_G2.md`; gate2 tag text.
