@@ -1,6 +1,6 @@
 """G0/G1 gate checks over the specification. Prints one line per exit condition and exits non-zero on failure.
 
-G0: every guideline check and material contract section has an owner; Agent 2 corrections recorded
+G0: every guideline check and material contract section has an owner; independent-audit corrections recorded
     (snapshot hashes/inventory are checked by tools/snapshot.py).
 G1: every active numeric cell and rule has a page/clause reference and a second verification against the scan;
     explicit overrides recorded; open interpretations have bounded alternatives and affected scopes;
@@ -28,7 +28,7 @@ PAGE_REF = re.compile(r"\bp{1,2}\d|\bpp?\.?\s?\d|Sch|Cl\.|App|guideline|README|S
 def load_all():
     s = {k: sl.load_yaml(sl.SPEC / f"{k}.yaml") for k in
          ("rules", "overrides", "consequences", "open_questions", "guideline_checks", "sections_cw", "sections_dds",
-          "corrections_agent2", "instruments", "terms_cw", "terms_dds")}
+          "corrections", "instruments", "terms_cw", "terms_dds")}
     s["scopes"] = json.loads((sl.SPEC / "question_scopes.json").read_text())
     s["log"] = sl.load_yaml(sl.VERIF / "second_pass_log.yaml")
     return s
@@ -112,7 +112,7 @@ def main() -> int:
     check(res, "G0 every guideline check (12 x 2 contracts) has an owner, consistent with rules.yaml", errs)
 
     errs = []
-    corr = {c["id"]: c for c in s["corrections_agent2"]["corrections"]}
+    corr = {c["id"]: c for c in s["corrections"]["corrections"]}
     for cid in EXPECTED_CORRECTIONS:
         if cid not in corr:
             errs.append(f"missing correction {cid}")
@@ -122,7 +122,7 @@ def main() -> int:
             for x in corr[cid]["carried_in"]:
                 if isinstance(x, str) and ID_LIKE.match(x) and x not in ids and not x.startswith("P2-"):
                     errs.append(f"{cid}: carried_in {x} does not exist")
-    check(res, f"G0 Agent 2 corrections explicitly recorded ({len(EXPECTED_CORRECTIONS)} items: P1 A1-A2,B1-B5,§6; P2 B-P1-6,§6; P2.5 B-1-5,§6)", errs)
+    check(res, f"G0 audit corrections explicitly recorded ({len(EXPECTED_CORRECTIONS)} items: P1 A1-A2,B1-B5,§6; P2 B-P1-6,§6; P2.5 B-1-5,§6)", errs)
 
     errs = []
     qids = [q["id"] for q in s["open_questions"]["questions"]]

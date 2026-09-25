@@ -71,10 +71,10 @@ def test_guideline_check_without_owner_fails(sandbox, capsys):
     assert rc == 1 and "check 10 has no DDS owner" in out
 
 
-def test_missing_agent2_correction_fails(sandbox, capsys):
+def test_missing_audit_correction_fails(sandbox, capsys):
     def f(d):
         d["corrections"] = [c for c in d["corrections"] if c["id"] != "P2-B-P3"]
-    edit(sandbox / "corrections_agent2.yaml", f)
+    edit(sandbox / "corrections.yaml", f)
     rc, out = run(capsys)
     assert rc == 1 and "missing correction P2-B-P3" in out
 

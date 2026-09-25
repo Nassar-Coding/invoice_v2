@@ -1,6 +1,6 @@
-# Phase 3 tasks — G0 and G1 (Agent 1B)
+# Phase 3 tasks — G0 and G1
 
-Governing plan: `artifacts/phase_inputs/Phase2_plan_Agent1a.md` §§2–3, 8–9. Branch: `opus_stage2` only.
+Governing plan: `artifacts/phase_inputs/Phase2_plan.md` §§2–3, 8–9. Branch: `opus_stage2` only.
 Boundary: stop at G1. No evidence-parsing layer beyond G0/G1 needs, valuation engine, cross-invoice state,
 classification, flags, totals or `submission.csv`.
 
@@ -15,13 +15,13 @@ Legend: `[x]` closed with the evidence named; `[ ]` open; `[~]` closed with a re
 - [x] G0.2 Hash every snapshot file (SHA-256 + git blob SHA-1) → `source/manifest.tsv`; check against the pinned git tree.
 - [x] G0.3 Per-page identity of both scanned PDFs → `source/pdf_pages.json`; confirm the Phase 1/2 page images are pixel-identical to the scans.
 - [x] G0.4 Inventory, schemas, ID sets, joins, template coverage → `source/inventory.json`; independent plan-number assertions in tests.
-- [x] G0.5 Preserve the three Phase 1 artifacts (1A, 1B, Agent 2 Phase 1 audit) plus the governing plan and later audits, with hashes → `artifacts/phase_inputs/`.
+- [x] G0.5 Preserve the three Phase 1 artifacts (baseline report, supplementary report, independent Phase 1 audit) plus the governing plan and later audits, with hashes → `artifacts/phase_inputs/`.
 - [x] G0.6 Source index (documents, pages, page hashes) → `spec/sources.yaml`.
 - [x] G0.7 Contract-section ownership: every page of CW (43) and DDS (42) → owner rule/term/decision or explicit "non-operative" reason → `spec/sections_cw.yaml`, `spec/sections_dds.yaml`.
 - [x] G0.8 Guideline-check ownership: 12 checks × 2 contracts → owning rules → `spec/guideline_checks.yaml`.
 - [x] G0.9 Rule index with stable IDs → `spec/rules.yaml`.
 - [x] G0.10 Ambiguity index → `spec/open_questions.yaml` (Q1–Q11 plus any new items).
-- [x] G0.11 Agent 2 corrections register: Phase 1 A1–A2, B1–B5, §6 1–8; Phase 2 B-P1–B-P6, §6 1–8; Phase 2.5 B-1–B-5, §6 1–7 → `spec/corrections_agent2.yaml`.
+- [x] G0.11 Independent-audit corrections register: Phase 1 A1–A2, B1–B5, §6 1–8; Phase 2 B-P1–B-P6, §6 1–8; Phase 2.5 B-1–B-5, §6 1–7 → `spec/corrections.yaml`.
 - [x] G0.12 `tools/verify_spec.py` structural checks + tests; run; commit and push.
 
 ## G1 — Verify contractual terms and consequences
@@ -40,4 +40,4 @@ Legend: `[x]` closed with the evidence named; `[ ]` open; `[~]` closed with a re
 
 ## Close
 - [x] Run every check and the full test suite on a clean checkout (clone of bf40eb8): snapshot OK, 9 PASS, 36 passed.
-- [x] Write `Phase3_G0_G1_Agent1b.md`; commit and push to `opus_stage2`.
+- [x] Write `Phase3_G0_G1.md`; commit and push to `opus_stage2`.

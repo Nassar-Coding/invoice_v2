@@ -1,16 +1,16 @@
-# G0: Agent 2 corrections recorded explicitly, each with where the specification carries it.
+# G0: independent-audit corrections recorded explicitly, each with where the specification carries it.
 # Sources (preserved verbatim with SHA-256 in artifacts/phase_inputs/):
-#   P1 = Phase1_audit_and_comparison_Agent2.md, P2 = Phase2_audit_and_comparison_Agent2.md,
-#   P25 = Phase2_5_solution_selection_audit_Agent2.md
+#   P1 = Phase1_audit_and_comparison.md, P2 = Phase2_audit_and_comparison.md,
+#   P25 = Phase2_5_solution_selection_audit.md
 corrections:
-  # ---------------- Phase 1 audit: 1A omissions and 1B errors
+  # ---------------- Phase 1 audit: baseline-report omissions and supplementary-report errors
   - {id: P1-A1, source: "P1 §2", summary: "CW Cl.26 wrong unit is rejected in full, not converted", carried_in: [CW-R08, C-REJECT]}
   - {id: P1-A2, source: "P1 §2", summary: "CW Cl.44 same item/work area/date: the later measurement is disallowed in full; determine which is later", carried_in: [CW-R17, Q6]}
   - {id: P1-B1, source: "P1 §3", summary: "Date/reference mismatch, evidence reuse and duplicate charging are distinct; MDS-00164-050 is a negative duplicate case", carried_in: [DDS-R16, CW-R06, CW-R17, Q7]}
   - {id: P1-B2, source: "P1 §3", summary: "5-8% prevalence is not a target, quota or stopping rule; billed-rate reproduction is a diagnostic, not a gate", carried_in: [Q9, "verification method: no billing agreement used to verify any term"]}
   - {id: P1-B3, source: "P1 §3", summary: "DDS annual footage bands are per well and Contract Year by explicit wording", carried_in: [D4, DDS-R12]}
   - {id: P1-B4, source: "P1 §3", summary: "Clause 29 duplicate rule keeps the PD-210 depth-interval exception", carried_in: [DDS-R16]}
-  - {id: P1-B5, source: "P1 §3", summary: "AI assistance must be disclosed", carried_in: ["prompts/phase3/", "Phase3_G0_G1_Agent1b.md AI disclosure"]}
+  - {id: P1-B5, source: "P1 §3", summary: "AI assistance must be disclosed", carried_in: ["prompts/phase3/", "Phase3_G0_G1.md AI disclosure"]}
   - {id: P1-S6-1, source: "P1 §6.1", summary: "Civil unit and duplicate consequences explicit", carried_in: [CW-R08, CW-R17]}
   - {id: P1-S6-2, source: "P1 §6.2", summary: "Separate mismatch, reuse and duplication; keep PD-210 exception", carried_in: [DDS-R16, Q7]}
   - {id: P1-S6-3, source: "P1 §6.3", summary: "Explicit scope and precedence first; January anniversaries, eligibility lists, second-series exceptions, issue order", carried_in: [spec/overrides.yaml, D4, Q12, CW-R13, DDS-R11]}
@@ -19,7 +19,7 @@ corrections:
   - {id: P1-S6-6, source: "P1 §6.6", summary: "Unsigned/mismatched record is not a valid join; no invented background instructions; keep hourly-minimum and Schedule 8 issues", carried_in: [CW-R05, DDS-R05, Q4, Q5, Q8]}
   - {id: P1-S6-7, source: "P1 §6.7", summary: "No quotas or unsupported performance claims", carried_in: [Q9]}
   - {id: P1-S6-8, source: "P1 §6.8", summary: "All deliverables incl. AI disclosure, versioned prompts, decision log; severity and unknown encoding visible", carried_in: [Q9, "prompts/phase3/"]}
-  # ---------------- Phase 2 audit: 1B plan findings and conditions
+  # ---------------- Phase 2 audit: alternative-plan findings and conditions
   - {id: P2-B-P1, source: "P2 §3", summary: "Unknown value is not a zero contribution", carried_in: [C-UNKNOWN, Q9]}
   - {id: P2-B-P2, source: "P2 §3", summary: "No probability product over correlated findings; decision vs amount confidence", carried_in: [Q9]}
   - {id: P2-B-P3, source: "P2 §3", summary: "Schedule 8 not demoted by Cl.2's incomplete list; decide service by service", carried_in: [Q5, DDS.T23_SCH8]}
@@ -36,7 +36,7 @@ corrections:
   - {id: P2-S6-8, source: "P2 §6.8", summary: "Complete coverage and reproducibility", carried_in: [spec/guideline_checks.yaml, source/manifest.tsv, requirements.txt]}
   # ---------------- Phase 2.5 audit: selection corrections and conditions
   - {id: P25-B-1, source: "P25 §4", summary: "Bounded observed vocabulary, not semantic closure; unresolved cases retained", carried_in: [DDS.T20_GLOSSARY, DDS-R06, CW-R09]}
-  - {id: P25-B-2, source: "P25 §4", summary: "Tool-assisted LLM alternative not weakened (selection closed; no reopening evidence found)", carried_in: ["Phase3_G0_G1_Agent1b.md 'Plan assumptions challenged'"]}
+  - {id: P25-B-2, source: "P25 §4", summary: "Tool-assisted LLM alternative not weakened (selection closed; no reopening evidence found)", carried_in: ["Phase3_G0_G1.md 'Plan assumptions challenged'"]}
   - {id: P25-B-3, source: "P25 §4", summary: "Constraint analysis may serve competing allocations", carried_in: [Q1, Q6, Q7]}
   - {id: P25-B-4, source: "P25 §4", summary: "Reproducibility via versioned intermediate decisions, not fresh model calls", carried_in: ["verification/ (frozen OCR, blind readings, logs)", "prompts/phase3/"]}
   - {id: P25-B-5, source: "P25 §4", summary: "Bounded vocabulary is not a closed interpretive workload", carried_in: [spec/open_questions.yaml]}

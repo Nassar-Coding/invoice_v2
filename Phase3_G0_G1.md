@@ -1,6 +1,6 @@
-# Phase 3 — Gates G0 and G1 (Agent 1B)
+# Phase 3 — Gates G0 and G1
 
-**Governing plan:** `Phase2_plan_Agent1a.md` §2 (G0/G1 exit conditions), §3, §8, §9. **Branch:** `opus_stage2` only.
+**Governing plan:** `artifacts/phase_inputs/Phase2_plan.md` §2 (G0/G1 exit conditions), §3, §8, §9. **Branch:** `opus_stage2` only.
 **Source:** `majedzahrani3/invoice-auditing-level-2` @ `aef4924dc32506b4587de8b788b5a947e6beffec`.
 **Boundary kept:** there is no evidence parser, valuation engine, cross-invoice state, classification, flag, total or `submission.csv`. The only data code is read-only counting, used for the inventory and the question scopes.
 
@@ -13,7 +13,7 @@
   - Preserved Phase artifacts.
   - Source, rule and ambiguity indexes.
   - Ownership maps for every contract section and all 12 guideline checks.
-  - An explicit register of the Agent 2 corrections.
+  - An explicit register of the independent-audit corrections.
 - **G1 — terms and consequences.**
   - 45 tables with 483 numeric cells and 33 dated parameters, each carrying page and provision.
   - A register of all 10 instruments.
@@ -31,16 +31,16 @@
 | Area | Files |
 |---|---|
 | Snapshot | `source/SNAPSHOT.md`, `manifest.tsv`, `pdf_pages.json`, `inventory.json`; `tools/snapshot.py` |
-| Phase inputs | `artifacts/phase_inputs/` (1A, Agent 2 Phase 1/2/2.5 audits, governing plan, `MANIFEST.sha256`). 1B is the existing `Phase1_understanding_Agent1.md`, hash-identical to the supplied 1B. |
-| Specification | `spec/terms_cw.yaml`, `terms_dds.yaml`, `instruments.yaml`, `rules.yaml` (46), `guideline_checks.yaml`, `sections_cw.yaml`, `sections_dds.yaml` (156 sections), `overrides.yaml`, `consequences.yaml`, `open_questions.yaml`, `question_scopes.json`, `corrections_agent2.yaml` (41), `sources.yaml` |
+| Phase inputs | `artifacts/phase_inputs/` (baseline Phase 1 report, independent Phase 1/2/2.5 audits, governing plan, `MANIFEST.sha256`). The supplementary Phase 1 report is `Phase1_understanding_supplementary.md`, hash-identical to the supplied copy. |
+| Specification | `spec/terms_cw.yaml`, `terms_dds.yaml`, `instruments.yaml`, `rules.yaml` (46), `guideline_checks.yaml`, `sections_cw.yaml`, `sections_dds.yaml` (156 sections), `overrides.yaml`, `consequences.yaml`, `open_questions.yaml`, `question_scopes.json`, `corrections.yaml` (41), `sources.yaml` |
 | Verification | `verification/second_pass_visual_log.txt`, `second_pass_log.yaml`, `reading_comparison.json`, `blind/`, `ocr/`, `phase2_verbatim/` |
 | Tools | `extract_pages.py`, `compare_readings.py`, `record_verification.py`, `question_scopes.py`, `verify_spec.py`, `spec_lib.py`, `check_g0_g1.sh` |
 | Tests, run setup | `tests/` (36 tests), `requirements.txt`, `README.md`, `.gitignore`, `prompts/phase3/blind_transcription_v1.md` |
-| Task list | `Phase3_TASKS_Agent1b.md` |
+| Task list | `Phase3_TASKS.md` |
 
 ## 3. Evidence that G0 passed
 
-Exit condition: *"File hashes and inventory match the snapshot; every guideline check and material contract section has an owner in the specification; Agent 2 corrections are explicitly recorded."*
+Exit condition: *"File hashes and inventory match the snapshot; every guideline check and material contract section has an owner in the specification; audit corrections are explicitly recorded."*
 
 - **Snapshot.** `tools/snapshot.py verify` from a clean clone printed: `SNAPSHOT VERIFY OK: 10330 files match manifest (sha256 + git blob), HEAD=aef4924d…; pdf_pages.json and inventory.json reproduce`.
 - **Inventory against the plan's own figures.** Tests assert, independently of the frozen files:
@@ -53,7 +53,7 @@ Exit condition: *"File hashes and inventory match the snapshot; every guideline 
   - `PASS G0 every material contract section has an owner (156 sections, CW 43 + DDS 42 pages)`;
   - `PASS G0 every guideline check (12 x 2 contracts) has an owner, consistent with rules.yaml`.
   - Non-operative sections carry an explicit `not_material` reason rather than an owner.
-- **Corrections.** `PASS G0 Agent 2 corrections explicitly recorded (41 items …)`. The 41 items are:
+- **Corrections.** `PASS G0 audit corrections explicitly recorded (41 items …)`. The 41 items are:
   - Phase 1: A1–A2, B1–B5 and §6 items 1–8;
   - Phase 2: B-P1 to B-P6 and §6 items 1–8;
   - Phase 2.5: B-1 to B-5 and §6 items 1–7.
@@ -162,4 +162,4 @@ No question blocks G0 or G1. All twelve stay **open by design**, with bounded al
 - **Validation cases.** The `validation` cases in `rules.yaml` are specifications for G3/G4. They are not built.
 - **Time.** About 4¾ hours of wall-clock time (13:15–18:05 UTC), including roughly 7 minutes each of background subagent runs. Active effort was not measured separately.
 
-**AI disclosure.** This work was produced by Claude acting as Agent 1B. It used two blind-transcription subagents, whose prompt is saved in `prompts/phase3/`, and tesseract OCR as a non-authoritative aid.
+**AI disclosure.** This work was produced by Claude. It used two blind-transcription subagents, whose prompt is saved in `prompts/phase3/`, and tesseract OCR as a non-authoritative aid.

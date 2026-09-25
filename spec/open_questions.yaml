@@ -168,7 +168,7 @@ decisions:
   - id: D4
     title: DDS annual footage bands are per well and Contract Year
     settled_reading: "Schedule 2 Part 2 'metres already drilled on the well in the Contract Year' (p17)"
-    alternative: "Contract-wide accumulation (rejected: contradicts explicit wording; Agent 2 Phase 1 B3)"
+    alternative: "Contract-wide accumulation (rejected: contradicts explicit wording; Phase 1 audit B3)"
     reason: "Explicit text"
     scope_ref: [Q11_DDS]
     scope_key: max_billed_pd210_metres_per_well_and_year

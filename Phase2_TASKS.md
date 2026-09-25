@@ -1,12 +1,12 @@
-# Phase 2 task list — Agent 1b
+# Phase 2 task list — alternative plan
 
-Phase 2 is feasibility and planning only. Deliverable: `Phase2_plan_Agent1b.md`.
+Phase 2 is feasibility and planning only. Deliverable: `Phase2_plan_alternative.md`.
 Started 2026-09-23 00:40 UTC. Snapshot `aef4924dc32506b4587de8b788b5a947e6beffec`.
 
 ## Setup and inputs
 - [x] Confirm the pinned snapshot SHA and the working branch; confirm the Phase 1 page images, notes and venv survive.
-- [x] Read the Agent 2 audit (corrections A1–A2, B1–B5 and its eight carry-forward corrections).
-- [x] Read the 1A report (primary baseline). Confirm the attached 1B report is identical to my Phase 1 report (diff = 0).
+- [x] Read the independent Phase 1 audit (corrections A1–A2, B1–B5 and its eight carry-forward corrections).
+- [x] Read the baseline report (primary). Confirm the attached supplementary report is identical to my Phase 1 report (diff = 0).
 
 ## Source re-checks (the repository is authoritative)
 - [x] CW: independent verbatim re-read of the decision-critical clauses (subagent), then my cross-check against the Phase 1 notes.
@@ -32,7 +32,7 @@ Started 2026-09-23 00:40 UTC. Snapshot `aef4924dc32506b4587de8b788b5a947e6beffec
 - [ ] OCR tooling availability — NOT tested (fallback: second visual read); listed in plan §12.
 - [x] Python and dependency pinning approach.
 
-## Plan writing (`Phase2_plan_Agent1b.md`)
+## Plan writing (`Phase2_plan_alternative.md`)
 - [x] 1. Major work, dependencies, ordering.
 - [x] 2. Both contracts' materially different rules.
 - [x] 3. Terms, amendments and evidence: the transcription method and verification gate.

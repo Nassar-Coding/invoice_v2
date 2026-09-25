@@ -1,6 +1,6 @@
 """G0 exit condition, part 1: file hashes and inventory match the pinned snapshot.
 
-The expected numbers below are copied from the governing plan (Phase2_plan_Agent1a.md §1 table,
+The expected numbers below are copied from the governing plan (artifacts/phase_inputs/Phase2_plan.md §1 table,
 §§3, 7) and the Phase 1 reports, not from the frozen inventory, so a wrong freeze cannot pass.
 """
 import hashlib
@@ -85,10 +85,10 @@ def test_phase_artifacts_preserved_verbatim():
     entries = [l.split("  ", 1) for l in lines if l.strip()]
     names = {n for _, n in entries}
     assert {
-        "Phase1_understanding_Agent1a.md",
-        "Phase1_understanding_Agent1.md",  # 1B, identical to the supplied Phase1_understanding_Agent1b.md
-        "Phase1_audit_and_comparison_Agent2.md",
-        "Phase2_plan_Agent1a.md",
+        "Phase1_understanding_baseline.md",
+        "Phase1_understanding_supplementary.md",  # repo root; identical to the supplied supplementary report
+        "Phase1_audit_and_comparison.md",
+        "Phase2_plan.md",
     } <= names
     for digest, name in entries:
         path = d / name if (d / name).exists() else ROOT / name

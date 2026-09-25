@@ -6,7 +6,7 @@ The G1 gate (tools/verify_spec.py) recomputes the content hash, so any later edi
 invalidates its verification until it is re-reviewed.
 
 Evidence per table:
-  * visual  - Agent 1B second pass against the scan image (verification/second_pass_visual_log.txt)
+  * visual  - second pass against the scan image (verification/second_pass_visual_log.txt)
   * blind   - independent subagent transcription made without the first pass (verification/blind/)
   * ocr     - tesseract 5.3.4 aid (verification/ocr/), never an authority
 
@@ -26,7 +26,7 @@ import compare_readings as cr
 import spec_lib as sl
 
 REVIEWED = "2026-09-24"
-REVIEWER = "Agent 1B (visual second pass against scan images)"
+REVIEWER = "visual second pass against scan images"
 
 # Pages each blind reader covered (from the subagent prompts; see prompts/phase3/blind_transcription_v1.md).
 BLIND_PAGES = {

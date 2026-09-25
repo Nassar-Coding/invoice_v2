@@ -1,6 +1,6 @@
 # Phase 2.5 — Solution-family exploration
 
-**Source:** `majedzahrani3/invoice-auditing-level-2` @ `aef4924dc32506b4587de8b788b5a947e6beffec` (local clone re-verified). **Inputs:** the Phase 2 Agent 2 audit (read first), `Phase2_plan_Agent1a.md`, `Phase2_plan_Agent1b.md`, `Phase2_TASKS_Agent1b.md`, and the Phase 1 audit. **Scope:** exploration only. No solver, parser, OCR, classification, totals or submission. `CW pN` / `DDS pN` are PDF pages, which equal the printed pages.
+**Source:** `majedzahrani3/invoice-auditing-level-2` @ `aef4924dc32506b4587de8b788b5a947e6beffec` (local clone re-verified). **Inputs:** the Phase 2 independent audit (read first), `artifacts/phase_inputs/Phase2_plan.md`, `Phase2_plan_alternative.md`, `Phase2_TASKS.md`, and the Phase 1 audit. **Scope:** exploration only. No solver, parser, OCR, classification, totals or submission. `CW pN` / `DDS pN` are PDF pages, which equal the printed pages.
 
 ## 1. The challenge characteristics that drive the architecture
 
@@ -15,7 +15,7 @@ These facts come from the repository, not from the plans. They decide which fami
 | D5 | **Scale.** 2,806 invoices, 98,990 lines, 8.26 MB of records. | CSVs; byte count this phase | Trivial for local computation. Material for per-invoice LLM calls: every invoice would need the relevant contract context and a well's history. |
 | D6 | **No labels.** Scoring rewards contract-supported amounts and calibrated confidence. A wrong shared rule "propagates silently". | README, Scoring and Calibration | Validation must come from **source-derived cases and independent re-derivation**. Every decision must be traceable to a clause and to evidence. |
 | D7 | **Reproducibility and auditability are deliverables.** Clone, run, reproduce; versioned prompts; decision log. | README, Deliverables | Runtime nondeterminism is a direct cost against a required deliverable. |
-| D8 | **Genuine interpretive questions are few and discrete.** About a dozen, e.g. A3 adjustment placement, Sch 8 conflicts, band basis, reuse allocation. | Phase 2 plans (1A Q1–Q11, 1B D-1–D-11); CW pp.32, 43; DDS pp.27–28, 35, 42 | Interpretation is needed **per clause, once**, not per invoice. It belongs in a reviewed decision register. |
+| D8 | **Genuine interpretive questions are few and discrete.** About a dozen, e.g. A3 adjustment placement, Sch 8 conflicts, band basis, reuse allocation. | Phase 2 plans (governing plan Q1–Q11, alternative plan D-1–D-11); CW pp.32, 43; DDS pp.27–28, 35, 42 | Interpretation is needed **per clause, once**, not per invoice. It belongs in a reviewed decision register. |
 
 ## 2. The existing Phase 2 family
 
@@ -27,7 +27,7 @@ Both plans share one core solving model, beneath their different layouts.
 * AI assists only at build time (transcription, proposing mappings, code), and every accepted output is frozen and reviewed.
 * Validation comes from source-derived reference cases, boundary tests, independent re-derivation and residual review.
 
-1A and 1B differ inside F1: consequence semantics, confidence aggregation, how precedence is argued. The Phase 2 audit ranks those; it does not test the family. That is this report's job.
+The governing and alternative plans differ inside F1: consequence semantics, confidence aggregation, how precedence is argued. The Phase 2 audit ranks those; it does not test the family. That is this report's job.
 
 ## 3. Families considered
 
@@ -96,7 +96,7 @@ A *runtime* hybrid, calling an LLM per record or per line to map evidence, was c
 | Implementation complexity | Moderate: about 100 codes, ~25 tables, 9 parsers + 1 DDR parser, ~10 state ledgers | Low to start, high to make trustworthy (it ends up needing F1's ledgers and calculator) |
 | Inference / operational cost | Negligible at run time; the model is used once, over 85 pages and ~50 phrases | ~2,806 calls with large contexts (contract rules + records + history); repeated per iteration; model and version pinning required |
 | Validation burden | Front-loaded (terms gate, reference cases) and then cheap to re-run | Continuous; every prompt change needs a full re-sample. No unit-level assurance |
-| Likely time | Consistent with 1A's 20–30 h estimate (not measured) | Faster to a first answer; slower to a defensible one |
+| Likely time | Consistent with the governing plan's 20–30 h estimate (not measured) | Faster to a first answer; slower to a defensible one |
 | Reproducibility | Byte-identical from a clone, with no credentials | Requires API access, a pinned model and cached responses; even with caching, the reasoning isn't re-derivable |
 
 ## 9. Direct comparison of the viable options
@@ -115,7 +115,7 @@ A *runtime* hybrid, calling an LLM per record or per line to map evidence, was c
 
 ## 10. Rejected alternatives
 
-* **F3 billing-inferred rules / anomaly scoring.** Rejected as a solver. It makes the billing the source of truth, which inverts the README's calibration principle and the carried-forward rule that the contract comes first. It cannot see errors that are consistent across invoices, or omissions: a discount omitted on every line in a period becomes "the mode". It cannot price retrospective adjustments or produce contract-supported totals. It has no labels to learn from. Its **useful kernel**, residual clustering of billed values against the contract-derived value, is already an F1 diagnostic (1B T2, 1A §10).
+* **F3 billing-inferred rules / anomaly scoring.** Rejected as a solver. It makes the billing the source of truth, which inverts the README's calibration principle and the carried-forward rule that the contract comes first. It cannot see errors that are consistent across invoices, or omissions: a discount omitted on every line in a period becomes "the mode". It cannot price retrospective adjustments or produce contract-supported totals. It has no labels to learn from. Its **useful kernel**, residual clustering of billed values against the contract-derived value, is already an F1 diagnostic (alternative plan T2, governing plan §10).
 * **F4 declarative constraints / Datalog / SMT.** Same knowledge acquisition, same determinism and same validation as F1. The only difference is how the rules are written down, and the rules are mostly arithmetic with sequential state (Cl.30 ordering, splits, half-even steps), which suits imperative code at least as well. Discarded as an implementation variation.
 * **Per-contract separate architectures.** Both contracts share the driver profile (D1–D8). Separate valuation functions inside F1 are a design detail, not a family.
 * **End-to-end OCR plus a text-only LLM.** A variant of F2 with a weaker perception step (OCR on skewed, grainy scans), so it is dominated by F2's own multimodal read, and F2 is already rejected.
@@ -151,9 +151,9 @@ What would *not* change it: agreement or disagreement with billed values alone, 
 * **Template count as a closure proof.** 26 templates is exact for the *masked* narrative line. I did not verify that every template's numbers carry consistent units, or that no template is ambiguous between items (e.g. the two DX wordings for 2–4 m). Looked at: all 2,169 civil record bodies; DDR key lines, `Crew on tour` and `In the hole` / `Tools in run`. Part C/D/E free-value fields were counted as keys, not semantically reviewed.
 * **Cost figures for F2** are structural estimates (calls × context), not measured.
 * **OCR availability** is still untested (carried over from Phase 2).
-* **The time estimates** reuse 1A's unmeasured 20–30 h estimate for F1.
+* **The time estimates** reuse the governing plan's unmeasured 20–30 h estimate for F1.
 * **Subagents were not used this phase.** The question did not divide naturally, and the previous phase's subagents stopped on a usage limit. All claims above were checked directly or are cited to earlier verified artifacts.
-* **Output file name.** The brief names both `Phase2_5_solution_exploration_Agent3.md` (Output) and `..._Agent1b.md` (Done means). The report is written to the Agent3 name, with an identical copy at the Agent1b name.
+* **Output file name.** The brief named two output files for this report; a single copy, `Phase2_5_solution_exploration.md`, is kept.
 
 ## 14. Approximate time spent
 

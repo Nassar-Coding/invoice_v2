@@ -1,11 +1,11 @@
-# Phase 2 — Feasibility and Implementation Plan (Agent 1b)
+# Phase 2 — Feasibility and Implementation Plan (alternative)
 
 | | |
 |---|---|
 | Source of truth | `majedzahrani3/invoice-auditing-level-2` @ `aef4924dc32506b4587de8b788b5a947e6beffec` (local clone verified at this SHA) |
-| Inputs | Agent 2's Phase 1 audit (read first); 1A understanding report (primary baseline, with A1–A2 applied); 1B report (supplementary, with B1–B5 applied; byte-identical to my Phase 1 report) |
+| Inputs | the independent Phase 1 audit (read first); baseline understanding report (primary, with A1–A2 applied); supplementary report (with B1–B5 applied; byte-identical to my Phase 1 report) |
 | Scope | Planning only. No solver, no production audit code, no invoice classification, no corrected totals, no `submission.csv`, no flag-count target. |
-| Task list | `Phase2_TASKS_Agent1b.md` |
+| Task list | `Phase2_TASKS.md` |
 
 **How this plan was grounded.** Every rule this plan depends on was re-checked against the repository rather than against the Phase 1 summaries:
 
@@ -17,7 +17,7 @@ Citations use `CW pN` / `DDS pN`: 1-based PDF pages, which equal the printed foo
 
 ---
 
-## 0. Governing principles (from the source and the Agent 2 audit)
+## 0. Governing principles (from the source and the independent audit)
 
 1. **Contract text first; billed data second.** Explicit scope and precedence in the contract decide an interpretation. Billed-data reconciliation can *test* a reading, but it is never ground truth and never a flag target.
 2. **A finding needs a named rule and named evidence.** A numeric mismatch alone is an investigation item, not a flag. **Mismatch**, **evidence reuse** and **proven duplication** are three different findings.
