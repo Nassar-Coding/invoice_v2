@@ -162,7 +162,7 @@ The same checks were re-run in a clean clone at the final `main` commit before h
 - Two blind subagents annotated the seeded sample from raw text only, using the prompt `prompts/phase3/blind_annotation_g2_v1.md`. They had no access to the parser or its outputs.
 - Their annotations are committed verbatim, and every field was compared. There were no disagreements.
 - Parsers, fixtures and checks were written in the main session, and fixtures were typed from the raw files.
-- Approximate time: 45 minutes wall-clock, 12:30–13:15 UTC on 2026-09-25. An earlier G2 attempt that you asked me to delete is not counted.
+- Approximate time: 40 minutes wall-clock, about 12:30–13:10 UTC on 2026-09-25, including the final clean-clone re-run. An earlier G2 attempt that you asked me to delete is not counted.
 
 ## 8. Not confirmed (and where I looked)
 
