@@ -1,11 +1,12 @@
-# invoice_v2 — audit specification (Phase 3, gates G0 and G1)
+# invoice_v2 — audit specification and evidence extraction (Phase 3, gates G0–G2)
 
-This branch (`opus_stage2`) holds the verified foundation for auditing the two contracts in
+Branch `main` holds the verified foundation for auditing the two contracts in
 [majedzahrani3/invoice-auditing-level-2](https://github.com/majedzahrani3/invoice-auditing-level-2) at commit
-`aef4924dc32506b4587de8b788b5a947e6beffec`. It contains **no** valuation engine, classification or `submission.csv`.
+`aef4924dc32506b4587de8b788b5a947e6beffec`. It contains **no** valuation engine, classification or `submission.csv`; G2 adds evidence extraction only.
 
 Setup: Python 3.11, `pip install -r requirements.txt`, snapshot cloned per `source/SNAPSHOT.md`.
-Run every G0/G1 check: `PYTHON=python tools/check_g0_g1.sh`.
+Run every G0/G1 check: `PYTHON=python tools/check_g0_g1.sh`. Run G0/G1 and G2: `PYTHON=python tools/check_g2.sh`.
+Rebuild G2 outputs: `python -m audit.build` (writes `verification/g2/`; `--dump` also writes `build/evidence.jsonl`).
 
 | Path | Content |
 |---|---|
@@ -18,5 +19,8 @@ Run every G0/G1 check: `PYTHON=python tools/check_g0_g1.sh`.
 | `verification/` | OCR, blind subagent readings, visual second-pass log, per-table verification record |
 | `tools/`, `tests/` | freeze/verify tools and the test suite (incl. negative controls for the gate) |
 | `prompts/phase3/` | versioned prompts used with AI subagents |
+| `spec/evidence_*.yaml` | G2 evidence mapping: civil narrative templates, DDR Parts A–E keys, Appendix G/crew terms |
+| `audit/` | G2 claims loader, civil and DDR parsers, run/loss events, reference + semantic links, unresolved queue |
+| `verification/g2/` | G2 coverage, unresolved queue, conflicts; blind annotation sample and comparison |
 
-Report: `Phase3_G0_G1.md`. Task list: `Phase3_TASKS.md`.
+Reports: `Phase3_G0_G1.md`, `Phase3_G2.md`. Task list: `Phase3_TASKS.md`.

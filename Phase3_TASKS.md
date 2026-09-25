@@ -54,4 +54,4 @@ encountered wording/layout branch. Boundary: no pricing, entitlement, cross-invo
 - [x] G2.6 Links: reference validity kept separate from semantic facts; accounting of every file (linked / unreferenced). — 992cd6c (0 unreferenced record files)
 - [x] G2.7 Unresolved queue (never default); negative controls prove it fires. — `tests/test_g2_controls.py`
 - [x] G2.8 Reviewed fixtures typed from raw text covering every family and wording/layout branch; blind subagent annotation of a seeded sample compared field by field. — `tests/fixtures/g2_reviewed.yaml`; blind 646/646 civil, 1029/1029 DDR fields
-- [ ] G2.9 `tools/verify_g2.py` exit checks; tests; G0/G1 checks still pass; report `Phase3_G2.md`; gate2 tag text.
+- [x] G2.9 `tools/verify_g2.py` exit checks; tests; G0/G1 checks still pass; report `Phase3_G2.md`; gate2 tag text. — 95 passed; G0/G1 SPEC VERIFY OK; G2 VERIFY OK (E1–E4, S1, S2)
