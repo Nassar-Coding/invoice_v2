@@ -120,6 +120,10 @@ def coverage(w: World) -> dict:
         "dds_semantic_false_counts": {k: sum(1 for l in w.dds_links.values() if l.semantic.get(k) is False)
                                       for k in ("date_match", "well_match", "line_well_matches_header", "rig_matches_header", "status_match",
                                                 "section_match", "signed_company", "signed_driller", "required_part_present", "tool_in_hole")},
+        "dds_tool_presence_by_service": links.tool_presence_population(w.dds_links, w.claims.rows["dds_lines"]),
+        "dds_tool_presence_basis": {"substitutes": {k: v["tool_code"] for k, v in links.TOOL_PRESENCE["substitutes"].items()},
+                                    "no_tool": {k: v["question"] for k, v in links.TOOL_PRESENCE["no_tool"].items()},
+                                    "undeclared": links.TOOL_BASIS_UNDECLARED},
         "dds_personnel_lines_with_no_crew_recorded": sum(1 for l in w.dds_links.values() if l.semantic.get("crew_recorded") == 0),
         "unresolved_total": len(q.items),
         "unresolved_by_kind_field": dict(sorted(Counter(f"{u.kind}|{u.field}" for u in q.items).items())),

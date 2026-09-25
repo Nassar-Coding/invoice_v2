@@ -1,5 +1,5 @@
 {
- "extraction_version": "dd0fb372ad977ea4",
+ "extraction_version": "3d55658bad553b80",
  "claims_rows": {
   "cw_headers": 900,
   "cw_lines": 7746,
@@ -254,7 +254,122 @@
   "signed_company": 33,
   "signed_driller": 33,
   "required_part_present": 3,
-  "tool_in_hole": 8399
+  "tool_in_hole": 3
+ },
+ "dds_tool_presence_by_service": {
+  "DD-102": {
+   "lines": 8151,
+   "true": 0,
+   "false": 0,
+   "null": 8151,
+   "basis": null,
+   "share_not_established": 1.0
+  },
+  "DD-110": {
+   "lines": 3304,
+   "true": 3304,
+   "false": 0,
+   "null": 0,
+   "basis": "DD-110",
+   "share_not_established": 0.0
+  },
+  "DD-121": {
+   "lines": 245,
+   "true": 245,
+   "false": 0,
+   "null": 0,
+   "basis": "DD-120",
+   "share_not_established": 0.0
+  },
+  "HC-601": {
+   "lines": 1767,
+   "true": 1767,
+   "false": 0,
+   "null": 0,
+   "basis": "HC-601",
+   "share_not_established": 0.0
+  },
+  "HC-620": {
+   "lines": 8151,
+   "true": 8151,
+   "false": 0,
+   "null": 0,
+   "basis": "HC-620",
+   "share_not_established": 0.0
+  },
+  "HC-640": {
+   "lines": 2146,
+   "true": 2146,
+   "false": 0,
+   "null": 0,
+   "basis": "HC-640",
+   "share_not_established": 0.0
+  },
+  "MW-310": {
+   "lines": 8151,
+   "true": 8151,
+   "false": 0,
+   "null": 0,
+   "basis": "MW-310",
+   "share_not_established": 0.0
+  },
+  "MW-320": {
+   "lines": 4847,
+   "true": 4847,
+   "false": 0,
+   "null": 0,
+   "basis": "MW-320",
+   "share_not_established": 0.0
+  },
+  "MW-330": {
+   "lines": 8151,
+   "true": 8151,
+   "false": 0,
+   "null": 0,
+   "basis": "MW-330",
+   "share_not_established": 0.0
+  },
+  "PD-220": {
+   "lines": 1190,
+   "true": 1190,
+   "false": 0,
+   "null": 0,
+   "basis": "PD-220",
+   "share_not_established": 0.0
+  },
+  "PD-230": {
+   "lines": 1190,
+   "true": 1190,
+   "false": 0,
+   "null": 0,
+   "basis": "PD-230",
+   "share_not_established": 0.0
+  },
+  "RM-511": {
+   "lines": 806,
+   "true": 803,
+   "false": 3,
+   "null": 0,
+   "basis": "RM-511",
+   "share_not_established": 0.0037
+  },
+  "RM-520": {
+   "lines": 1767,
+   "true": 1767,
+   "false": 0,
+   "null": 0,
+   "basis": "RM-520",
+   "share_not_established": 0.0
+  }
+ },
+ "dds_tool_presence_basis": {
+  "substitutes": {
+   "DD-121": "DD-120"
+  },
+  "no_tool": {
+   "DD-102": "Q5"
+  },
+  "undeclared": []
  },
  "dds_personnel_lines_with_no_crew_recorded": 0,
  "unresolved_total": 0,

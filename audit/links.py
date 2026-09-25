@@ -13,6 +13,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from .common import spec_lib
+from .records_dds import SPEC as DDS_SPEC, TERM_TO_CODES
 
 CW_TERMS = spec_lib.load_terms("CW")["tables"]
 DDS_TERMS = spec_lib.load_terms("DDS")["tables"]
@@ -20,6 +21,31 @@ SCH5_CW = {r[0]: r[2] for r in CW_TERMS["CW.T16_RECORDS"]["rows"]}          # it
 SCH5_DDS = {r[0]: r[1] for r in DDS_TERMS["DDS.T18_SCH5_CODES"]["rows"]}   # service -> DDR part
 PERSONNEL = {"DD-101", "DD-102", "MW-301", "LW-401", "PD-201"}
 TOOL_DAY_SERVICES = {r[0] for r in DDS_TERMS["DDS.T23_SCH8"]["rows"] if "records the tool in the hole" in r[1]}
+TOOL_PRESENCE = DDS_SPEC["tool_presence"]
+GLOSSARY_CODES = {c for codes in TERM_TO_CODES.values() for c in codes}
+NOT_ESTABLISHED_SHARE = 0.9            # "near 100%" in the population check
+
+
+def _tool_basis() -> tuple[dict[str, str | None], list[str]]:
+    """Tool-day service -> the code whose Appendix G tool term evidences it (None = no tool term, declared).
+
+    A service is evidenced by its own term; one without a term must be declared as a substitute (the contract
+    names another service's tool, e.g. DD-121 in place of DD-120) or as no_tool (e.g. DD-102, Q5). Undeclared
+    services are returned separately so the G2 check fails rather than reporting their tool as absent."""
+    basis, undeclared = {}, []
+    for code in sorted(TOOL_DAY_SERVICES):
+        if code in TOOL_PRESENCE["substitutes"]:
+            basis[code] = TOOL_PRESENCE["substitutes"][code]["tool_code"]
+        elif code in TOOL_PRESENCE["no_tool"]:
+            basis[code] = None
+        elif code in GLOSSARY_CODES:
+            basis[code] = code
+        else:
+            undeclared.append(code)
+    return basis, undeclared
+
+
+TOOL_BASIS, TOOL_BASIS_UNDECLARED = _tool_basis()
 
 CW_REFERENCE_STATES = {"resolved", "wrong_series", "present_not_required", "not_found", "blank_required", "blank_not_required"}
 DDS_REFERENCE_STATES = {"resolved", "not_found", "blank_required", "blank_invoice_level"}
@@ -110,11 +136,38 @@ def link_dds(lines, headers, ddrs) -> dict[str, Link]:
         if code in PERSONNEL:
             s["crew_recorded"] = d.crew.get(code, 0)
         if code in TOOL_DAY_SERVICES:
-            s["tool_in_hole"] = code in {c for c in d.tools_in_hole.values() if c}
+            basis = TOOL_BASIS.get(code)
+            s["tool_basis_code"] = basis
+            s["tool_in_hole"] = None if basis is None else basis in {c for c in d.tools_in_hole.values() if c}
         if code.startswith("LH-"):
             s["lost_tool_code"] = d.lost_tool_code
         out[row.ident] = Link(row.ident, "resolved", ref, s)
     return out
+
+
+def tool_presence_population(dds_links: dict[str, Link], lines) -> dict[str, dict]:
+    """Per tool-day service: resolved lines, and how many reports establish / do not establish its tool."""
+    code_of = {r.ident: r.values["service_code"] for r in lines}
+    out: dict[str, dict] = {}
+    for ident, l in dds_links.items():
+        if "tool_in_hole" not in l.semantic:
+            continue
+        p = out.setdefault(code_of[ident], {"lines": 0, "true": 0, "false": 0, "null": 0,
+                                            "basis": l.semantic["tool_basis_code"]})
+        p["lines"] += 1
+        p[{True: "true", False: "false", None: "null"}[l.semantic["tool_in_hole"]]] += 1
+    for p in out.values():
+        p["share_not_established"] = round((p["false"] + p["null"]) / p["lines"], 4)
+    return dict(sorted(out.items()))
+
+
+def tool_presence_failures(population: dict[str, dict]) -> list[str]:
+    """Codes whose tool is (nearly) never established must be explained by a declared no_tool entry."""
+    errs = [f"{c}: tool-day service without an Appendix G term and without a declared basis" for c in TOOL_BASIS_UNDECLARED]
+    for code, p in population.items():
+        if p["share_not_established"] >= NOT_ESTABLISHED_SHARE and code not in TOOL_PRESENCE["no_tool"]:
+            errs.append(f"{code}: tool not established on {p['false'] + p['null']}/{p['lines']} lines and no cited explanation")
+    return errs
 
 
 def accounting(links: dict[str, Link], record_ids) -> dict:

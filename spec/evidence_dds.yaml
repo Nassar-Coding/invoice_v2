@@ -41,3 +41,31 @@ crew_terms:
   "logging engineers": LW-401
   "performance engineer": PD-201
 crew_terms_source: "App G (p36) report terms for personnel services; count = number recorded (Cl.22; Sch 4 note p23)"
+tool_presence:
+  rule: >-
+    A Schedule 8 service charged for "each day the Daily Drilling Report records the tool in the hole" (Sch 8 pp27-28)
+    is evidenced by its tool's Appendix G term (DDS.T20_GLOSSARY) in Part A "In the hole". The tool is identified by
+    the service's own Appendix G term. A service with no Appendix G term of its own must be declared below with the
+    contract text that names its tool (substitutes) or says it has none (no_tool); an undeclared one fails the G2 check.
+  substitutes:
+    DD-121:
+      tool_code: DD-120
+      meaning: Standby-day charge for the rotary steerable system, charged in place of DD-120
+      source: >-
+        Cl.21 (p6) 'On a Standby day item DD-120 is not charged and item DD-121 is charged instead.';
+        Sch 3 Part 4 (p21) 'DD-121 is charged only on a Standby day, in place of item DD-120 (Clause 21).';
+        Sch 1 (p15) DD-121 'Rotary steerable system on standby'; DDS.T15
+  no_tool:
+    DD-102:
+      question: Q5
+      meaning: >-
+        Appendix G gives DD-102 the report term 'night man', a person recorded under crew, not a tool; Sch 8 nevertheless
+        words DD-102 as 'each day the Daily Drilling Report records the tool in the hole'. The conflict is Q5; the G2
+        fact is tool_in_hole = null (no tool term exists) and the person count is crew_recorded.
+      source: >-
+        Sch 8 intro (p27) 'Item DD-102 is office based and is charged per day for each coordinator the Daily Drilling
+        Report records.'; Sch 8 (p27) DD-102 row 'each day the Daily Drilling Report records the tool in the hole';
+        App G (p36) DD-102 'night man'; Sch 1 (p15) DD-102 'Directional coordinator, office based'
+  population_check: >-
+    For every tool-day service, the share of resolved lines whose report does not establish the tool (tool_in_hole
+    false or null) is reported; a share of 90% or more must be explained by a no_tool entry, otherwise G2 fails.

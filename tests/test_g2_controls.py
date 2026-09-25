@@ -205,3 +205,30 @@ def test_boundary_no_pricing_or_outcomes():
     text = " ".join(p.read_text() for p in (ROOT / "audit").glob("*.py")).lower()
     for word in ("submission.csv", "expected_total", "flagged", "load_instruments", "rate_version", "def price"):
         assert word not in text, word
+
+
+def test_dd121_standby_charge_is_evidenced_by_the_rotary_steerable(world):
+    """Audit finding 2: DD-121 replaces DD-120 on a Standby day (Cl.21 p6; Sch 3 Part 4 p21), so its tool is DD-120's."""
+    lines = {r.ident: r for r in world.claims.rows["dds_lines"]}
+    dd121 = [l for i, l in world.dds_links.items() if lines[i].values["service_code"] == "DD-121"]
+    assert len(dd121) == 245
+    assert all(l.semantic["tool_basis_code"] == "DD-120" and l.semantic["tool_in_hole"] is True for l in dd121)
+    assert all("rotary steerable" in world.ddr[l.record].tools_in_hole for l in dd121)
+
+
+def test_reintroduced_dd121_defect_fails_population_check(world, monkeypatch):
+    """Negative control: keying tool presence on the billed code again (the defect) must fail the G2 check."""
+    assert links.tool_presence_failures(links.tool_presence_population(world.dds_links, world.claims.rows["dds_lines"])) == []
+    monkeypatch.setitem(links.TOOL_BASIS, "DD-121", "DD-121")
+    relinked = links.link_dds(world.claims.rows["dds_lines"], world.claims.rows["dds_headers"], world.ddr)
+    errs = links.tool_presence_failures(links.tool_presence_population(relinked, world.claims.rows["dds_lines"]))
+    assert errs == ["DD-121: tool not established on 245/245 lines and no cited explanation"]
+
+
+def test_undeclared_tool_day_service_fails(monkeypatch):
+    """Negative control: a tool-day service with no Appendix G term and no declared basis cannot pass silently."""
+    monkeypatch.setitem(links.TOOL_PRESENCE, "substitutes", {})
+    basis, undeclared = links._tool_basis()
+    assert undeclared == ["DD-121"] and "DD-121" not in basis
+    monkeypatch.setattr(links, "TOOL_BASIS_UNDECLARED", undeclared)
+    assert links.tool_presence_failures({}) == ["DD-121: tool-day service without an Appendix G term and without a declared basis"]

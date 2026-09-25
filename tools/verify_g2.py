@@ -222,6 +222,15 @@ def main() -> int:
                 f"({len({x['id'] for x in cmp['cw']})} records), DDR {sum(x['agree'] for x in cmp['dds'])}/{len(cmp['dds'])} fields "
                 f"({len({x['id'] for x in cmp['dds']})} reports)", errs))
 
+    # Tool presence per service (audit finding 2) ------------------------------------------------
+    pop = links.tool_presence_population(w.dds_links, w.claims.rows["dds_lines"])
+    errs = links.tool_presence_failures(pop)
+    high = {c: f"{p['false'] + p['null']}/{p['lines']}" for c, p in pop.items() if p["share_not_established"] >= links.NOT_ESTABLISHED_SHARE}
+    low = {c: f"{p['false'] + p['null']}/{p['lines']}" for c, p in pop.items() if 0 < p["share_not_established"] < links.NOT_ESTABLISHED_SHARE}
+    res.append((f"S3 tool presence per tool-day service ({len(pop)} codes): not established >=90% only where explained "
+                f"{ {c: (h, links.TOOL_PRESENCE['no_tool'][c]['question']) for c, h in high.items() if c in links.TOOL_PRESENCE['no_tool']} }; "
+                f"substitutes {dict((k, v) for k, v in links.TOOL_BASIS.items() if v not in (k, None))}; other codes not established {low or 0}", errs))
+
     # Committed outputs reproduce --------------------------------------------------------------
     errs = []
     cov = json.loads(json.dumps(build.coverage(w), default=build._j))

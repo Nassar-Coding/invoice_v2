@@ -220,3 +220,7 @@ links:
     MDS-00164-050: {reference: resolved, record: DDR-107-20250305, date_match: false, well_match: true}
     MDS-00018-059: {reference: blank_invoice_level}
     MDS-00018-023: {reference: resolved, record: DDR-141-20250111, date_match: true, well_match: true}
+    # tool presence (audit finding 2): raw CSV row + the report's Status / "In the hole" lines
+    MDS-00022-030: {reference: resolved, record: DDR-194-20250114, report_status: Standby, status_match: true, tool_basis_code: DD-120, tool_in_hole: true}   # DD-121 standby; "rotary steerable" in the hole
+    MDS-00287-082: {reference: resolved, record: DDR-054-20250419, tool_basis_code: RM-511, tool_in_hole: false}   # RM-511; no "hole opener" in the hole
+    MDS-00001-002: {reference: resolved, record: DDR-194-20250101, tool_basis_code: null, tool_in_hole: null, crew_recorded: 1}   # DD-102; "1 night man" (Q5)
