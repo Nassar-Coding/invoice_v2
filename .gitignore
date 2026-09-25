@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 verification/pages/
 verification/blind/crops_*/
+build/

@@ -1,0 +1,250 @@
+{
+ "extraction_version": "dd0fb372ad977ea4",
+ "claims_rows": {
+  "cw_headers": 900,
+  "cw_lines": 7746,
+  "dds_headers": 1906,
+  "dds_lines": 91244
+ },
+ "claims_input_assertions": {
+  "cw_headers_unique_ids": true,
+  "cw_lines_unique_ids": true,
+  "dds_headers_unique_ids": true,
+  "dds_lines_unique_ids": true,
+  "cw_lines_parents_exist": true,
+  "cw_headers_have_lines": true,
+  "dds_lines_parents_exist": true,
+  "dds_headers_have_lines": true,
+  "template_covers_all_headers": true
+ },
+ "cw_records_parsed": 2169,
+ "cw_families": {
+  "CT": 381,
+  "CV": 120,
+  "DW": 114,
+  "DX": 266,
+  "JS": 368,
+  "MO": 142,
+  "PR": 365,
+  "PS": 143,
+  "PT": 270
+ },
+ "cw_rules": {
+  "CT1": 126,
+  "CT2": 81,
+  "CT3": 66,
+  "CT4": 57,
+  "CT5": 51,
+  "CV1": 120,
+  "DW1": 57,
+  "DW2": 57,
+  "DX1": 132,
+  "DX2": 73,
+  "DX3": 61,
+  "JS1": 128,
+  "JS2": 111,
+  "JS3": 78,
+  "JS4": 51,
+  "MO1": 77,
+  "MO2": 65,
+  "PR1": 138,
+  "PR2": 79,
+  "PR3": 72,
+  "PR4": 42,
+  "PR5": 34,
+  "PS1": 90,
+  "PS2": 53,
+  "PT1": 135,
+  "PT2": 135
+ },
+ "cw_ground_stated_by_family": {
+  "DX": 266,
+  "PT": 270
+ },
+ "cw_jobs": {
+  "Northern Access Road, Package 4": 2169
+ },
+ "cw_placeholder_signatures": [
+  "DX-00089"
+ ],
+ "cw_weekly_days_on_counts": {
+  "5": 40,
+  "6": 38,
+  "7": 36
+ },
+ "cw_weekly_crossing_month": [
+  "DW-00001",
+  "DW-00009",
+  "DW-00010",
+  "DW-00014",
+  "DW-00015",
+  "DW-00020",
+  "DW-00023",
+  "DW-00029",
+  "DW-00030",
+  "DW-00035",
+  "DW-00050",
+  "DW-00051",
+  "DW-00052",
+  "DW-00053",
+  "DW-00067",
+  "DW-00068",
+  "DW-00069",
+  "DW-00075",
+  "DW-00078",
+  "DW-00079",
+  "DW-00087",
+  "DW-00105",
+  "DW-00106",
+  "DW-00112"
+ ],
+ "cw_weekly_crossing_year": [
+  "DW-00067",
+  "DW-00068",
+  "DW-00069"
+ ],
+ "cw_special_condition_words": {
+  "flood": 0,
+  "watch": 0,
+  "suspend": 0,
+  "suspension": 0,
+  "heat": 0,
+  "midday": 0,
+  "safety": 0,
+  "reject": 0,
+  "rejected": 0,
+  "unapproved": 0,
+  "over-excavat": 0,
+  "defect": 0,
+  "dust": 0,
+  "method statement": 0,
+  "permit": 0,
+  "instructed": 0,
+  "night": 0,
+  "rest day": 0,
+  "friday": 0,
+  "saturday": 0,
+  "revised": 0,
+  "revision": 0,
+  "correct": 0
+ },
+ "ddr_files": 8151,
+ "ddr_indexed_by_report_number": 8151,
+ "ddr_part_combinations": {
+  "AB": 7258,
+  "ABC": 476,
+  "ABCE": 3,
+  "ABD": 363,
+  "ABDE": 4,
+  "ABE": 47
+ },
+ "ddr_statuses": {
+  "Operating": 7770,
+  "Standby": 381
+ },
+ "ddr_sections": {
+  "12-1/4\"": 2257,
+  "17-1/2\"": 1767,
+  "26\"": 697,
+  "6\"": 840,
+  "8-1/2\"": 2590
+ },
+ "ddr_tool_terms": {
+  "MWD collar": 8151,
+  "bit and reamer": 1190,
+  "circulating sub": 1767,
+  "density-neutron": 1093,
+  "drilling jars": 8151,
+  "float sub": 2257,
+  "gamma tool": 3430,
+  "hole opener": 803,
+  "hydraulics package": 1190,
+  "mud motor": 3304,
+  "real-time link": 8151,
+  "resistivity tool": 2590,
+  "rotary steerable": 4847,
+  "stabiliser string": 1767,
+  "survey package": 4847
+ },
+ "ddr_crew_terms": {
+  "MWD engineers": 8151,
+  "directional hands": 8151,
+  "logging engineers": 3430,
+  "night man": 8151,
+  "performance engineer": 2561
+ },
+ "ddr_lost_tool_terms": {
+  "MWD collar": 19,
+  "gamma tool": 8,
+  "mud motor": 10,
+  "rotary steerable": 17
+ },
+ "ddr_placeholder_signatures": [
+  "DDR-055-20250503",
+  "DDR-149-20251122",
+  "DDR-218-20251029"
+ ],
+ "ddr_signatures_after_last_part": 8151,
+ "runs": 1369,
+ "runs_all_days_reported": 1369,
+ "runs_with_source_days": 367,
+ "losses": 54,
+ "wells": 214,
+ "wells_with_report_gaps": 0,
+ "cw_reference_status": {
+  "blank_not_required": 5549,
+  "blank_required": 4,
+  "not_found": 3,
+  "resolved": 2189,
+  "wrong_series": 1
+ },
+ "dds_reference_status": {
+  "blank_invoice_level": 63,
+  "resolved": 91181
+ },
+ "cw_record_accounting": {
+  "records": 2169,
+  "cited": 2169,
+  "unreferenced": []
+ },
+ "ddr_accounting": {
+  "records": 8151,
+  "cited": 8151,
+  "unreferenced": []
+ },
+ "cw_semantic_false_counts": {
+  "area_match": 1,
+  "date_match": 1,
+  "work_date_in_week": 0,
+  "work_date_is_day_on": 20,
+  "activity_includes_item": 1,
+  "unit_equal": 1,
+  "ground_match": 1,
+  "signed_foreman": 0,
+  "signed_engineer": 1
+ },
+ "cw_quantity_relation": {
+  "above_record": 27,
+  "below_record": 424,
+  "equal": 1739
+ },
+ "dds_semantic_false_counts": {
+  "date_match": 8,
+  "well_match": 0,
+  "line_well_matches_header": 0,
+  "rig_matches_header": 0,
+  "status_match": 0,
+  "section_match": 0,
+  "signed_company": 33,
+  "signed_driller": 33,
+  "required_part_present": 3,
+  "tool_in_hole": 8399
+ },
+ "dds_personnel_lines_with_no_crew_recorded": 0,
+ "unresolved_total": 0,
+ "unresolved_by_kind_field": {},
+ "conflicts_total": 1,
+ "conflicts_by_check": {
+  "ddr|gyro_surveys_without_part_C": 1
+ }
+}

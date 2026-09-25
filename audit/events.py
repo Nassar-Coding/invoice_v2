@@ -1,0 +1,90 @@
+"""Identify events from the drilling reports alone (plan §2 G2 "identify events"; §4 Parts B, D, E).
+
+A BHA run is one event per (full well, run number); its Part B metadata is repeated on every day of the run
+and is kept once (plan §4: "Repeated run totals are one fact"). Differences between the copies are
+conflicts. Source runs (Part D), losses (Part E) and each well's span of reports are listed as facts.
+Nothing here reads invoices, allocates charges or builds cross-invoice state.
+"""
+from __future__ import annotations
+
+import datetime as dt
+from collections import defaultdict
+from dataclasses import dataclass, field
+
+from .common import Queue
+
+RUN_KEYS = ["Run first day", "Run last day", "Tools in run", "Run circulating hours", "Metres logged", "Metres reamed",
+            "Radioactive source carried"]
+
+
+@dataclass
+class Run:
+    well: str
+    run: int
+    reports: list[str] = field(default_factory=list)          # report numbers, date order
+    dates: list[dt.date] = field(default_factory=list)
+    metadata: dict = field(default_factory=dict)             # one copy of Part B
+    daily_circulating_hours: int = 0
+    daily_metres_drilled: int = 0
+    all_days_reported: bool = False
+    source_days: list[dt.date] = field(default_factory=list)  # days with Part D
+    losses: list[dict] = field(default_factory=list)
+
+
+@dataclass
+class WellSpan:
+    well: str
+    first_report: dt.date
+    last_report: dt.date
+    reports: int
+    missing_days: list[dt.date]
+
+
+def identify(ddrs: dict, q: Queue) -> tuple[dict[tuple[str, int], Run], dict[str, WellSpan]]:
+    runs: dict[tuple[str, int], Run] = {}
+    by_well = defaultdict(list)
+    for rid, d in sorted(ddrs.items(), key=lambda kv: (kv[1].well or "", kv[1].date or dt.date.min)):
+        by_well[d.well].append(d.date)
+        b = d.parts.get("B")
+        if not b or not isinstance(b.get("Run"), int):
+            continue
+        key = (d.well, b["Run"])
+        r = runs.setdefault(key, Run(well=d.well, run=b["Run"]))
+        meta = {k: b.get(k) for k in RUN_KEYS}
+        if not r.metadata:
+            r.metadata = meta
+        else:
+            for k in RUN_KEYS:
+                if meta[k] != r.metadata[k]:
+                    q.conflict("run", f"{d.well}#{b['Run']}", f"part_B_{k}_differs", f"{rid}: {meta[k]} vs {r.metadata[k]}")
+        r.reports.append(rid)
+        r.dates.append(d.date)
+        a = d.parts.get("A", {})
+        if isinstance(a.get("Circulating hours"), int):
+            r.daily_circulating_hours += a["Circulating hours"]
+        if isinstance(a.get("Depth end (m MD)"), int) and isinstance(a.get("Depth start (m MD)"), int):
+            r.daily_metres_drilled += a["Depth end (m MD)"] - a["Depth start (m MD)"]
+        if "D" in d.parts:
+            r.source_days.append(d.date)
+        if "E" in d.parts:
+            e = d.parts["E"]
+            r.losses.append({"report": rid, "date": d.date, "tool_term": d.lost_tool_term, "code": d.lost_tool_code,
+                             "hours_on_well": e.get("Circulating hours accumulated on the well")})
+    for key, r in runs.items():
+        f, l = r.metadata.get("Run first day"), r.metadata.get("Run last day")
+        if isinstance(f, dt.date) and isinstance(l, dt.date):
+            span = {f + dt.timedelta(days=i) for i in range((l - f).days + 1)}
+            r.all_days_reported = span == set(r.dates)
+            if r.all_days_reported and r.metadata.get("Run circulating hours") != r.daily_circulating_hours:
+                q.conflict("run", f"{r.well}#{r.run}", "run_hours_vs_daily_sum",
+                           f"{r.metadata.get('Run circulating hours')} vs {r.daily_circulating_hours}")
+            if not r.all_days_reported:
+                q.conflict("run", f"{r.well}#{r.run}", "run_days_not_all_reported", f"{len(r.dates)} of {len(span)}")
+        if r.source_days and r.metadata.get("Radioactive source carried") is False:
+            q.conflict("run", f"{r.well}#{r.run}", "source_handled_on_run_without_source", "")
+    spans = {}
+    for well, dates in by_well.items():
+        ds = sorted(x for x in dates if x)
+        full = {ds[0] + dt.timedelta(days=i) for i in range((ds[-1] - ds[0]).days + 1)}
+        spans[well] = WellSpan(well, ds[0], ds[-1], len(ds), sorted(full - set(ds)))
+    return runs, spans
