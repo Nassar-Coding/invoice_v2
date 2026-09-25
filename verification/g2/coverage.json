@@ -189,6 +189,22 @@
  "runs_all_days_reported": 1369,
  "runs_with_source_days": 367,
  "losses": 54,
+ "loss_hours_readings": {
+  "+run": 12,
+  "neither": 15,
+  "well": 25,
+  "well+run": 2
+ },
+ "observations": {
+  "source_carried_reports": 2590,
+  "source_carried_with_resistivity_tool": 2590,
+  "source_carried_without_density_neutron_tool": 1497,
+  "part_D_days_without_density_neutron_tool": 211,
+  "part_D_on_run_first_day": 367,
+  "pressure_points_reported_days": 445,
+  "run_metres_logged_equals_drilled_or_zero": 1369,
+  "run_metres_reamed_equals_drilled_or_zero": 1369
+ },
  "wells": 214,
  "wells_with_report_gaps": 0,
  "cw_reference_status": {
@@ -243,8 +259,9 @@
  "dds_personnel_lines_with_no_crew_recorded": 0,
  "unresolved_total": 0,
  "unresolved_by_kind_field": {},
- "conflicts_total": 1,
+ "conflicts_total": 28,
  "conflicts_by_check": {
-  "ddr|gyro_surveys_without_part_C": 1
+  "ddr|gyro_surveys_without_part_C": 1,
+  "loss|part_E_hours_vs_well_daily_sum": 27
  }
 }

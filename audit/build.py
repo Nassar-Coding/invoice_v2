@@ -94,6 +94,20 @@ def coverage(w: World) -> dict:
         "runs": len(w.runs), "runs_all_days_reported": sum(r.all_days_reported for r in w.runs.values()),
         "runs_with_source_days": sum(bool(r.source_days) for r in w.runs.values()),
         "losses": sum(len(r.losses) for r in w.runs.values()),
+        "loss_hours_readings": dict(Counter(
+            ("well" if l["hours_on_well"] == l["well_daily_hours_through_loss_day"] else "") +
+            ("+run" if l["hours_on_well"] == l["run_daily_hours_through_loss_day"] else "") or "neither"
+            for r in w.runs.values() for l in r.losses)),
+        "observations": {
+            "source_carried_reports": sum(d.parts["B"].get("Radioactive source carried") is True for d in ddrs),
+            "source_carried_with_resistivity_tool": sum(d.parts["B"].get("Radioactive source carried") is True and "resistivity tool" in d.tools_in_hole for d in ddrs),
+            "source_carried_without_density_neutron_tool": sum(d.parts["B"].get("Radioactive source carried") is True and "density-neutron" not in d.tools_in_hole for d in ddrs),
+            "part_D_days_without_density_neutron_tool": sum("D" in d.parts and "density-neutron" not in d.tools_in_hole for d in ddrs),
+            "part_D_on_run_first_day": sum("D" in d.parts and d.date == d.parts["B"].get("Run first day") for d in ddrs),
+            "pressure_points_reported_days": sum((d.parts["A"].get("Pressure points") or 0) > 0 for d in ddrs),
+            "run_metres_logged_equals_drilled_or_zero": sum(r.metadata.get("Metres logged") in (0, r.daily_metres_drilled) for r in w.runs.values()),
+            "run_metres_reamed_equals_drilled_or_zero": sum(r.metadata.get("Metres reamed") in (0, r.daily_metres_drilled) for r in w.runs.values()),
+        },
         "wells": len(w.wells), "wells_with_report_gaps": sum(bool(s.missing_days) for s in w.wells.values()),
         "cw_reference_status": dict(sorted(Counter(l.reference for l in w.cw_links.values()).items())),
         "dds_reference_status": dict(sorted(Counter(l.reference for l in w.dds_links.values()).items())),
