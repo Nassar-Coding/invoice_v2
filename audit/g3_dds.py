@@ -391,7 +391,8 @@ def _amount_step(qty: Decimal, rate: Decimal) -> dict:
 READING_DIMS = {"Q4", "Q5-DD120", "Q5-RM530", "Q5-HC630", "Q11"}
 DIM_OWNER = {"Q4": ("G5", "21A (p35); Cl.21 (p6); P10 (p11): Q4 open, spec/g3_decisions.yaml"),
              "Q5-DD120": ("G5", "Sch 8 row 'each circulating or back-reaming hour' vs Cl.21 'per circulating hour' and Sch 1 "
-                                "'circulating'; Cl.2 ranks a Schedule over a Part but lists Schedules 1 to 6 only (Q5 residual)"),
+                                "'circulating'; Cl.2 'A Schedule prevails over a Part' - whether it reaches Schedule 8 is D8-I1, and it "
+                                "does not rank Schedule 8 against Schedule 1 (Q5 residual)"),
              "Q5-RM530": ("G5", "Sch 8 row 'each circulating or back-reaming hour' vs Cl.30 and Sch 1 'back-reaming' (Q5 residual)"),
              "Q5-HC630": ("G4", "Sch 8 row 'each BHA run, as Clause 26 describes' vs Cl.30 'clean-out runs ... in the numbers "
                                 "recorded'; under the Schedule reading once per BHA run is G4 state (Q5 residual; reading G5)"),

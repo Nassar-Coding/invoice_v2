@@ -68,7 +68,7 @@ questions:
     scope_ref: [Q5_DDS]
     status: decided in part
     decided_at: G3
-    decision: "DD-102 decided A (per coordinator recorded; B is unestablishable: no tool term exists for DD-102). Residual kept open (G3 correction round): DD-120 / RM-530 hours (Sch 8 rows vs Cl.21, Cl.30, Sch 1) and HC-630 (Sch 8 'each BHA run' vs Cl.30 count) - every reading computed on every line; 3 lines differ; Cl.2's precedence does not settle it (D8)"
+    decision: "DD-102 decided A (per coordinator recorded; B is unestablishable: no tool term exists for DD-102). Residual kept open (G3 correction round): DD-120 / RM-530 hours (Sch 8 rows vs Cl.21, Cl.30, Sch 1) and HC-630 (Sch 8 'each BHA run' vs Cl.30 count) - every reading computed on every line; 3 lines differ; Cl.2's precedence sentence does not settle it under either reading of its scope (D8-I1)"
     decision_ref: spec/g3_decisions.yaml#Q5
     blocks: G5
     originally_blocks: G3
@@ -228,9 +228,27 @@ decisions:
     scope_ref: [D_scopes]
     scope_key: cw_dx_records_with_stated_depth_exactly_2_or_4_m
   - id: D8
-    title: "NEW (G3 correction round). Documents bound in each contract but outside its Cl.2 list are operative"
-    settled_reading: "Every document bound in the contract under its reference is operative. CW Cl.2 (p3) lists only 'this Agreement, the General Conditions, Schedules 1 to 5 and Appendix A'; DDS Cl.2 (p3) lists 'Parts I to VII, Schedules 1 to 6 and Appendices A to C'. The lists are incomplete, and Cl.2's precedence sentence does not by itself rank the unlisted documents: each conflict is still decided on its own text (spec/overrides.yaml)"
+    title: "NEW (G3 correction round; revised in round 2). Documents bound in each contract but outside its Cl.2 list are operative; whether DDS Cl.2's 'A Schedule prevails over a Part' reaches the unlisted Schedules is an open interpretation (D8-I1)"
+    settled_reading: "Every document bound in the contract under its reference is operative. CW Cl.2 (p3) lists only 'this Agreement, the General Conditions, Schedules 1 to 5 and Appendix A'; DDS Cl.2 (p3) lists 'Parts I to VII, Schedules 1 to 6 and Appendices A to C'. The lists are incomplete. This settles operability only. The scope of DDS Cl.2's separate sentence 'A Schedule prevails over a Part' is not expressly limited to the listed Schedules, nor expressly extended to the unlisted ones: that is an interpretation, recorded as D8-I1 with both readings live and weighted, not a consequence of the list"
     alternative: "Only the listed documents are operative: the civil contract would lose Parts II-V (incl. Cl.26 units, Cl.28 rounding, Cl.46 records, S4, P11, P23) and the drilling contract Parts VIII-IX (17A, 17B, 21A, 25A, 31A), Schedules 7-8 and Appendices D-G"
-    reason: "Both contracts rely throughout on the unlisted documents (their contents pages list them; charges are built on Part II/III rules; Appendix G is how every report is read); the listed-only reading leaves no measurement, rounding or record rule and is not a workable contract. Consequence for Q5: Cl.2 'A Schedule prevails over a Part' does not by its own terms rank Schedule 8 (unlisted) over Cl.21/Cl.30, so the Q5 residual is kept as scoped alternatives"
+    reason: "Both contracts rely throughout on the unlisted documents (their contents pages list them; charges are built on Part II/III rules; Appendix G is how every report is read); the listed-only reading leaves no measurement, rounding or record rule and is not a workable contract. (Round 2: the earlier text drew from the list that Cl.2's precedence sentence 'does not by its own terms rank Schedule 8'; the re-audit found that an interpretation stated as a textual consequence. It is now D8-I1.)"
+    interpretations:
+      - id: D8-I1
+        question: "Does DDS Cl.2's 'A Schedule prevails over a Part' (p3) rank a Schedule bound in the contract but outside Cl.2's list - Schedule 8, whose rows state how each service is counted - over the Parts (Cl.21, Cl.30 in Part III, pp6-7)?"
+        status: open
+        kind: interpretation
+        readings:
+          - id: broader
+            reading: "The sentence is general: Schedule 8 is a Schedule, so its rows prevail over Cl.21 and Cl.30 where they differ"
+            weight: "greater - it follows the words of the sentence, which name no list; and D8's settled reading already treats Schedule 8 as an operative Schedule"
+            effect: "Schedule 8 over Cl.21/Cl.30: DD-120 and RM-530 count 'each circulating or back-reaming hour recorded' (pp27-28), HC-630 'each BHA run, as Clause 26 describes' (p28). It still does not settle Q5: Cl.2 does not rank Schedule 8 against Schedule 1, whose descriptions are narrower ('Rotary steerable system, circulating'; 'Back-reaming while tripping', pp15-16), and the HC-630 row cites Cl.26, which describes only DD-111 and LW-420 (p7)"
+          - id: narrower
+            reading: "The sentence ranks the documents the same clause lists (Parts I to VII, Schedules 1 to 6): Schedule 8 is not ranked by Cl.2, and each conflict is decided on its own text"
+            weight: "lesser - it rests on context only (the sentence follows the list in the same clause); nothing in the text limits it"
+            effect: "no ranking of Schedule 8 over Cl.21/Cl.30 or Schedule 1: the Part-based and Schedule-8-based readings stand level"
+        consequence: "Under either reading Cl.2 does not settle the Q5 residual, so it stays as scoped alternatives computed on every line (spec/g3_decisions.yaml Q5): 3 lines differ - MDS-01651-025 (DD-120) and MDS-00856-039, MDS-01338-026 (RM-530) - and the 428 HC-630 lines agree. The weights are recorded for G5, which owns the choice; they select no value at G3"
+        owner: G5
+        applies_to: [Q5]
+        sources: ["DDS Cl.2 (p3)", "Cl.21, Cl.26, Cl.30 (pp6-7)", "Sch 1 (pp15-16)", "Sch 8 (pp27-28)"]
     scope_ref: [D_scopes]
     scope_key: lines_relying_on_documents_outside_cl2_lists

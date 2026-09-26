@@ -167,6 +167,8 @@ Independent readers DDS-S68 to DDS-S71 agree.
 
 So Cl.2's precedence doesn't rank Schedule 8 by its own terms. This is recorded as new decision **D8** (`spec/open_questions.yaml`): every bound document is operative, the lists are incomplete, and the listed-only alternative would strip Cl.26/28/46, 17A, 21A and 25A. No precedence resolution is claimed.
 
+> **Corrected in G3 correction round 2 (re-audit Phase3_G3_reaudit_Agent2.md; see Phase3_G3_corrections_r2.md).** The first sentence above states an interpretation as if it followed from the text. "A Schedule prevails over a Part" is not expressly limited to the Schedules Cl.2 lists. D8 now records only operability as settled. The scope of the precedence sentence is interpretation **D8-I1**, and both of its readings stay live. The broader reading (Schedule 8 is a Schedule, so its rows prevail over Cl.21/Cl.30) has the greater weight. The residual is still kept as scoped alternatives, because Cl.2 does not rank Schedule 8 against Schedule 1 under either reading.
+
 **Fix: scoped alternatives on every line** (Q5 is now "decided in part"):
 - DD-120 hours are computed as circulating (Cl.21, Sch 1) and as circulating-or-back-reaming (the Sch 8 row), each crossed with the Q4 readings.
 - RM-530 is computed likewise.
@@ -174,8 +176,10 @@ So Cl.2's precedence doesn't rank Schedule 8 by its own terms. This is recorded 
 
 **Where the readings differ:**
 - On 3 lines, the readings differ, and those lines carry every combination:
-  - MDS-00856-039, DD-120: USD 5,118.40 to 6,781.88;
-  - MDS-01338-026 and MDS-01651-025, RM-530: USD 3,174.60.
+  - MDS-01651-025, DD-120: USD 5,118.40 to 6,781.88 under the Schedule 8 reading;
+  - MDS-00856-039 and MDS-01338-026, RM-530: USD 1,851.85 and 1,322.75 under the Schedule 8 reading (3,174.60 together).
+
+  (Corrected in G3 correction round 2. This list first had the two services swapped between MDS-00856-039 and MDS-01651-025. The source invoice lines and the generated alternatives were always correct; only this summary had the identities swapped.)
 - On all 428 HC-630 lines the two HC-630 readings agree. They carry the G4 dependency "once_per_run (HC-630 under the Schedule 8 reading)".
 
 **Owners:** G5 for the readings; G4 for the once-per-run event.
@@ -255,7 +259,7 @@ About 55 minutes of active work, 16:30–17:25 UTC on 2026-09-26, including four
 
 ## Found
 
-- **Cl.2 lists (D8).** Both contracts' Cl.2 lists omit documents the contracts rely on, so Cl.2's precedence can't rank Schedule 8.
+- **Cl.2 lists (D8).** Both contracts' Cl.2 lists omit documents the contracts rely on, so Cl.2's precedence can't rank Schedule 8. *(Corrected in round 2: that last step is an interpretation, D8-I1, with the broader reading, that it can, kept live and given the greater weight.)*
 - **Unverifiable ground comparison.** It was silently treated as passing; it is now unresolved (a reader finding).
 - **Missing depths finding.** PD-210 above tolerance did not record Cl.34's depths finding (a reader finding).
 - **X1 boundary predicate.** It assumed single rates. It now requires the rate to change under every admissible class.

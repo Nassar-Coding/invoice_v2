@@ -770,6 +770,22 @@ def x4(decisions: dict, scopes: dict, questions: dict, carried: dict, comparison
             errs.append(f"{q['id']}: {q['status']} without a later owning gate (blocks {q.get('blocks')})")
         if q["status"] != "open" and q.get("decided_at") != "G3":
             errs.append(f"{q['id']}: decided without decided_at G3")
+    # interpretations (round 2, D8): a reading the text does not compel is recorded as such - two or more readings, each
+    # with an explicit weight and effect, open, owned by a later gate, and cited by every decision it bears on
+    for dd in questions.get("decisions", []):
+        for it in dd.get("interpretations", []):
+            rd = it.get("readings") or []
+            name = f"{dd['id']}/{it.get('id')}"
+            if len(rd) < 2 or not all(x.get("reading") and x.get("weight") and x.get("effect") for x in rd):
+                errs.append(f"{name}: interpretation without two or more readings each with a weight and an effect")
+            if it.get("status") != "open" or not re.fullmatch(r"G[4-7]", str(it.get("owner", ""))):
+                errs.append(f"{name}: interpretation not open with a later owner")
+            for target in it.get("applies_to", []):
+                d = by.get(target)
+                if d is None or it["id"] not in json.dumps(d):
+                    errs.append(f"{name}: decision {target} does not cite the interpretation it depends on")
+                elif d.get("status") == "decided":
+                    errs.append(f"{name}: decision {target} is fully decided although it depends on an open interpretation")
     listed = {c for d in decisions["decisions"] for c in d.get("carried_items", [])}
     for it in carried.get("items", []):
         if it.get("owner_gate") == "G3":

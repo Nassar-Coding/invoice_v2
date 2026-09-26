@@ -335,3 +335,109 @@ def test_b2_four_bands_checked_by_x3_independent_count():
     bad = copy.deepcopy(r)
     next(x for x in bad.conditions if x["dimension"] == "tolerance")["domain"]["count"] = 55
     assert any("bounds without the whole domain stated" in e for e in _x3(bad))
+
+
+# ---------------------------------------------------------------------------------------------------- D8 record
+import csv  # noqa: E402
+import json  # noqa: E402
+import re  # noqa: E402
+import subprocess  # noqa: E402
+
+from audit.common import SNAPSHOT  # noqa: E402
+
+
+def _x4(**over):
+    args = {"decisions": yaml.safe_load((ROOT / "spec/g3_decisions.yaml").read_text()),
+            "scopes": json.loads((ROOT / "verification/g3/decision_scopes.json").read_text()),
+            "questions": yaml.safe_load((ROOT / "spec/open_questions.yaml").read_text()),
+            "carried": yaml.safe_load((ROOT / "spec/carried_items.yaml").read_text()),
+            "comparison": json.loads((ROOT / "verification/g3/case_comparison.json").read_text())}
+    for k, f in over.items():
+        f(args[k])
+    return vg.x4(**args)
+
+
+def _d8(qs):
+    return next(d for d in qs["decisions"] if d["id"] == "D8")
+
+
+def test_d8_is_an_interpretation_with_the_broader_reading_live_and_weighted():
+    d8 = _d8(yaml.safe_load((ROOT / "spec/open_questions.yaml").read_text()))
+    it = next(i for i in d8["interpretations"] if i["id"] == "D8-I1")
+    rd = {r["id"]: r for r in it["readings"]}
+    assert set(rd) == {"broader", "narrower"} and it["status"] == "open" and it["owner"] == "G5"
+    assert "Schedule 8 is a Schedule" in rd["broader"]["reading"] and rd["broader"]["weight"].startswith("greater")
+    # the round-1 categorical statement is no longer the settled reading; operability only is settled
+    assert "does not by its own terms rank" not in d8["settled_reading"] and "D8-I1" in d8["settled_reading"]
+    assert "settles operability only" in d8["settled_reading"]
+    q5 = next(d for d in yaml.safe_load((ROOT / "spec/g3_decisions.yaml").read_text())["decisions"] if d["id"] == "Q5")
+    assert q5["status"] == "decided in part" and "D8-I1" in json.dumps(q5["basis"])
+    assert _x4() == []
+
+
+def test_d8_control_x4_rejects_dropping_the_broader_reading_or_its_weight():
+    def drop(qs):
+        it = _d8(qs)["interpretations"][0]
+        it["readings"] = [r for r in it["readings"] if r["id"] != "broader"]
+    assert any("D8/D8-I1: interpretation without two or more readings" in e for e in _x4(questions=drop))
+
+    def unweighted(qs):
+        next(r for r in _d8(qs)["interpretations"][0]["readings"] if r["id"] == "broader").pop("weight")
+    assert any("D8/D8-I1: interpretation without two or more readings" in e for e in _x4(questions=unweighted))
+
+    def settled(qs):
+        _d8(qs)["interpretations"][0]["status"] = "decided"
+    assert any("D8/D8-I1: interpretation not open with a later owner" in e for e in _x4(questions=settled))
+
+
+def test_d8_control_x4_rejects_q5_decided_or_not_citing_the_interpretation():
+    def uncited(ds):
+        q5 = next(d for d in ds["decisions"] if d["id"] == "Q5")
+        q5["basis"] = [b.replace("D8-I1", "D8") for b in q5["basis"]]
+    assert any("decision Q5 does not cite the interpretation" in e for e in _x4(decisions=uncited))
+
+    def decided(ds):
+        next(d for d in ds["decisions"] if d["id"] == "Q5")["status"] = "decided"
+    assert any("decision Q5 is fully decided although it depends on an open interpretation" in e for e in _x4(decisions=decided))
+
+
+def test_q5_residual_still_carried_as_scoped_alternatives(res):
+    q5 = {r.line_ref: r for r in res["DDS"].values() if any(c["dimension"].startswith("Q5-") for c in r.conditions)}
+    assert {k: v.code for k, v in q5.items()} == {"MDS-00856-039": "RM-530", "MDS-01338-026": "RM-530", "MDS-01651-025": "DD-120"}
+    assert all(v.amount is None and v.alternatives for v in q5.values())
+
+
+SERVICE = re.compile(r"\b(?:[A-Z]{2}-\d{3})\b")
+LINE = re.compile(r"\bMDS-\d{5}-\d{3}\b")
+
+
+def report_identity_errors(text: str) -> list[str]:
+    """Every drilling line named in a report sentence with a service code must be that service in the source invoice
+    lines: each line reference is paired with the next service code on the same line of text (round 2: the round-1
+    report swapped DD-120 and RM-530 in its Q5 summary)."""
+    with (SNAPSHOT / "drilling_services/invoices/invoice_lines.csv").open(newline="") as fh:
+        src = {r["line_ref"]: r["service_code"] for r in csv.DictReader(fh)}
+    errs = []
+    for ln in text.splitlines():
+        pending = []
+        for m in re.finditer(rf"{LINE.pattern}|{SERVICE.pattern}", ln):
+            tok = m.group(0)
+            if tok.startswith("MDS-"):
+                pending.append(tok)
+            elif pending:
+                errs += [f"{ref} named as {tok}, source {src.get(ref)}" for ref in pending if src.get(ref) != tok]
+                pending = []
+    return errs
+
+
+def test_report_line_identities_match_the_source():
+    for name in ("Phase3_G3_corrections.md", "Phase3_G3_corrections_r2.md"):
+        p = ROOT / name
+        if p.exists():
+            assert report_identity_errors(p.read_text()) == [], name
+
+
+def test_report_identity_control_rejects_the_round1_text():
+    old = subprocess.run(["git", "show", "83c4a61:Phase3_G3_corrections.md"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    errs = report_identity_errors(old)
+    assert "MDS-00856-039 named as DD-120, source RM-530" in errs and "MDS-01651-025 named as RM-530, source DD-120" in errs
