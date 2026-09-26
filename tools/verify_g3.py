@@ -99,6 +99,18 @@ SCOPE = {
     "build-up order and exceptions": [("CW-S21", "trace:CW.T08_GROUND_FACTORS"), ("CW-S22", "trace:night uplift not payable"),
                                       ("CW-S24", "reading:P11 rest-day alone"), ("DDS-S13", "trace:DDS.T08_SECTION_FACTORS"),
                                       ("DDS-S19", "trace:no hole-section factor on a Standby day")],
+    # G3 correction round (independent audit Phase3_G3_audit_Agent2.md) ---------------------------------------------
+    "F1 the invoice header is not the call-off: every well class carried": [
+        ("DDS-S66", "conditional_on:class"), ("DDS-S67", "conditional_on:class"), ("DDS-R23", "conditional_on:class")],
+    "F2 the application is not the excavation record: every ground class carried; record or 27A where they apply": [
+        ("CW-S59", "conditional_on:ground"), ("CW-R23", "conditional_on:ground"), ("CW-S60", "finding:ground_differs_from_record"),
+        ("CW-S61", "reading:27A")],
+    "F3 arithmetic where the band is not known (Cl.28 division)": [
+        ("CW-R21", "unresolved:amount_arithmetic"), ("CW-S62", "finding:amount_arithmetic"), ("CW-S63", "no:amount_arithmetic"),
+        ("CW-R22", "finding:amount_arithmetic")],
+    "F4 PD-210: allowed metres, parts and amount agree under 25A": [
+        ("DDS-S68", "allowed:101"), ("DDS-S69", "allowed:100"), ("DDS-S70", "allowed:99"), ("DDS-S71", "conditional_on:tolerance")],
+    "Q5 residual kept as scoped alternatives": [("DDS-S64", "conditional_on:Q5-DD120"), ("DDS-S65", "conditional_on:Q5-HC630")],
 }
 
 
@@ -117,19 +129,32 @@ def _show(res, want: str, results: dict) -> bool:
     if kind == "no_reading":
         return not any(arg in x for x in res.readings)
     if kind == "trace":
-        return any(arg in (s.get("label", "") + " " + s.get("source", "")) for s in res.trace)
+        return any(arg in (s.get("label", "") + " " + s.get("source", "")) for t in all_traces(res) for s in t)
     if kind == "rounds_after":
         clause, mode = arg.split(":")
-        st = res.trace
         return any(st[i]["op"] == "mul" and clause in st[i]["source"] and st[i + 1]["op"] == "round" and st[i + 1]["mode"] == mode
-                   for i in range(len(st) - 1))
+                   for st in all_traces(res) for i in range(len(st) - 1))
     if kind == "mode_at_half":
         # a rounding in the stated mode applied to a value on an exact half cent, where half-up and half-even differ
-        st = [s for s in res.trace if s["op"] != "note"]
-        return any(st[i]["op"] == "round" and st[i]["mode"] == arg and (D(st[i - 1]["value"]) * 100) % 1 == Decimal("0.5")
+        for t in all_traces(res):
+            st = [s for s in t if s["op"] != "note"]
+            if any(st[i]["op"] == "round" and st[i]["mode"] == arg and (D(st[i - 1]["value"]) * 100) % 1 == Decimal("0.5")
                    and D(st[i - 1]["value"]).quantize(CENT, ROUND_HALF_UP) != D(st[i - 1]["value"]).quantize(CENT, ROUND_HALF_EVEN)
-                   for i in range(1, len(st)))
+                   for i in range(1, len(st))):
+                return True
+        return False
+    if kind == "unresolved":
+        return arg in res.unresolved
+    if kind == "conditional_on":
+        dims = {x.split(":", 1)[0] for k in res.alternatives for x in (k or "").split("|") if x}
+        return arg in dims and res.amount is None
+    if kind == "amount":
+        return res.amount == D(arg)
     raise ValueError(want)
+
+
+def all_traces(res) -> list[list[dict]]:
+    return [res.trace] + [a["trace"] for a in res.alternatives.values() if isinstance(a, dict) and a.get("trace")]
 
 
 def git_first_commit(path: str) -> str | None:
@@ -242,6 +267,33 @@ def applicable_features(contract: str, r, line: dict, ctx: dict, T) -> set[str]:
     return f
 
 
+def _dim_values(r, dim: str) -> set[str]:
+    return {x.split(":", 1)[1] for k in r.alternatives for x in (k or "").split("|") if x.startswith(dim + ":")}
+
+
+def admissible_errors(contract: str, r, line: dict, T, w) -> list[str]:
+    """F1: the well class is the call-off's (DDS Cl.4; P2, P3) - no call-off is supplied, so a class-rated service carries
+    every class. F2: the ground class is the one recorded at excavation (CW S4; Cl.5) - where no supplied record states
+    it (and 27A does not apply) the line carries every class. The claim's statement never selects one."""
+    e = []
+    if contract == "DDS" and r.code in T.class_rated and r.code != "PD-210":
+        if _dim_values(r, "class") != set(T.class_factor):
+            e.append(f"class-rated service without every admissible class (has {sorted(_dim_values(r, 'class'))}): the "
+                     "invoice header is not the call-off")
+    if contract == "CW" and r.code in T.ground_items and line["work_date"] <= T.g2_after:
+        rec = w.cw.get(line.get("record_ref") or "")
+        if not (rec is not None and rec.ground):
+            if _dim_values(r, "ground") != set(T.ground):
+                e.append(f"ground item with no recorded classification without every ground class (has "
+                         f"{sorted(_dim_values(r, 'ground'))}): the application's class is not authority")
+    left = {x.split(":", 1)[0] for k in r.alternatives for x in (k or "").split("|") if x}
+    owned = {c["dimension"]: c["owner"] for c in r.conditions}
+    for d in left:
+        if not re.fullmatch(r"G[4-7]", owned.get(d, "")):
+            e.append(f"alternatives over '{d}' without a condition owned by a later gate")
+    return e
+
+
 def _traces(r) -> list[list[dict]]:
     alts = [a["trace"] for a in r.alternatives.values() if isinstance(a, dict) and a.get("trace")]
     return alts or [r.trace]
@@ -293,8 +345,12 @@ def x2(w, results: dict, families: dict, comparison: dict, T=None) -> list[str]:
                     errs.append(f"{ref} {r.code}: not payable without a reason")
             elif r.amount_status != st:
                 errs.append(f"{ref} {r.code}: family {fam} is {st} but the line is {r.amount_status}")
+            # a value that depends on an unsupplied authority carries every admissible value, owned by a later gate (F1, F2)
+            if r.payable:
+                e2 = admissible_errors(contract, r, lines[contract][ref], T[contract], w)
+                errs += [f"{ref} {r.code}: {x}" for x in e2]
             # pricing features that apply must appear in the trace(s)
-            if not any(s["op"] == "start" for s in r.trace):
+            if not any(s["op"] == "start" for t in _traces(r) for s in t):
                 continue
             if any(s["op"] == "note" and s["label"].startswith("not priced") for s in r.trace):
                 if r.payable:
@@ -320,6 +376,7 @@ def x2(w, results: dict, families: dict, comparison: dict, T=None) -> list[str]:
 def replay(steps: list[dict]) -> tuple[list[str], dict]:
     """Recompute every step with independent arithmetic. Returns (errors, {rate, amount, parts})."""
     errs, v, parts, out = [], None, [], {"rate": None, "amount": None, "quantity": None}
+    part_q = Decimal(0)
     for i, s in enumerate(steps):
         op = s["op"]
         if op == "note":
@@ -342,6 +399,8 @@ def replay(steps: list[dict]) -> tuple[list[str], dict]:
                 out.update(amount=x, quantity=D(s["quantity"]))
             else:
                 parts.append(x)
+                part_q += D(s["quantity"])
+                out["quantity"] = part_q
             if D(s["value"]) != x:
                 errs.append(f"step {i} ({op}): recorded {s['value']}, replayed {x}")
             continue
@@ -399,41 +458,81 @@ def table_figures(T, contract: str, code: str) -> set[Decimal]:
     return vals
 
 
+PART_LABEL = re.compile(r"band (\d): (\d+(?:\.\d+)?)-(\d+(?:\.\d+)?) m")
+
+
+def pd210_part_errors(steps: list[dict], T) -> list[str]:
+    """PD-210 (F4): every part at its Schedule 2 band's rate, its depths inside that band (a boundary depth belongs to the
+    shallower band), its quantity the interval length unless 25A's tolerance is named, the total within 25A's 1%."""
+    errs, total_q, total_len = [], Decimal(0), Decimal(0)
+    bands = {b: (lo, hi, rate) for lo, hi, rate, b in T.depth_bands}
+    for s in steps:
+        if s["op"] != "part":
+            continue
+        m = PART_LABEL.search(s.get("label", ""))
+        if not m or m.group(1) not in bands:
+            errs.append(f"PD-210 part '{s.get('label')}' names no Schedule 2 band and depths")
+            continue
+        lo, hi, rate = bands[m.group(1)]
+        a, b = D(m.group(2)), D(m.group(3))
+        if D(s["rate"]) != rate:
+            errs.append(f"PD-210 part rate {s['rate']} is not band {m.group(1)}'s {rate} (Sch 2)")
+        if not (lo <= a < b and (hi is None or b <= hi)):
+            errs.append(f"PD-210 part {a}-{b} m is not inside band {m.group(1)}")
+        q = D(s["quantity"])
+        total_q, total_len = total_q + q, total_len + (b - a)
+        if q != b - a and "(25A)" not in s.get("label", ""):
+            errs.append(f"PD-210 part quantity {q} differs from its interval {b - a} without the 25A tolerance")
+    if total_q != total_len and total_q > total_len * (1 + T.metre_tolerance / 100):
+        errs.append(f"PD-210 parts carry {total_q} m on {total_len} m of interval: beyond 25A")
+    return errs
+
+
+def _check_trace(contract, code, steps, T, want_amount, want_quantity, want_rate) -> list[str]:
+    e, rep = replay(steps)
+    starts = [s for s in steps if s["op"] == "start"]
+    if starts:
+        if D(starts[0]["value"]) not in table_figures(T[contract], contract, code):
+            e.append(f"trace starts at {starts[0]['value']}, not a figure of the verified tables for {code}")
+        e += rounding_errors(contract, [s for s in steps if s["op"] != "amount"])
+    if code == "PD-210":
+        e += pd210_part_errors(steps, T[contract])
+    if rep["amount"] != want_amount:
+        e.append(f"trace amount {rep['amount']} != amount {want_amount}")
+    if rep["quantity"] != want_quantity:
+        e.append(f"trace quantity {rep['quantity']} != allowed quantity {want_quantity}")
+    if want_rate is not None:
+        got = rep["rate"] if code != "PD-210" else (D(next(s["rate"] for s in steps if s["op"] == "part"))
+                                                       if len(rep["parts"]) == 1 else None)
+        if got != want_rate:
+            e.append(f"trace rate {got} != unit_rate {want_rate}")
+    return e
+
+
 def x3(results: dict, T=None) -> list[str]:
+    """Every amount - the line's own and every alternative's - replays from its trace with independent arithmetic."""
     errs = []
     T = T or {"CW": terms.cw(), "DDS": terms.dds()}
     for contract, rs in results.items():
         for ref, r in rs.items():
             e = []
-            tr_errs, rep = replay(r.trace)
-            e += tr_errs
-            starts = [s for s in r.trace if s["op"] == "start"]
-            if starts and D(starts[0]["value"]) not in table_figures(T[contract], contract, r.code):
-                e.append(f"trace starts at {starts[0]['value']}, not a figure of the verified tables for {r.code}")
-            priced = starts and r.code != "PD-210"
-            if priced:
-                e += rounding_errors(contract, [s for s in r.trace if s["op"] != "amount"])
-            band_alts = {k: a for k, a in r.alternatives.items() if isinstance(a, dict) and a.get("trace")}
             if r.amount_status in ("determined", "conditional", "alternatives") and r.payable:
                 if r.amount is not None:
-                    if rep["amount"] != r.amount:
-                        e.append(f"trace amount {rep['amount']} != result amount {r.amount}")
-                    if rep["quantity"] is not None and rep["quantity"] != r.allowed_quantity:
-                        e.append(f"trace quantity {rep['quantity']} != allowed {r.allowed_quantity}")
-                elif not band_alts and not any(k.startswith("Q4:") for k in r.alternatives):
-                    e.append("payable without an amount, a traced alternative or a Q4 alternative")
-                if r.unit_rate is not None and r.code != "PD-210" and rep["rate"] != r.unit_rate:
-                    e.append(f"trace rate {rep['rate']} != unit_rate {r.unit_rate}")
-                if r.code == "PD-210" and r.unit_rate is not None and len(rep["parts"]) != 1:
-                    e.append("PD-210 single rate given for a charge in several bands")
-                for k, a in band_alts.items():
-                    ae, arep = replay(a["trace"])
-                    e += [f"{k}: {x}" for x in ae + rounding_errors(contract, [s for s in a["trace"] if s["op"] != "amount"])]
-                    if arep["amount"] != a["amount"] or arep["rate"] != a["unit_rate"] or arep["quantity"] != a["allowed_quantity"]:
-                        e.append(f"{k}: alternative amount/rate/quantity do not follow its trace")
+                    e += _check_trace(contract, r.code, r.trace, T, r.amount, r.allowed_quantity, r.unit_rate)
+                elif not r.alternatives:
+                    e.append("payable without an amount or alternatives")
                 for k, a in r.alternatives.items():
-                    if k.startswith("Q4:") and a["amount"] != a["allowed_quantity"] * rep["rate"]:
-                        e.append(f"{k}: {a['amount']} != {a['allowed_quantity']} x {rep['rate']}")
+                    if a.get("trace") and any(s["op"] in ("amount", "sum_parts") for s in a["trace"]):
+                        e += [f"{k}: {x}" for x in _check_trace(contract, r.code, a["trace"], T, a["amount"],
+                                                                 a["allowed_quantity"], a.get("unit_rate"))]
+                    elif not (a.get("amount") == Decimal("0.00") and a.get("allowed_quantity") == 0 and a.get("trace")):
+                        e.append(f"{k}: alternative without a replayable trace")
+                if r.amount is None and r.alternatives:
+                    common = {a["allowed_quantity"] for a in r.alternatives.values()}
+                    if r.allowed_quantity is not None and common != {r.allowed_quantity}:
+                        e.append("allowed quantity stated but the alternatives differ")
+                if (r.amount is None or r.amount_status != "determined") and not r.conditions and r.amount_status != "determined":
+                    e.append(f"{r.amount_status} without a stated condition and owner")
             elif r.payable is False:
                 if r.amount != Decimal("0.00") or r.allowed_quantity != 0 or not r.reasons:
                     e.append("not payable without a 0.00 amount, 0 quantity and a reason")
@@ -483,6 +582,12 @@ def x4(decisions: dict, scopes: dict, questions: dict, carried: dict, comparison
         missing = sorted(k for k in need if k not in eff)
         if missing:
             errs.append(f"{i}: no effect computed for reading(s) {missing}")
+        if d["status"] == "decided in part" and not re.search(r"G[4-7]", str(d.get("residual_owner", ""))):
+            errs.append(f"{i}: decided in part without a later owner for the residual")
+        for k, e in eff.items():
+            for fk, fv in (e.items() if isinstance(e, dict) else []):
+                if fk.startswith("value") and fv is not None and not (isinstance(fv, dict) and set(fv) <= {"SAR", "USD"}):
+                    errs.append(f"{i}: reading {k} reports {fk} without separating currencies (SAR civil, USD drilling)")
         if n >= 100:
             for k, e in eff.items():
                 if not isinstance(e, dict) or not isinstance(e.get("lines"), int) or not ({"value", "note"} & set(e) or
@@ -502,6 +607,8 @@ def x4(decisions: dict, scopes: dict, questions: dict, carried: dict, comparison
             errs.append(f"{q['id']}: register status {q['status']!r} vs decision {d['status']!r}")
         if q["status"] == "open" and q.get("blocks") == "G3":
             errs.append(f"{q['id']}: still open and still blocks G3")
+        if q["status"] in ("open", "decided in part") and not re.fullmatch(r"G[4-7]", str(q.get("blocks"))):
+            errs.append(f"{q['id']}: {q['status']} without a later owning gate (blocks {q.get('blocks')})")
         if q["status"] != "open" and q.get("decided_at") != "G3":
             errs.append(f"{q['id']}: decided without decided_at G3")
     listed = {c for d in decisions["decisions"] for c in d.get("carried_items", [])}
@@ -530,17 +637,19 @@ def x5_text(paths=None) -> list[str]:
 
 
 def evaluate_all(w, order=1, cw_eval=None, dds_eval=None, mutate=None, only=None) -> dict:
-    """Evaluate every line one by one (order=-1: reverse), optionally mutating the claim inputs first; `only` limits
-    the run to those line refs (tests)."""
+    """Evaluate every line one by one (order=-1: reverse), optionally mutating the claim (line and its header) first;
+    `only` limits the run to those line refs (tests)."""
     cw_eval, dds_eval = cw_eval or g3_cw.evaluate, dds_eval or g3_dds.evaluate
     out = {"CW": {}, "DDS": {}}
     for line, app, rec, exists in list(g3_cw.inputs_from_world(w))[::order]:
         if only is None or line["line_ref"] in only:
-            r = cw_eval(mutate("CW", line) if mutate else line, app, rec, exists)
+            line, app = mutate("CW", line, app) if mutate else (line, app)
+            r = cw_eval(line, app, rec, exists)
             out["CW"][r.line_ref] = r
     for line, inv, ddr in list(g3_dds.inputs_from_world(w))[::order]:
         if only is None or line["line_ref"] in only:
-            r = dds_eval(mutate("DDS", line) if mutate else line, inv, ddr)
+            line, inv = mutate("DDS", line, inv) if mutate else (line, inv)
+            r = dds_eval(line, inv, ddr)
             out["DDS"][r.line_ref] = r
     return out
 
@@ -562,22 +671,50 @@ def x5_order(w, forward: dict, **kw) -> list[str]:
     return errs
 
 
-# ============================================================================== X6 billing independence
-def _perturb(contract: str, line: dict) -> dict:
+# ============================================================================== X6 billing and claim independence
+def perturb_billing(contract: str, line: dict, header: dict):
     line = dict(line)
     rk = "rate_applied" if contract == "CW" else "unit_rate"
     line[rk] = (line[rk] or Decimal(0)) * Decimal("1.37") + Decimal("0.01")
     line["amount"] = (line["amount"] or Decimal(0)) + Decimal("12345.67")
-    return line
+    return line, header
 
 
-def x6(w, forward: dict, **kw) -> list[str]:
-    pert = evaluate_all(w, mutate=_perturb, only=kw.pop("only", None), **kw)
+CLASSES = ["Standard", "Extended Reach", "HPHT"]
+GROUNDS = ["G1 Loose Sand", "G2 Firm Sabkha", "G3 Cemented Fill", "G4 Weathered Rock", "G5 Sound Rock"]
+SECTIONS = ['26"', '17-1/2"', '12-1/4"', '8-1/2"', '6"']
+
+
+def perturb_claim_classes(contract: str, line: dict, header: dict):
+    """Classifications the claim states but the contract assigns elsewhere: the well class (DDS Cl.4: the call-off), the
+    ground class (CW S4, Cl.5: the excavation record / the Engineer), the hole section and day status (DDS Cl.19: as the
+    report records). Shifting each to another admissible value must change no contract value."""
+    line, header = dict(line), dict(header)
+    if contract == "DDS":
+        header["well_class"] = CLASSES[(CLASSES.index(header["well_class"]) + 1) % 3] if header.get("well_class") in CLASSES else "HPHT"
+        sec = line.get("hole_section")
+        line["hole_section"] = SECTIONS[(SECTIONS.index(sec) + 1) % len(SECTIONS)] if sec in SECTIONS else '12-1/4"'
+        line["day_status"] = "Standby" if line.get("day_status") == "Operating" else "Operating"
+    else:
+        g = line.get("ground_class") or ""
+        line["ground_class"] = GROUNDS[(GROUNDS.index(g) + 2) % 5] if g in GROUNDS else "G4 Weathered Rock"
+    return line, header
+
+
+# Claim facts the contract names no other evidence for; they are disclosed on every result that relies on them and
+# decided explicitly in spec/g3_decisions.yaml (G3-D3) rather than perturbed here.
+CLAIM_FACTS_NOT_PERTURBED = {"CW site_zone": "Cl.4, Cl.42: the zone of physical execution; no supplied record states it",
+                             "CW night_work": "Cl.7: time of execution; no supplied record states it"}
+
+
+def x6(w, forward: dict, mutate=perturb_billing, **kw) -> list[str]:
+    pert = evaluate_all(w, mutate=mutate, only=kw.pop("only", None), **kw)
     errs = []
+    what = "the billed rate/amount" if mutate is perturb_billing else "a claim-stated classification"
     for c in forward:
         for ref, r in forward[c].items():
             if _value(r) != _value(pert[c][ref]):
-                errs.append(f"{c} {ref}: a contract value changes with the billed rate/amount")
+                errs.append(f"{c} {ref}: a contract value changes with {what}")
     return errs
 
 
@@ -629,7 +766,8 @@ def main() -> int:
          lambda: x4(load(DECISIONS), json.loads((OUT / "decision_scopes.json").read_text()), load(QUESTIONS), load(CARRIED), comparison)),
         ("X5 boundary: no cross-line state (reverse-order evaluation identical); no classification/flag/total/submission",
          lambda: x5_order(w, res) + x5_text()),
-        ("X6 billed rate and amount never change a contract value (diagnostic only)", lambda: x6(w, res)),
+        ("X6 billed rate/amount and claim-stated classifications (well class, ground class, section, status) never change a contract value",
+         lambda: x6(w, res) + x6(w, res, mutate=perturb_claim_classes)),
         ("X7 committed G3 outputs reproduce; every result carries the current run context", lambda: x7(w, res)),
     ]
     ok = True

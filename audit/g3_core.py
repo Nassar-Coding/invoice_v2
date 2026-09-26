@@ -89,7 +89,8 @@ class LineResult:
     payable: bool | None = None
     amount_status: str = "determined"      # determined | not_payable | alternatives | conditional | deferred | unresolved
     reasons: list[str] = field(default_factory=list)
-    alternatives: dict = field(default_factory=dict)   # reading -> {allowed_quantity, amount, question}
+    alternatives: dict = field(default_factory=dict)   # "dim:value|dim:value" -> {unit_rate, allowed_quantity, amount, trace}
+    conditions: list = field(default_factory=list)     # {dimension, owner, basis}: why the value is not single, and who decides
     g4_dependencies: list[str] = field(default_factory=list)
     readings: list[str] = field(default_factory=list)   # decisions / question readings applied
     trace: list[dict] = field(default_factory=list)
@@ -99,6 +100,15 @@ class LineResult:
     def findings(self) -> list[str]:
         return sorted({c.finding for c in self.checks if c.status == "finding" and c.finding})
 
+    @property
+    def unresolved(self) -> list[str]:
+        """Findings that cannot be established without information G3 does not have (G4 state, unsupplied documents)."""
+        return sorted({c.finding for c in self.checks if c.status == "unresolved" and c.finding})
+
+    def condition(self, dimension: str, owner: str, basis: str) -> None:
+        if not any(c["dimension"] == dimension for c in self.conditions):
+            self.conditions.append({"dimension": dimension, "owner": owner, "basis": basis})
+
     def add(self, check, status, rule, clause, finding=None, detail=""):
         self.checks.append(Check(check, status, rule, clause, finding, str(detail)))
 
@@ -106,7 +116,8 @@ class LineResult:
         s = lambda v: None if v is None else str(v)  # noqa: E731
         return {"contract": self.contract, "line_ref": self.line_ref, "code": self.code, "family": self.family, "unit_rate": s(self.unit_rate),
                 "allowed_quantity": s(self.allowed_quantity), "amount": s(self.amount), "payable": self.payable,
-                "amount_status": self.amount_status, "findings": self.findings, "reasons": self.reasons,
+                "amount_status": self.amount_status, "findings": self.findings, "unresolved": self.unresolved,
+                "reasons": self.reasons, "conditions": self.conditions,
                 "alternatives": {k: {kk: s(vv) if isinstance(vv, Decimal) else vv for kk, vv in v.items()} for k, v in self.alternatives.items()},
                 "g4_dependencies": self.g4_dependencies, "readings": self.readings,
                 "checks": [c.__dict__ for c in self.checks], "trace": self.trace, "ctx": self.ctx}

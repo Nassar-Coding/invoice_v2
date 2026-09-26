@@ -10,10 +10,17 @@ S2/A2 discount (Cl.18, 17B) with half-even rounding at every step (Cl.17), and l
 
 Not decided here (G4/G5): daily limits, duplicates, once-per-run and once-per-well counting, the A3 adjustment
 posting, the DS-900 discount, VAT and totals. They are listed as g4_dependencies (or deferred for DS-900).
+
+G3 correction round: the well class is the call-off's (Cl.4; P2, P3) and no call-off is supplied, so a class-rated
+service is priced under every class (the invoice header's class is disclosed as the contractor's statement); PD-210's
+allowed metres, parts and amount agree under 25A (a tolerance difference on a charge crossing a band edge is carried
+as alternatives); the Q5 residual (which recorded hours DD-120/RM-530 count; HC-630 per count or per BHA run) is
+computed under every reading. Every result's remaining alternatives name their condition and owning gate.
 """
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 from decimal import Decimal
 
 from . import links, terms
@@ -66,8 +73,8 @@ def build_up(code, status, section, well_class, date, T, tr):
             tr.mul(f"section {section}", T.section[section], "DDS.T08_SECTION_FACTORS (Sch 3 Part 1 p20); Cl.18 (p6)")
             _half(tr, "after section factor")
     if code in T.class_rated and code != "PD-210":
-        tr.mul(f"well class {well_class} (invoice header; call-off not supplied, Q8 proxy)", T.class_factor[well_class],
-               "DDS.T10_CLASS_FACTORS (Sch 3 Part 2 p20); P2, P3 (p11)")
+        tr.mul(f"well class {well_class} (one admissible class: the call-off is not supplied, Cl.4)", T.class_factor[well_class],
+               "DDS.T10_CLASS_FACTORS (Sch 3 Part 2 p20); Cl.4 (p3); P2, P3 (p11)")
         _half(tr, "after class factor")
     if status == "Standby" and code in T.standby and T.standby[code] is not None:
         tr.mul(f"standby {T.standby[code]}%", T.standby[code] / 100, "DDS.T12_STANDBY (Sch 3 Part 3 pp20-21); Cl.20 (p6); P13 (p11)")
@@ -146,7 +153,7 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
     r.family = _family(code)
     if ddr is None:
         r.add("evidence", "finding", "DDS-R05", "Cl.15 (p5); 19A (p35)", "report_missing", f"no report {line.get('report_ref')}")
-        return _finish(r, tr, readings, False, reasons + ["no Daily Drilling Report evidences the day"], None, None)
+        return _finish(r, tr, False, reasons + ["no Daily Drilling Report evidences the day"])
     a = ddr.parts.get("A", {})
     b = ddr.parts.get("B", {})
     if ddr.date != sd:
@@ -190,8 +197,9 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
     billed = line["quantity"]
     tools = {c for c in ddr.tools_in_hole.values() if c}
     run_tools = {c for c in ddr.tools_in_run.values() if c}
-    q_alts = None
-    supported, basis, qfind = billed, "", None
+    q_opts = None           # label -> supported quantity where a reading the text does not settle gives more than one
+    part_sets = None        # PD-210: label -> [(band, from, to, quantity, rate)]
+    supported, basis = billed, ""
     if code in PERSONS or code == COORDINATOR:
         rec = Decimal(ddr.crew.get(code, 0))
         supported, basis = rec, f"{rec} persons recorded on the rig (Cl.22; App G)"
@@ -208,19 +216,31 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
             payable = False
             reasons.append("a day rental is charged only where the report records the tool in the hole (Cl.28)")
     elif code in HOURLY:
-        q_alts, supported, basis = _hours(code, a, b, ddr, tools, status, T, qr.get("Q4"))
-        if supported is None:
+        q_opts, basis = _hours(code, a, b, ddr, tools, T, qr)
+        if q_opts is None:
             r.add("quantity", "finding", "DDS-R06", "Cl.21 (p6); Cl.28 (p7)", "tool_not_in_hole", basis)
             payable, supported = False, Decimal("0")
             reasons.append("DD-120 needs the rotary steerable in the hole")
+        else:
+            supported = max(q_opts.values())
     elif code in COUNTS:
         rec = Decimal(a.get(COUNTS[code]) or 0)
         supported, basis = rec, f"{COUNTS[code]}: {rec} recorded on the report (Cl.30)"
         if code == "HC-630":
-            basis += " (Q5: counted as recorded, Cl.30)"
-            r.readings.append("Q5:HC-630 counts (Cl.30)")
-    elif code in METRE_TOOL or code == "PD-210":
+            per_run = min(rec, Decimal("1"))
+            basis += (f"; Q5 residual: counted as recorded (Cl.30) = {rec}, or one charge per BHA run (Sch 8 row 'each BHA "
+                      f"run') = {per_run}")
+            q_opts = {"Q5-HC630:count (Cl.30)": rec, "Q5-HC630:per BHA run (Sch 8)": per_run}
+            if qr.get("Q5_HC630") == "counts":
+                q_opts = {"Q5-HC630:count (Cl.30)": rec}
+            r.g4_dependencies.append("once_per_run (HC-630 under the Schedule 8 reading, Q5 residual): one charge per BHA run")
+    elif code in METRE_TOOL:
         supported, basis, ok = _metres(code, line, a, tools, r, T, tr)
+        if not ok:
+            payable = False
+            reasons.append(basis)
+    elif code == "PD-210":
+        supported, basis, ok, part_sets = _pd210(line, a, r, T)
         if not ok:
             payable = False
             reasons.append(basis)
@@ -242,40 +262,72 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
         supported, basis = Decimal("1"), "one unit on the day of the loss (Cl.31)"
     else:
         r.add("quantity", "unresolved", "DDS-R07", "Sch 8 (pp27-28)", "quantity_rule_missing", code)
-        return _finish(r, tr, readings, None, reasons + ["no quantity rule"], None, None)
+        return _finish(r, tr, None, reasons + ["no quantity rule"])
     if code not in METRE_TOOL and code != "PD-210":
         allowed = min(billed, supported)
+        least = min(q_opts.values()) if q_opts else supported
         if wrong_unit:
             r.add("quantity", "n/a", "DDS-R08", "Cl.35 (p8)", detail=f"billed in {line['unit']}; supported {supported} {sch['unit']} (Q11)")
         elif billed > supported and not any(c.finding == "tool_not_in_hole" for c in r.checks) and code not in RUN_EVENTS:
             r.add("quantity", "finding", "DDS-R07", "Cl.21-22, 28, 30 (pp6-7)", "quantity_above_report", f"billed {billed}; {basis}")
+        elif billed > least and code not in RUN_EVENTS:
+            r.add("quantity", "unresolved", "DDS-R07", "Cl.21, 30 (pp6-7); 21A (p35); Sch 8 (pp27-28)", "quantity_above_report",
+                  f"billed {billed} exceeds the supported quantity under some readings only; {basis}")
         elif not any(c.check == "quantity" for c in r.checks):
             r.add("quantity", "pass", "DDS-R07", "Cl.21-31 (pp6-7)", detail=basis)
     else:
         allowed = supported
     # 8 rate --------------------------------------------------------------------------------------------------
     well_class = inv.get("well_class")
+    rates = {}              # label -> (rate, Trace); more than one only for class-rated services (F1)
     if code == "PD-210":
-        parts = [x for x in tr.steps if x["op"] == "part"]
-        rate = Decimal(parts[0]["rate"]) if len(parts) == 1 else None
-        tr.note("PD-210 priced by Schedule 2 depth band; annual footage band 100% (per-well records bound 10,002 m < 40,000 m, Q11)",
-                "Sch 2 (p17); Cl.23 (p6); 17B (p35); spec/question_scopes.json Q11_DDS")
+        tr.note("PD-210 priced by Schedule 2 depth band; no class factor (17B, D1); annual footage band 100% (per-well "
+                "records bound 10,002 m < 40,000 m, Q11)", "Sch 2 (p17); Cl.23 (p6); 17B (p35); spec/question_scopes.json Q11_DDS")
     elif code in LOSS:
         rate = _loss_value(code, sd, ddr, r, tr, T)
         if rate is None:
             payable = False
             reasons.append("loss not evidenced as this tool (Part E)")
+        else:
+            rates[None] = (rate, tr)
     else:
+        classed = code in T.class_rated
+        if classed:
+            r.readings.append(f"well class not evidenced: no call-off supplied (Cl.4; P2, P3); the invoice header states "
+                              f"{well_class} (the claim, not authority); every class priced")
         try:
-            base_rate(code, sd, idate, T, tr, readings)
-            build_up(code, status, section, well_class, sd, T, tr)
-            rate = tr.value
+            for cls in (list(T.class_factor) if classed else [None]):
+                trk = Trace()
+                trk.steps = list(tr.steps)
+                rd = []
+                base_rate(code, sd, idate, T, trk, rd)
+                build_up(code, status, section, cls, sd, T, trk)
+                rates[f"class:{cls}" if cls else None] = (trk.value, trk)
+                if not readings:
+                    readings.extend(rd)
         except KeyError as e:
-            rate = None
+            rates = {}
             tr.note(f"not priced: no published index for {e} (outside the tables)", "Sch 2C (p18)")
+        if classed and len(rates) > 1:
+            r.condition("class", "G5", f"Cl.4 (p3): the call-off's well class governs; P2, P3 (p11); App A (p29); no call-off "
+                        f"supplied; the invoice header states {well_class} (the claim, not authority)")
     r.readings += readings
+    if code == "PD-210":
+        single = [ps for ps in (part_sets or {}).values()]
+        rate = single[0][0][4] if len(single) == 1 and len(single[0]) == 1 else None
+    else:
+        rate = next(iter(rates.values()))[0] if len(rates) == 1 else None
     r.unit_rate = rate
-    if rate is not None and line["unit_rate"] != rate:
+    if len(rates) > 1:
+        match = [k for k, (rt, _t) in rates.items() if rt == line["unit_rate"]]
+        listing = ", ".join(f"{k} {rt}" for k, (rt, _t) in rates.items())
+        if match:
+            r.add("rate", "unresolved", "DDS-R09", "Cl.4 (p3); Cl.17, Cl.18 (p6)", "rate_differs",
+                  f"billed {line['unit_rate']} is the rate under {', '.join(match)} ({listing}); the class is not established (G5)")
+        else:
+            r.add("rate", "finding", "DDS-R09", "Cl.17, Cl.18 (p6); instruments pp37-42", "rate_differs",
+                  f"billed {line['unit_rate']} is the rate under no admissible class ({listing})")
+    elif rate is not None and line["unit_rate"] != rate:
         r.add("rate", "finding", "DDS-R09", "Cl.17, Cl.18 (p6); instruments pp37-42", "rate_differs", f"billed {line['unit_rate']}, contract {rate}")
     elif rate is not None:
         r.add("rate", "pass", "DDS-R09", "Cl.17, Cl.18 (p6)")
@@ -290,14 +342,67 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
         r.g4_dependencies.append("daily_limit (DDS-R14, D6)")
     if any("36A protection" in x for x in r.readings):
         r.g4_dependencies.append("a3_adjustment (DDS-R21): difference posted once on a later invoice")
-    # wrong-unit remedy is Q11 (open): both readings carried
-    if wrong_unit and payable:
-        r.alternatives["Q11:A"] = {"question": "Q11", "reading": "unit breach recorded; value per supported quantity"}
-        r.alternatives["Q11:B"] = {"question": "Q11", "reading": "charge unsupported", "allowed_quantity": Decimal("0"), "amount": Decimal("0.00")}
-    if payable and allowed == 0 and not q_alts:
+    if payable and allowed == 0 and not q_opts:
         payable = False
         reasons.append("nothing chargeable under the quantity rules")
-    return _finish(r, tr, readings, payable, reasons, allowed, rate, q_alts, line, ddr, T)
+    if not payable:
+        return _finish(r, tr, payable, reasons)
+    # every admissible result: quantity readings x class rates, or PD-210 part sets; Q11 (wrong unit) adds reading B
+    options = {}
+    if code == "PD-210":
+        for pl, parts in part_sets.items():
+            t = Trace()
+            t.steps = list(tr.steps)
+            for band, pa, pb, qty, prate in parts:
+                t.part(f"band {band}: {pa}-{pb} m" + ("" if qty == pb - pa else f", {qty} m charged (25A)"), qty, prate,
+                       f"DDS.T02_DEPTH_BANDS band {band} (Sch 2 p17); Cl.23 (p6): a boundary depth belongs to the shallower band")
+            amt = t.total("amount = sum of depth-band parts", "Cl.23 (p6): each band part priced at its own rate")
+            options[pl] = (sum((x[3] for x in parts), Decimal(0)), parts[0][4] if len(parts) == 1 else None, amt, t.steps)
+    else:
+        for (ql, sup), (rl, (rt, trk)) in itertools.product((q_opts or {None: supported}).items(), rates.items()):
+            alw = min(billed, sup)
+            options["|".join(x for x in (ql, rl) if x)] = (alw, rt, alw * rt, trk.steps + [_amount_step(alw, rt)])
+    if wrong_unit:
+        options = {("Q11:A|" + k if k else "Q11:A"): v for k, v in options.items()}
+        options["Q11:B"] = (Decimal("0"), None, Decimal("0.00"),
+                            [{"op": "note", "label": "Q11 reading B: a charge in another unit is unsupported", "source": "Cl.35 (p8)"}])
+    return _finish(r, tr, True, reasons, _collapse(options))
+
+
+def _amount_step(q: Decimal, rate: Decimal) -> dict:
+    return {"op": "amount", "label": "amount = quantity x rate", "quantity": str(q), "rate": str(rate), "value": str(q * rate),
+            "source": "Cl.18 (p6): quantity x rate so built up"}
+
+
+READING_DIMS = {"Q4", "Q5-DD120", "Q5-RM530", "Q5-HC630", "Q11"}
+DIM_OWNER = {"Q4": ("G5", "21A (p35); Cl.21 (p6); P10 (p11): Q4 open, spec/g3_decisions.yaml"),
+             "Q5-DD120": ("G5", "Sch 8 row 'each circulating or back-reaming hour' vs Cl.21 'per circulating hour' and Sch 1 "
+                                "'circulating'; Cl.2 ranks a Schedule over a Part but lists Schedules 1 to 6 only (Q5 residual)"),
+             "Q5-RM530": ("G5", "Sch 8 row 'each circulating or back-reaming hour' vs Cl.30 and Sch 1 'back-reaming' (Q5 residual)"),
+             "Q5-HC630": ("G4", "Sch 8 row 'each BHA run, as Clause 26 describes' vs Cl.30 'clean-out runs ... in the numbers "
+                                "recorded'; under the Schedule reading once per BHA run is G4 state (Q5 residual; reading G5)"),
+             "Q11": ("G5", "Cl.35 (p8) states no remedy for a charge in another unit (Q11)"),
+             "tolerance": ("G5", "25A (p35) pays the charged metres; Cl.23 (p6) prices metres by the band they lie in; the charge's "
+                                 "depths do not say in which band the tolerance difference lies")}
+
+
+def _collapse(options: dict) -> dict:
+    """Drop every dimension whose value does not change any result, then identical labels merge."""
+    def dims(label):
+        return dict(x.split(":", 1) for x in label.split("|")) if label else {}
+    names = sorted({d for k in options for d in dims(k)})
+    for name in names:
+        groups = {}
+        for k, v in options.items():
+            rest = "|".join(f"{d}:{x}" for d, x in dims(k).items() if d != name)
+            groups.setdefault(rest, set()).add(v[:3])
+        if all(len(g) == 1 for g in groups.values()):
+            new = {}
+            for k, v in options.items():
+                rest = "|".join(f"{d}:{x}" for d, x in dims(k).items() if d != name)
+                new.setdefault(rest or None, v)
+            options = new
+    return options
 
 
 def _family(code: str) -> str:
@@ -326,7 +431,7 @@ def _family(code: str) -> str:
     return "DDS-NO-RULE"
 
 
-def _finish(r, tr, readings, payable, reasons, allowed, rate, q_alts=None, line=None, ddr=None, T=None):
+def _finish(r, tr, payable, reasons, options=None):
     r.payable, r.reasons = payable, reasons
     if payable is None:
         r.amount_status = "unresolved"
@@ -336,83 +441,119 @@ def _finish(r, tr, readings, payable, reasons, allowed, rate, q_alts=None, line=
         r.allowed_quantity, r.amount, r.amount_status = Decimal("0"), Decimal("0.00"), "not_payable"
         tr.note("not payable: " + "; ".join(reasons), "; ".join(sorted({c.clause for c in r.checks if c.status == 'finding'})))
         r.trace = tr.steps
+        r.conditions = []              # 0.00 whatever the class: nothing is conditional
         return r
-    r.allowed_quantity = allowed
-    if r.code == "PD-210":
-        r.amount = tr.total("amount = sum of depth-band parts", "Cl.23 (p6): each band part priced at its own rate")
+    if len(options) == 1:
+        (alw, rt, amt, steps), = options.values()
+        r.allowed_quantity, r.amount, r.trace = alw, amt, steps
+        if r.code == "PD-210":
+            r.unit_rate = rt
     else:
-        r.amount = tr.amount(allowed, rate, "Cl.18 (p6): quantity x rate so built up")
-    if q_alts:
-        billed = line["quantity"]
-        vals = {k: min(billed, v) for k, v in q_alts.items()}
-        if len(set(vals.values())) > 1:
-            for k, v in vals.items():
-                r.alternatives[f"Q4:{k}"] = {"question": "Q4", "allowed_quantity": v, "amount": v * rate}
-            r.amount_status = "alternatives"
-            r.readings.append("Q4 open: readings differ on this line; no single amount")
-            tr.note("Q4 alternatives (quantity x the rate above): " + ", ".join(f"{k}={v}" for k, v in vals.items()), "21A (p35); Cl.21 (p6); P10 (p11); spec/g3_decisions.yaml Q4")
-            r.allowed_quantity, r.amount = None, None
-            r.trace = [x for x in tr.steps if x["op"] != "amount"]
-            return r
-    if any(k.startswith("Q11:") for k in r.alternatives):
-        r.alternatives["Q11:A"].update({"allowed_quantity": allowed, "amount": r.amount})
-        r.amount_status = "alternatives"
-    if r.amount_status == "determined" and r.code == "PD-210" and "Q8:performance-section nomination not supplied" in r.readings:
-        r.amount_status = "conditional"
-    r.trace = tr.steps
+        vals = list(options.values())
+        r.allowed_quantity = vals[0][0] if len({v[0] for v in vals}) == 1 else None
+        r.unit_rate = vals[0][1] if len({v[1] for v in vals}) == 1 else None
+        r.amount = None
+        for k, (alw, rt, amt, steps) in options.items():
+            r.alternatives[k] = {"unit_rate": rt, "allowed_quantity": alw, "amount": amt, "trace": steps}
+        left = {x.split(":", 1)[0] for k in options for x in (k or "").split("|") if x}
+        for d in sorted(left - {"class"}):
+            r.condition(d, *DIM_OWNER[d])
+        r.amount_status = "alternatives" if left & READING_DIMS else "conditional"
+        r.readings.append("no single amount: " + ", ".join(sorted(left)) + " (every admissible result carried with its trace)")
+        r.trace = [x for x in tr.steps] + [{"op": "note", "label": "alternatives: one full trace each", "source": "spec/g3_decisions.yaml"}]
+    r.conditions = [c for c in r.conditions if c["dimension"] in
+                    {x.split(":", 1)[0] for k in r.alternatives for x in (k or "").split("|") if x} | {"nomination"}]
+    if r.code == "PD-210" and "Q8:performance-section nomination not supplied" in r.readings:
+        r.condition("nomination", "G5", "Cl.23 (p6), App A (p29): PD-210 only on a section the call-off nominates; no call-off supplied")
+        if r.amount_status == "determined":
+            r.amount_status = "conditional"
     return r
 
 
-def _hours(code, a, b, ddr, tools, status, T, fixed=None):
-    """Chargeable hours under each Q4 reading. None if DD-120's tool is not in the hole."""
+def _hours(code, a, b, ddr, tools, T, qr):
+    """Chargeable hours under every open reading: Q4 (first hour / minimum / period) x Q5 residual (which recorded hours
+    the service counts). Labels 'Q5-...:x|Q4:y'. None if DD-120's tool is not in the hole."""
     first_run_day = b.get("Run first day") == ddr.date
+    circ = Decimal(a.get("Circulating hours") or 0)
+    br = Decimal(a.get("Back-reaming hours") or 0)
+    one, m = T.first_hour, T.dd120_min
     if code == "DD-120":
         if "DD-120" not in tools:
-            return None, None, "rotary steerable not recorded in the hole (Cl.21, Cl.28)"
-        h = Decimal(a.get("Circulating hours") or 0)
-        m = T.dd120_min
-        alts = {"A": max(h - T.first_hour, m),                                   # deduct per day, then the minimum
-                "B": max(h, m) - T.first_hour,                                   # minimum on hours run, then deduct
-                "C": (max(h - T.first_hour, m) if first_run_day else max(h, m))}  # deduct once per run (first day)
-        basis = (f"{h} circulating hours recorded; first day of run {first_run_day}; 6-hour minimum on an Operating day with the tool "
-                 f"in the hole (Cl.21, P10); rig-up hour 21A: Q4 readings A={alts['A']} B={alts['B']} C={alts['C']}")
+            return None, "rotary steerable not recorded in the hole (Cl.21, Cl.28)"
+        q5 = {"Q5-DD120:circulating (Cl.21, Sch 1)": circ}
+        if br > 0:
+            q5["Q5-DD120:circulating or back-reaming (Sch 8 row)"] = circ + br
+
+        def q4(h):
+            return {"A": max(h - one, m), "B": max(h, m) - one, "C": (max(h - one, m) if first_run_day else max(h, m))}
+        basis = (f"{circ} circulating and {br} back-reaming hours recorded; first day of run {first_run_day}; 6-hour minimum on an "
+                 f"Operating day with the tool in the hole (Cl.21, P10); rig-up hour 21A (Q4); hours counted (Q5 residual)")
     else:
-        h = Decimal(a.get("Back-reaming hours") or 0)
-        alts = {"A": max(h - T.first_hour, Decimal("0")), "B": max(h - T.first_hour, Decimal("0")),
-                "C": (max(h - T.first_hour, Decimal("0")) if first_run_day else h), "counts": h}
-        basis = (f"{h} back-reaming hours recorded (Cl.30); 21A rig-up per period in the hole: Q4 readings A/B={alts['A']} "
-                 f"C={alts['C']}; counted as recorded (Cl.30)={h}")
-    reading = fixed or Q4_WORKING
-    if reading:
-        return None, alts[reading], basis + f"; reading {reading} applied"
-    return alts, max(alts.values()), basis
+        q5 = {"Q5-RM530:back-reaming (Cl.30, Sch 1)": br}
+        if circ > 0:
+            q5["Q5-RM530:circulating or back-reaming (Sch 8 row)"] = circ + br
+
+        def q4(h):
+            return {"A": max(h - one, Decimal("0")), "B": max(h - one, Decimal("0")),
+                    "C": (max(h - one, Decimal("0")) if first_run_day else h), "counts": h}
+        basis = (f"{br} back-reaming and {circ} circulating hours recorded; 21A rig-up per period in the hole (Q4); counted as "
+                 f"recorded (Cl.30); hours counted (Q5 residual)")
+    fixed = qr.get("Q4") or Q4_WORKING
+    out = {}
+    for l5, h in q5.items():
+        for l4, v in q4(h).items():
+            if fixed is None or l4 == fixed:
+                out[f"{l5}|Q4:{l4}"] = v
+    return out, basis + (f"; Q4 reading {fixed} applied" if fixed else "")
+
+
+def _pd210(line, a, r, T):
+    """PD-210 (Cl.23, 25A; F4): the allowed metres (25A: as charged within 1% of the metres the report supports for the
+    charged interval, else the supported metres), priced by the band the metres lie in. The parts always carry the allowed
+    quantity: in one band the charged metres take that band's rate; across bands a difference between the charged
+    metres and the interval cannot be placed from the charge (-> one alternative per band, 'tolerance')."""
+    start, end = Decimal(a.get("Depth start (m MD)")), Decimal(a.get("Depth end (m MD)"))
+    billed = line["quantity"]
+    f, t = line.get("depth_from_m"), line.get("depth_to_m")
+    section = a.get("Hole section")
+    if section not in PERFORMANCE_SECTIONS:
+        r.add("quantity", "finding", "DDS-R19", "Cl.23 (p6); App A (p29)", "not_performance_section", f"section {section}")
+        return Decimal("0"), f"PD-210 only on a performance-drilled (12-1/4 or 8-1/2 inch) section; report section {section}", False, None
+    r.readings.append("Q8:performance-section nomination not supplied")
+    lo, hi = max(f, start), min(t, end)
+    sup = max(hi - lo, Decimal("0"))
+    within = billed <= sup * (1 + T.metre_tolerance / 100)
+    if not within:
+        r.add("quantity", "finding", "DDS-R07", "Cl.23 (p6); 25A (p35)", "quantity_above_report", f"billed {billed}; report supports {sup} m in {f}-{t}")
+        f, t, allowed = lo, hi, sup
+    else:
+        allowed = billed
+        if t - f != billed:
+            r.add("quantity", "finding", "DDS-R07", "Cl.34 (p8)", "depths_differ_from_quantity", f"{f}-{t} vs {billed}")
+        r.add("quantity", "pass", "DDS-R07", "Cl.23 (p6); 25A (p35)", detail=f"{billed} m charged; report supports {sup} m (1% tolerance)")
+    if allowed == 0:
+        return Decimal("0"), "no metres the report supports in the charged interval (Cl.23)", False, None
+    parts = [(band, pa, pb, pb - pa, rate) for band, pa, pb, rate in pd210_parts(f, t, T)]
+    if len(parts) > 1:
+        r.add("quantity", "finding", "DDS-R12", "Cl.23 (p6)", "band_crossing_not_split", f"{f}-{t} spans {len(parts)} bands")
+    diff = allowed - sum((p[3] for p in parts), Decimal(0))
+    if not diff:
+        sets = {None: parts}
+    elif len(parts) == 1:
+        band, pa, pb, _q, rate = parts[0]
+        sets = {None: [(band, pa, pb, allowed, rate)]}
+    else:
+        sets = {}
+        for i, (band, pa, pb, q, rate) in enumerate(parts):
+            if q + diff >= 0:
+                sets[f"tolerance:{diff} m in band {band}"] = [p if j != i else (band, pa, pb, q + diff, rate) for j, p in enumerate(parts)]
+    return allowed, f"report depths {start}-{end}; charged {f}-{t}; allowed {allowed} m", True, sets
 
 
 def _metres(code, line, a, tools, r, T, tr):
     start, end = Decimal(a.get("Depth start (m MD)")), Decimal(a.get("Depth end (m MD)"))
     billed = line["quantity"]
     status = a.get("Status")
-    if code == "PD-210":
-        f, t = line.get("depth_from_m"), line.get("depth_to_m")
-        section = a.get("Hole section")
-        if section not in PERFORMANCE_SECTIONS:
-            r.add("quantity", "finding", "DDS-R19", "Cl.23 (p6); App A (p29)", "not_performance_section", f"section {section}")
-            return Decimal("0"), f"PD-210 only on a performance-drilled (12-1/4 or 8-1/2 inch) section; report section {section}", False
-        r.readings.append("Q8:performance-section nomination not supplied")
-        lo, hi = max(f, start), min(t, end)
-        sup = max(hi - lo, Decimal("0"))
-        allowed = billed if billed <= sup * (1 + T.metre_tolerance / 100) else sup
-        if billed > sup * (1 + T.metre_tolerance / 100):
-            r.add("quantity", "finding", "DDS-R07", "Cl.23 (p6); 25A (p35)", "quantity_above_report", f"billed {billed}; report supports {sup} m in {f}-{t}")
-            f, t = lo, hi
-        if t - f != billed and allowed == billed:
-            r.add("quantity", "finding", "DDS-R07", "Cl.34 (p8)", "depths_differ_from_quantity", f"{f}-{t} vs {billed}")
-        parts = pd210_parts(f, t, T)
-        if len(parts) > 1:
-            r.add("quantity", "finding", "DDS-R12", "Cl.23 (p6)", "band_crossing_not_split", f"{f}-{t} spans {len(parts)} bands")
-        for band, pa, pb, rate in parts:
-            tr.part(f"band {band}: {pa}-{pb} m", pb - pa, rate, f"DDS.T02_DEPTH_BANDS band {band} (Sch 2 p17); boundary to the shallower band")
-        return allowed, f"report depths {start}-{end}; charged {f}-{t}", True
     tool = METRE_TOOL[code]
     present = tool in tools and status == "Operating"
     sup = (end - start) if present else Decimal("0")

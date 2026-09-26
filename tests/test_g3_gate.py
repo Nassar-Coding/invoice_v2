@@ -192,8 +192,8 @@ def test_x3_fails_when_the_amount_does_not_follow_the_trace(res):
 
 def test_x3_fails_on_a_band_alternative_that_does_not_follow_its_trace(res):
     ref, r = _one(res, "CW", lambda r: r.amount_status == "conditional")
-    r.alternatives["band 2"]["amount"] += Decimal("0.01")
-    assert any("band 2: alternative amount/rate/quantity do not follow its trace" in e for e in vg.x3({"CW": {ref: r}}))
+    r.alternatives["band:2"]["amount"] += Decimal("0.01")
+    assert any("band:2: trace amount" in e for e in vg.x3({"CW": {ref: r}}))
 
 
 # ---------------------------------------------------------------------------------------------------------- X4

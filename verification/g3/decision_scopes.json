@@ -1,7 +1,11 @@
 {
  "Q3": {
-  "decided": "A",
-  "cw_lines": [
+  "lines_decided": 13,
+  "lines": [
+   "MDS-00876-062",
+   "MDS-00901-029",
+   "MDS-00954-021",
+   "MDS-01393-036",
    "PA-00111-12",
    "PA-00111-13",
    "PA-00170-04",
@@ -12,407 +16,345 @@
    "PA-00678-06",
    "PA-00766-12"
   ],
-  "dds_lines": [
-   "MDS-00876-062",
-   "MDS-00901-029",
-   "MDS-00954-021",
-   "MDS-01393-036"
-  ],
-  "under_A": "not payable in this valuation/invoice (amount 0.00)",
-  "under_B": {
-   "cw": {
-    "PA-00111-12": {
-     "unit_rate": "478.00"
-    },
-    "PA-00111-13": {
-     "unit_rate": "83.78"
-    },
-    "PA-00170-04": {
-     "unit_rate": "152.88"
-    },
-    "PA-00609-01": {
-     "unit_rate": null
-    },
-    "PA-00613-01": {
-     "unit_rate": "74.48"
-    },
-    "PA-00631-10": {
-     "unit_rate": "478.00"
-    },
-    "PA-00672-04": {
-     "unit_rate": "312.00"
-    },
-    "PA-00678-06": {
-     "unit_rate": "246.00"
-    },
-    "PA-00766-12": {
-     "unit_rate": "1524.00"
-    }
-   },
-   "dds": {
-    "MDS-00876-062": {
-     "unit_rate": "2746.55"
-    },
-    "MDS-00901-029": {
-     "unit_rate": "38.45"
-    },
-    "MDS-00954-021": {
-     "unit_rate": "2446.15"
-    },
-    "MDS-01393-036": {
-     "unit_rate": "2746.55"
-    }
-   },
-   "note": "the line keeps its value in its own application/invoice; CW P23 deducts it from the next valuation (G4 event)"
-  },
-  "lines_decided": 13,
   "effect_by_reading": {
    "adopted": {
     "reading": "A",
     "lines": 13,
     "payable": 0,
-    "value": "0.00"
+    "value": {
+     "SAR": "0",
+     "USD": "0"
+    }
    },
    "B": {
     "lines": 13,
-    "value_kept_on_single_rate_lines": "259341.35",
-    "lines_without_single_rate": 1,
-    "note": "no record caps the quantity, so the billed quantity at the contract rate; CW P23 would deduct it from the next valuation"
+    "value": {
+     "SAR": "213426.16",
+     "USD": "12707.05"
+    },
+    "note": "no record caps the quantity: the billed quantity at the contract rate (every admissible rate where the rate is conditional); CW P23 would deduct it from the next valuation (G4 event)"
    }
   }
  },
  "Q4": {
-  "status": "open",
-  "hourly_lines": 5549,
-  "lines_where_readings_differ": {
-   "MDS-00856-039": {
-    "Q4:A": {
-     "allowed_quantity": "6",
-     "amount": "1587.30"
-    },
-    "Q4:B": {
-     "allowed_quantity": "6",
-     "amount": "1587.30"
-    },
-    "Q4:C": {
-     "allowed_quantity": "7",
-     "amount": "1851.85"
-    },
-    "Q4:counts": {
-     "allowed_quantity": "7",
-     "amount": "1851.85"
-    }
-   },
-   "MDS-01338-026": {
-    "Q4:A": {
-     "allowed_quantity": "4",
-     "amount": "1058.20"
-    },
-    "Q4:B": {
-     "allowed_quantity": "4",
-     "amount": "1058.20"
-    },
-    "Q4:C": {
-     "allowed_quantity": "5",
-     "amount": "1322.75"
-    },
-    "Q4:counts": {
-     "allowed_quantity": "5",
-     "amount": "1322.75"
-    }
-   },
-   "MDS-01604-055": {
-    "Q4:A": {
-     "allowed_quantity": "15",
-     "amount": "6818.70"
-    },
-    "Q4:B": {
-     "allowed_quantity": "15",
-     "amount": "6818.70"
-    },
-    "Q4:C": {
-     "allowed_quantity": "16",
-     "amount": "7273.28"
-    }
-   },
-   "MDS-01651-025": {
-    "Q4:A": {
-     "allowed_quantity": "9",
-     "amount": "3290.40"
-    },
-    "Q4:B": {
-     "allowed_quantity": "9",
-     "amount": "3290.40"
-    },
-    "Q4:C": {
-     "allowed_quantity": "10",
-     "amount": "3656.00"
-    }
-   },
-   "MDS-01670-038": {
-    "Q4:A": {
-     "allowed_quantity": "21",
-     "amount": "8124.48"
-    },
-    "Q4:B": {
-     "allowed_quantity": "21",
-     "amount": "8124.48"
-    },
-    "Q4:C": {
-     "allowed_quantity": "22",
-     "amount": "8511.36"
-    }
-   },
-   "MDS-01877-046": {
-    "Q4:A": {
-     "allowed_quantity": "19",
-     "amount": "6946.40"
-    },
-    "Q4:B": {
-     "allowed_quantity": "19",
-     "amount": "6946.40"
-    },
-    "Q4:C": {
-     "allowed_quantity": "20",
-     "amount": "7312.00"
-    }
-   },
-   "MDS-01900-016": {
-    "Q4:A": {
-     "allowed_quantity": "19",
-     "amount": "6946.40"
-    },
-    "Q4:B": {
-     "allowed_quantity": "19",
-     "amount": "6946.40"
-    },
-    "Q4:C": {
-     "allowed_quantity": "20",
-     "amount": "7312.00"
-    }
-   }
-  },
-  "lines_where_all_readings_agree": 5542,
   "lines_decided": 7,
+  "hourly_lines": 5549,
+  "lines_where_readings_differ": [
+   "MDS-00856-039",
+   "MDS-01338-026",
+   "MDS-01604-055",
+   "MDS-01651-025",
+   "MDS-01670-038",
+   "MDS-01877-046",
+   "MDS-01900-016"
+  ],
   "effect_by_reading": {
    "A": {
     "lines": 7,
-    "value": "34771.88"
+    "value": {
+     "USD": {
+      "min": "33756.38",
+      "max": "46818.76"
+     }
+    }
    },
    "B": {
     "lines": 7,
-    "value": "34771.88"
+    "value": {
+     "USD": {
+      "min": "33756.38",
+      "max": "46818.76"
+     }
+    }
    },
    "C": {
     "lines": 7,
-    "value": "37239.24"
+    "value": {
+     "USD": {
+      "min": "36156.04",
+      "max": "48812.84"
+     }
+    }
    },
    "counts": {
     "lines": 2,
-    "value": "3174.60"
+    "value": {
+     "USD": "3174.60"
+    }
    }
   }
  },
  "Q5": {
-  "decided": {
-   "DD-102": "A (per coordinator recorded, Sch 8 intro p27, App G 'night man')",
-   "HC-630": "counted as recorded (Cl.30)",
-   "DD-120": "circulating hours only (Cl.21)"
-  },
-  "DD-102": {
-   "lines": 8151,
-   "under_A_payable": 8151,
-   "under_A_quantity": {
-    "1": 8151
-   },
-   "under_B": "no tool term exists for DD-102: tool-in-hole unestablishable on all lines (0 chargeable)"
-  },
-  "HC-630": {
-   "lines": 428,
-   "recorded_clean_out_runs_not_1": 0,
-   "under_per_BHA_run": "one per run on a run day (run lifecycle is G4 state)"
-  },
-  "DD-120_back_reaming_days": {
-   "lines": 428,
-   "note": "lines whose day records back-reaming hours; including them in DD-120 would raise the chargeable hours on these days"
-  },
-  "lines_decided": 9007,
+  "lines_decided": 8154,
   "effect_by_reading": {
    "adopted": {
-    "reading": "DD-102 A; HC-630 counts (Cl.30); DD-120 circulating only",
-    "lines": 9007,
-    "value": "11331630.94",
+    "reading": "DD-102 A (decided); DD-120, RM-530, HC-630: every reading computed (residual open)",
+    "lines": 8154,
     "DD-102": {
      "lines": 8151,
-     "value": "7732038.60"
+     "value": {
+      "USD": "7732038.60"
+     }
     },
-    "HC-630": {
-     "lines": 428,
-     "value": "1838623.80"
-    },
-    "DD-120 on back-reaming days": {
-     "lines": 428,
-     "value": "1760968.54"
+    "residual_lines_where_readings_differ": [
+     "MDS-00856-039",
+     "MDS-01338-026",
+     "MDS-01651-025"
+    ],
+    "value": {
+     "USD": "7732038.60"
     }
    },
    "B_DD102": {
     "lines": 8151,
-    "chargeable": 0,
-    "value": "0.00",
-    "note": "the Sch 8 row's 'tool in the hole' has no tool for DD-102: not establishable on any line"
+    "value": {
+     "USD": "0.00"
+    },
+    "note": "the Sch 8 row's 'tool in the hole' names no tool for DD-102: not establishable on any line"
    },
    "HC630_per_run": {
     "lines": 428,
-    "lines_that_could_differ": 0,
-    "note": "one charge per BHA run needs the run lifecycle (G4); lines recording other than one clean-out run could differ"
+    "lines_whose_amount_differs": 0,
+    "value": {
+     "USD": "1838623.80"
+    },
+    "g4_event": "under the Schedule 8 reading HC-630 is once per BHA run: G4 checks one charge per run (all 428 lines carry the dependency)"
    },
    "DD120_back_reaming": {
-    "lines": 428,
-    "lines_whose_allowed_hours_would_rise": 0,
-    "value_increase_at_most": "0"
+    "lines": 1,
+    "value": {
+     "USD": {
+      "min": "5118.40",
+      "max": "6781.88"
+     }
+    }
+   },
+   "RM530_circulating_or_back_reaming": {
+    "lines": 2,
+    "value": {
+     "USD": "3174.60"
+    }
    }
   }
  },
  "Q8": {
-  "decided": "A (explicit defaults and disclosed proxies)",
-  "class_factor_from_invoice_header": {
-   "lines": 24217,
-   "non_standard": 10266
-  },
-  "pd210_nomination_not_supplied": {
-   "lines": 2390,
-   "conditional": 2390,
-   "not_performance_section": 0
-  },
-  "cw_night_and_rest_day_rest_alone": {
-   "lines": 0,
-   "line_refs": []
-  },
-  "lines_decided": 26607,
+  "lines_decided": 27254,
   "effect_by_reading": {
    "adopted": {
-    "reading": "A",
-    "lines": 26607,
-    "class_proxy_lines": 24217,
-    "value_class_proxy_lines": "73300566.08",
-    "pd210_conditional_lines": 2390,
-    "value_pd210_if_nominated": "21356375.55"
+    "reading": "conditional across every admissible value where the contract's authority is not supplied; explicit contractual defaults applied (P11 rest-day alone)",
+    "lines": 27254,
+    "class_lines": 24215,
+    "value_class_lines": {
+     "USD": {
+      "min": "66785947.96",
+      "max": "88497468.43"
+     }
+    },
+    "value_by_class": {
+     "USD": {
+      "Standard": {
+       "min": "66785947.96",
+       "max": "66789280.92"
+      },
+      "Extended Reach": {
+       "min": "78475297.28",
+       "max": "78479213.57"
+      },
+      "HPHT": {
+       "min": "88493052.25",
+       "max": "88497468.43"
+      }
+     }
+    },
+    "ground_lines": 649,
+    "value_ground_lines": {
+     "SAR": {
+      "min": "7970354.01",
+      "max": "13901453.76"
+     }
+    },
+    "value_by_ground": {
+     "SAR": {
+      "G1": {
+       "min": "7970354.01",
+       "max": "8016904.83"
+      },
+      "G2": {
+       "min": "8478855.30",
+       "max": "8528451.94"
+      },
+      "G3": {
+       "min": "9496505.88",
+       "max": "9551973.27"
+      },
+      "G4": {
+       "min": "11658584.69",
+       "max": "11726750.76"
+      },
+      "G5": {
+       "min": "13820645.90",
+       "max": "13901453.76"
+      }
+     }
+    },
+    "pd210_conditional_on_nomination": 2390,
+    "value_pd210_if_nominated": {
+     "USD": "21356375.55"
+    },
+    "cw_night_and_rest_day_rest_alone": 0
+   },
+   "A": {
+    "lines": 24864,
+    "reading": "the claim's own class taken as a proxy (the G3 reading before correction)",
+    "value": {
+     "USD": {
+      "min": "73332692.46",
+      "max": "73336093.12"
+     },
+     "SAR": {
+      "min": "10091959.36",
+      "max": "10155057.97"
+     }
+    },
+    "note": "claim-stated classes as authority: rejected (DDS Cl.4, P2/P3; CW S4, Cl.5)"
    },
    "B": {
-    "lines": 26607,
+    "lines": 27254,
     "value": null,
-    "note": "every amount depending on the unsupplied call-off (class, nomination) unresolved: no value on these lines"
+    "note": "every amount depending on an unsupplied document unresolved: no value on these lines"
    }
   }
  },
  "Q11": {
-  "accumulator": "no effect on the pinned data: records bound 10,002 m < 40,000 m per well (spec/question_scopes.json)",
-  "tolerance": "25A applied per charge against the metres the report supports for its interval",
-  "wrong_unit_remedy": {
-   "status": "open",
-   "dds_lines_billed_in_another_unit": []
-  },
-  "pd210_quantity_above_report": 0,
   "lines_decided": 0,
   "effect_by_reading": {
    "adopted": {
-    "reading": "accumulator and tolerance decided; wrong-unit remedy open",
+    "reading": "accumulator and 25A decided; wrong-unit remedy open (G5)",
     "lines": 0,
-    "value": "0"
+    "value": {}
    },
    "wrong_unit_A": {
     "lines": 0,
-    "note": "value per supported quantity"
+    "value": {}
    },
    "wrong_unit_B": {
     "lines": 0,
-    "value": "0.00"
+    "value": {}
    }
-  }
+  },
+  "pd210_quantity_above_report": 0,
+  "pd210_tolerance_alternatives": 0
  },
  "Q13": {
-  "decided": "A (Part E hours, Cl.31 'as stated on the Lost in Hole Report'; corroborated by P12 tool history)",
-  "lh_lines": 54,
-  "part_e_equals_tool_history": 54,
-  "losses": 54,
   "lines_decided": 54,
+  "losses": 54,
+  "part_e_equals_tool_history": 54,
   "effect_by_reading": {
    "adopted": {
     "reading": "A",
     "lines": 54,
     "payable": 54,
-    "value": "31427958.99"
+    "value": {
+     "USD": "31427958.99"
+    }
    },
    "B": {
     "lines": 54,
     "lines_whose_amount_differs": 27,
-    "value": "29241596.08"
+    "value": {
+     "USD": "29241596.08"
+    }
    },
    "C": {
     "lines": 54,
-    "note": "a query bounded by A and B: no longer needed (Part E equals the tool history on every loss)"
+    "note": "a query bounded by A and B: not needed (Part E equals the tool history on every loss)"
    }
   }
  },
  "G3-D1": {
-  "CW": {
-   "lines": 52,
-   "payable_under_D1": 51,
-   "value_under_D1_single_amount_lines": {
-    "lines": 44,
-    "value": "785237.33"
-   },
-   "value_under_D1_lines_without_single_amount": {
-    "lines": 7,
-    "min": "153653.46",
-    "max": "165781.30",
-    "note": "band-conditional (CW) or Q4 alternatives (DDS): bounded by the smallest and largest carried amount"
-   },
-   "under_alternative": "not payable now: value 0.00 on these lines"
-  },
-  "DDS": {
-   "lines": 419,
-   "payable_under_D1": 416,
-   "value_under_D1_single_amount_lines": {
-    "lines": 416,
-    "value": "913263.45"
-   },
-   "value_under_D1_lines_without_single_amount": {
-    "lines": 0,
-    "min": "0",
-    "max": "0",
-    "note": "band-conditional (CW) or Q4 alternatives (DDS): bounded by the smallest and largest carried amount"
-   },
-   "under_alternative": "not payable now: value 0.00 on these lines"
-  },
   "lines_decided": 471,
+  "by_contract": {
+   "CW": 52,
+   "DDS": 419
+  },
   "effect_by_reading": {
    "adopted": {
     "lines": 471,
     "payable": 467,
-    "value_single_amount_lines": "1698500.78"
+    "value": {
+     "SAR": {
+      "min": "893251.03",
+      "max": "1002832.87"
+     },
+     "USD": {
+      "min": "896255.96",
+      "max": "979093.58"
+     }
+    },
+    "note": "the line's supported contract value is kept; whether the non-compliant submission is payable now is not decided here (payment timing, G5)"
    },
    "not_payable_now": {
     "lines": 471,
-    "value": "0.00"
+    "value": {
+     "SAR": "0.00",
+     "USD": "0.00"
+    }
    }
   }
  },
  "G3-D2": {
-  "lines": 33,
-  "schedule5_not_payable": 1,
-  "others_payable_under_D2": 32,
-  "under_alternative": "every line on an unsigned report not payable",
   "lines_decided": 33,
   "effect_by_reading": {
    "adopted": {
     "lines": 33,
     "not_payable": 1,
-    "value": "55798.69"
+    "value": {
+     "USD": {
+      "min": "51926.62",
+      "max": "56186.27"
+     }
+    }
    },
    "all_lines": {
     "lines": 33,
-    "value": "0.00"
+    "value": {
+     "USD": "0.00"
+    }
+   }
+  }
+ },
+ "G3-D3": {
+  "lines_decided": 7145,
+  "zone_lines": 6978,
+  "night_lines": 167,
+  "note": "values at the lowest admissible band/ground alternative where the line is conditional",
+  "effect_by_reading": {
+   "adopted": {
+    "lines": 7145,
+    "value": {
+     "SAR": {
+      "zone_lines": "158626085.98",
+      "night_lines": "7746942.10"
+     }
+    },
+    "reading": "zone and night work as stated in the application, disclosed on each line"
+   },
+   "unverified_zone": {
+    "lines": 6978,
+    "value": {
+     "SAR": {
+      "min": "141449470.44",
+      "max": "180036527.88"
+     }
+    },
+    "note": "the value under every zone Z1-Z4"
+   },
+   "unverified_night": {
+    "lines": 167,
+    "value": {
+     "SAR": "7094881.45"
+    },
+    "note": "without the night uplift"
    }
   }
  }

@@ -30,15 +30,30 @@ from audit.common import Queue  # noqa: E402
 DIR = ROOT / "verification" / "g3" / "cases"
 OUT = ROOT / "verification" / "g3" / "case_comparison.json"
 DISPOSITIONS = ROOT / "verification" / "g3" / "case_dispositions.yaml"
-VOCAB = {  # prompt v2 codes; v1 readers had no identity code, and none of their cases carries an identity variant
-    "CW": {"contract_ref_variant", "subcontractor_mismatch", "out_of_term", "submitted_early", "submitted_late", "outside_period", "wrong_unit", "record_missing",
+VOCAB_V1 = {
+    "CW": {"out_of_term", "submitted_early", "submitted_late", "outside_period", "wrong_unit", "record_missing",
            "record_wrong_series", "record_unsigned", "record_date_mismatch", "record_area_mismatch",
            "item_not_supported_by_record", "quantity_above_record", "week_not_measurable", "rate_differs", "amount_arithmetic"},
-    "DDS": {"contract_ref_variant", "contractor_mismatch", "line_well_differs_from_invoice", "out_of_term", "submitted_early", "submitted_late", "outside_period", "wrong_unit", "rate_differs",
+    "DDS": {"out_of_term", "submitted_early", "submitted_late", "outside_period", "wrong_unit", "rate_differs",
             "amount_arithmetic", "report_missing", "report_unsigned", "report_date_mismatch", "well_mismatch",
             "required_part_missing", "status_mismatch", "section_mismatch", "not_chargeable_on_standby",
             "not_chargeable_on_operating", "tool_not_in_hole", "quantity_above_report", "band_crossing_not_split"},
 }
+VOCAB_V2 = {"CW": VOCAB_V1["CW"] | {"contract_ref_variant", "subcontractor_mismatch"},
+            "DDS": VOCAB_V1["DDS"] | {"contract_ref_variant", "contractor_mismatch", "line_well_differs_from_invoice"}}
+VOCAB_V3 = {"CW": VOCAB_V2["CW"] | {"ground_differs_from_record"}, "DDS": VOCAB_V2["DDS"] | {"depths_differ_from_quantity"}}
+VOCAB = VOCAB_V3                     # the union; each expected file is compared in its own prompt's vocabulary
+
+
+def vocab_for(expected_file: str, contract: str) -> set:
+    if "_correction" in expected_file or "_reread" in expected_file:
+        return VOCAB_V3[contract]
+    if "_identity" in expected_file:
+        return VOCAB_V2[contract]
+    return VOCAB_V1[contract]
+
+
+FACTUAL = ("class", "ground", "band")    # alternatives over facts the case does not give; others are readings
 
 
 def _d(x):
@@ -61,12 +76,18 @@ def load_cases() -> dict[str, dict]:
 
 
 def load_expected() -> dict[str, dict]:
+    """Every reader's result; a v3 re-reading (expected_*_reread.jsonl) replaces the earlier result for its case, which
+    is kept under `_superseded` (the earlier files are never edited)."""
     out = {}
-    for f in sorted(DIR.glob("expected_*.jsonl")):
+    files = sorted(DIR.glob("expected_*.jsonl"), key=lambda f: ("_reread" in f.name, f.name))
+    for f in files:
         for ln in f.read_text().splitlines():
             if ln.strip():
                 e = json.loads(ln)
                 e["_file"] = f.name
+                if e["id"] in out:
+                    e["_superseded"] = {"file": out[e["id"]]["_file"], "amount": out[e["id"]].get("amount"),
+                                        "payable": out[e["id"]].get("payable")}
                 out[e["id"]] = e
     return out
 
@@ -83,7 +104,7 @@ def engine_result(case: dict):
         rec = None
         if case.get("record"):
             rec = records_cw.parse_file(f"civilwork/records/{line['record_ref']}.txt", case["record"], Queue())
-        band = _d(case.get("state", {}).get("band_pct", "100"))
+        band = _d(case.get("state", {}).get("band_pct", "100"))      # null = the band state is not known (G4)
         return g3_cw.evaluate(line, app, rec, rec is not None, band_pct=band)
     i, l = case["invoice"], case["line"]
     inv = {"contract_ref": i["contract_ref"], "contractor": i["contractor"], "well_name": i["well_name"], "well_class": i["well_class"],
@@ -98,6 +119,20 @@ def engine_result(case: dict):
     return g3_dds.evaluate(line, inv, ddr, question_readings=case.get("question_readings") or {})
 
 
+def _split(label: str | None):
+    parts = [x for x in (label or "").split("|") if x]
+    fact = "|".join(sorted(x for x in parts if x.split(":", 1)[0] in FACTUAL))
+    return fact
+
+
+def _alt_table(alts: dict) -> dict:
+    """factual key (class/ground/band) -> sorted set of (allowed, amount) over the reading variants"""
+    t = {}
+    for k, v in alts.items():
+        t.setdefault(_split(k), set()).add((str(_d(v.get("allowed_quantity"))), str(_d(v.get("amount")))))
+    return {k: sorted(v) for k, v in sorted(t.items())}
+
+
 def compare(case: dict, exp: dict | None, res) -> list[dict]:
     cid, contract = case["id"], case["contract"]
     if exp is None:
@@ -107,14 +142,23 @@ def compare(case: dict, exp: dict | None, res) -> list[dict]:
     def add(field, rv, ev, agree=None):
         out.append({"id": cid, "field": field, "reader": rv, "engine": ev, "agree": (rv == ev) if agree is None else agree})
 
-    alts = {k: v for k, v in res.alternatives.items() if "amount" in v}
-    if not alts:
-        add("payable", exp.get("payable"), res.payable)
+    ealts = {k: v for k, v in res.alternatives.items() if "amount" in v}
+    if not any(v.get("allowed_quantity") == 0 for v in ealts.values()):
+        add("payable", exp.get("payable"), res.payable)    # else payability itself depends on an open reading (Q11 B)
+    ralts = exp.get("alternatives") or {}
     ra, rq = _d(exp.get("amount")), _d(exp.get("allowed_quantity"))
-    if res.amount_status == "alternatives" and alts:
-        match = [k for k, v in alts.items() if _d(v["amount"]) == ra and _d(v["allowed_quantity"]) == rq]
-        add("amount|allowed_quantity (alternatives)", f"{rq} / {ra}", {k: f"{v['allowed_quantity']} / {v['amount']}" for k, v in alts.items()},
-            agree=bool(match))
+    if ealts or ralts:
+        if ralts:
+            et, rt = _alt_table(ealts) if ealts else {"": [(str(res.allowed_quantity), str(res.amount))]}, _alt_table(ralts)
+            add("alternatives", rt, et)
+        else:
+            # a reader who gave one value: it agrees only where the engine's alternatives are readings of text the
+            # contract does not settle (the reader then applied one of them); over facts the case does not give
+            # (class, ground, band) a single value means the reader took an input the case does not establish
+            factual = any(_split(k) for k in ealts)
+            match = [k for k, v in ealts.items() if _d(v["amount"]) == ra and _d(v["allowed_quantity"]) == rq]
+            add("amount|allowed_quantity (alternatives)", f"{rq} / {ra}",
+                {k: f"{v['allowed_quantity']} / {v['amount']}" for k, v in ealts.items()}, agree=bool(match) and not factual)
     else:
         add("allowed_quantity", str(rq) if rq is not None else None, str(res.allowed_quantity) if res.allowed_quantity is not None else None,
             agree=(rq == res.allowed_quantity))
@@ -122,10 +166,10 @@ def compare(case: dict, exp: dict | None, res) -> list[dict]:
     rr = _d(exp.get("unit_rate"))
     if rr is not None and res.unit_rate is not None and (res.payable or exp.get("payable")):
         add("unit_rate", str(rr), str(res.unit_rate), agree=(rr == res.unit_rate))
-    vocab = VOCAB[contract]
-    rf = sorted(set(exp.get("findings") or []) & vocab)
-    ef = sorted(set(res.findings) & vocab)
-    add("findings", rf, ef)
+    vocab = vocab_for(exp.get("_file", ""), contract)
+    add("findings", sorted(set(exp.get("findings") or []) & vocab), sorted(set(res.findings) & vocab))
+    if "unresolved" in exp:
+        add("unresolved", sorted(set(exp.get("unresolved") or []) & vocab), sorted(set(res.unresolved) & vocab))
     return out
 
 
@@ -150,7 +194,8 @@ def run(dispositions: dict | None = None) -> dict:
     by = lambda pred: sum(1 for x in rows if pred(x))  # noqa: E731
     return {"cases": len(cases), "expected": len(exps), "comparisons": len(rows), "agree": by(lambda x: x["agree"]),
             "disposed": by(lambda x: "disposition" in x), "failures": failures,
-            "categories": sorted({c["tests"] for c in cases.values()}), "rows": rows}
+            "categories": sorted({c["tests"] for c in cases.values()}),
+            "superseded": {k: v["_superseded"] for k, v in sorted(exps.items()) if "_superseded" in v}, "rows": rows}
 
 
 def main() -> int:

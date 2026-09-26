@@ -222,6 +222,14 @@ def main() -> int:
         "cw_dx_records_with_stated_depth_exactly_2_or_4_m": sum(
             1 for r in world.cw.values() if r.attributes.get("depth_m") in ("2", "4", "2.0", "4.0")),
         "cw_dx_records_with_stated_depth": sum(1 for r in world.cw.values() if "depth_m" in r.attributes),
+        # D8: documents bound in each contract but outside its Cl.2 list; every line relies on at least one of them
+        # (CW Part II measurement/rounding Cl.25-39 and Part III records; DDS Appendix G maps every report term to a code)
+        "lines_relying_on_documents_outside_cl2_lists": {"cw": len(cl), "dds": len(dl)},
+        "documents_outside_cl2_lists": {
+            "cw": ["Part II (Cl.25-39)", "Part III (Cl.40-52)", "Part IV (S1-S20)", "Part V (P1-P25)", "Part VI (H1-H15)",
+                   "particular conditions 3A-47A (pp32-33)", "Schedules 2A, 2B", "Schedules 6-8", "Appendices B-C", "instruments S1-A3"],
+            "dds": ["Part VIII (R1-R12)", "Part IX (3A, 17A, 17B, 19A, 21A, 25A, 31A, 36A)", "Schedules 7-8", "Appendices D-G",
+                    "instruments S1-A3"]},
     }
     path = sl.SPEC / "question_scopes.json"
     path.write_text(json.dumps(out, indent=1) + "\n")

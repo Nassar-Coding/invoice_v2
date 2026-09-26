@@ -122,6 +122,7 @@ class CwTerms(_Base):
         self.rest = {r[0]: D(r[1]) for r in t["CW.T11_REST"]["rows"]}
         self.banded = {r[0] for r in t["CW.T12_BANDS"]["rows"]}
         self.band_pcts = {r[0]: [D(r[4]), D(r[5]), D(r[6])] for r in t["CW.T12_BANDS"]["rows"]}   # pct_band1..3
+        self.band_edges = {r[0]: (D(r[2]), D(r[3])) for r in t["CW.T12_BANDS"]["rows"]}          # band1_to, band2_to
         self.limited = {r[0] for r in t["CW.T13_DAILY_LIMITS"]["rows"]}
         self.excluded = {r[0] for r in t["CW.T14_EXCLUSIONS"]["rows"]}
         self.surveyed = {r[0] for r in t["CW.T15_SURVEYED"]["rows"]}

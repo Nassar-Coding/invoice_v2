@@ -7,6 +7,13 @@ quantities (6A first hour, 47A five-day week, 33A 2% survey tolerance, record ca
 USD conversion (26A) and indexation (29A) half-even, build-up zone -> ground -> night -> rest-day -> band -> S2/A2
 discount (Cl.27, 27A, P11), rounded once half-up (Cl.28), and line arithmetic.
 
+Authority for pricing inputs (G3 correction round): the ground class is the one recorded at excavation on the site
+record (S4; Cl.5 the Engineer's written confirmation) or G2 after 27 Sep 2025 (27A) - never the application's own
+statement; where no supplied record states it the line carries every ground class (S4's G2 is the value if it was not
+recorded on the day). The zone and night working are facts only the application states (Cl.4, Cl.7, Cl.42): they are
+taken as stated and disclosed on the line (G3-D3). An amount that differs from quantity x billed rate on a line whose
+band is not known is not an established arithmetic error where Cl.28's division at a band edge reproduces it.
+
 Not decided here (G4): annual quantity-band state, daily limits, exclusions, duplicates, the posting of the A3
 retrospective adjustment and P23 recovery. They are listed on each result as g4_dependencies. The band is an input:
 a reference case states it; on the population it is unknown (band_pct=None), so a band-rated line is priced under
@@ -16,6 +23,7 @@ every band, its rate is checked against all of them, and its amount is 'conditio
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 from decimal import Decimal
 
 from . import terms
@@ -208,57 +216,89 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
         r.add("quantity", "pass", "CW-R07", "Cl.25 (p6)", detail="no record prescribed; quantity as measured in the application")
     # 7-8 rate ------------------------------------------------------------------------------------------------
     zone = (line.get("site_zone") or "").split(" ")[0] or None
+    if sch["series"] in T.zone_series and zone:
+        r.readings.append(f"zone {zone} as stated in the application (Cl.4, Cl.42; no supplied record states the zone; G3-D3)")
+    if line.get("night_work") == "Y" and code in T.night:
+        r.readings.append("night work as stated in the application (Cl.7; no supplied record states the time of work; G3-D3)")
+    # ground classification (F2): the authority is the classification recorded at excavation (S4; Cl.5 the Engineer's
+    # written confirmation, not supplied) - never the application's own statement (Cl.42 requires it to state one)
+    ground_opts = [(None, None)]
     if code in T.ground_items:
-        if wd > T.g2_after:
-            ground, gsrc = "G2", "27A: work after 27 Sep 2025 taken as G2"
-        elif record is not None and evidence_ok and record.ground:
-            ground, gsrc = record.ground, "classification on the site record"
-        elif line.get("ground_class"):
-            ground, gsrc = line["ground_class"].split(" ")[0], "classification stated on the application (no record states one)"
-        else:
-            ground, gsrc = T.unrecorded_ground, "S4: not recorded on the day, taken as G2"
         claimed = (line.get("ground_class") or "").split(" ")[0] or None
-        if claimed and claimed != ground and wd <= T.g2_after:
-            r.add("rate", "finding", "CW-R13", "S4 (p10); Cl.42 (p8)", "ground_differs_from_record", f"application {claimed}, {ground} applied")
-        r.readings.append(f"ground {ground}: {gsrc}")
-    else:
-        ground = None
-    band_unknown = code in T.banded and band_pct is None
-    try:
-        args = (code, wd, app["application_date"], zone, ground, line.get("night_work") == "Y")
-        if band_unknown:
-            by_band = {f"band {i}": price(*args, pct, T) for i, pct in enumerate(T.band_pcts[code], 1)}
-            rate, tr, readings = by_band["band 1"]
-            readings = [x for x in readings if not x.startswith("band_pct=")] + ["band state unknown at G3: every band priced (G4, CW-R14)"]
+        if wd > T.g2_after:
+            ground_opts = [(None, "G2")]
+            r.readings.append("ground G2: 27A, work after 27 Sep 2025 taken as G2")
+        elif record is not None and evidence_ok and record.ground:
+            ground_opts = [(None, record.ground)]
+            r.readings.append(f"ground {record.ground}: classification recorded on the site record {line.get('record_ref')} (S4)")
         else:
-            by_band = {}
-            rate, tr, readings = price(*args, band_pct if band_pct is not None else Decimal("100"), T)
+            ground_opts = [(f"ground:{g}", g) for g in T.ground]
+            r.readings.append(f"ground not evidenced: no supplied record states the classification; the application states "
+                              f"{claimed or 'none'} (the claim, not authority: S4, Cl.5); G2 if not recorded on the day (S4)")
+            r.condition("ground", "G5", "S4 (p10) classification recorded at excavation, G2 if not recorded on the day; "
+                        "Cl.5 (p3) Engineer's written confirmation (not supplied); the application's class is the claim "
+                        f"({claimed or 'none'}), not authority")
+        recorded = record is not None and evidence_ok and record.ground
+        if recorded and claimed and claimed != record.ground and wd <= T.g2_after:
+            r.add("rate", "finding", "CW-R13", "S4 (p10); Cl.42 (p8)", "ground_differs_from_record",
+                  f"application {claimed}, {record.ground} recorded")
+        elif not recorded:
+            r.add("rate", "unresolved", "CW-R13", "S4 (p10); Cl.42 (p8)", "ground_differs_from_record",
+                  f"no supplied record states the classification: the application's {claimed or 'blank'} cannot be compared")
+    band_unknown = code in T.banded and band_pct is None
+    if band_unknown:
+        band_opts = [(f"band:{i}", pct) for i, pct in enumerate(T.band_pcts[code], 1)]
+        r.readings.append("band state unknown at G3: every band priced (G4, CW-R14)")
+        r.condition("band", "G4", "Sch 4 Part 3 (pp24-25): the band follows the cumulative quantity in the Contract Year")
+    else:
+        band_opts = [(None, band_pct if band_pct is not None else Decimal("100"))]
+    priced = {}
+    try:
+        for (gl, g), (bl, pct) in itertools.product(ground_opts, band_opts):
+            rate_k, tr_k, rd_k = price(code, wd, app["application_date"], zone, g, line.get("night_work") == "Y", pct, T)
+            priced["|".join(x for x in (gl, bl) if x)] = (rate_k, tr_k, [x for x in rd_k if not (band_unknown and x.startswith("band_pct="))])
     except KeyError as e:
-        rate, tr, readings, by_band = None, Trace(), [], {}
+        priced = {}
+        tr = Trace()
         tr.note(f"not priced: no published index/FX for {e} (outside the tables)", "Sch 2A, 2B (pp21-22)")
-    r.readings += readings
-    r.unit_rate = None if by_band else rate
+    if priced:
+        first = next(iter(priced))
+        rate, tr, readings = priced[first]
+        r.readings += readings
+    else:
+        rate = None
+    multi = len(priced) > 1
+    r.unit_rate = None if multi else rate
     if rate is None:
         r.add("rate", "n/a", "CW-R10", "Sch 2A/2B", detail="no published index/FX month")
-    elif by_band:
-        match = [k for k, (rt, _t, _r) in by_band.items() if rt == line["rate_applied"]]
-        rates = ", ".join(f"{k} {rt}" for k, (rt, _t, _r) in by_band.items())
+    elif multi:
+        match = [k for k, (rt, _t, _r) in priced.items() if rt == line["rate_applied"]]
+        rates = ", ".join(f"{k} {rt}" for k, (rt, _t, _r) in priced.items())
         if match:
-            r.add("rate", "unresolved", "CW-R14", "Sch 4 Part 3 (pp24-25); Cl.27 (p6)",
-                  detail=f"billed {line['rate_applied']} is the {match[0]} rate ({rates}); which band applies is G4 state")
+            r.add("rate", "unresolved", "CW-R10", "Cl.27, Cl.28 (p6); Sch 3, Sch 4 Part 3 (pp23-25)", "rate_differs",
+                  f"billed {line['rate_applied']} is the rate under {', '.join(match)} ({rates}); which applies is not "
+                  f"established at G3 ({', '.join(c['dimension'] + ': ' + c['owner'] for c in r.conditions)})")
         else:
-            r.add("rate", "finding", "CW-R10", "Cl.27, Cl.28 (p6); Sch 4 Part 3 (pp24-25)", "rate_differs",
-                  f"billed {line['rate_applied']} is the rate of no band ({rates})")
+            r.add("rate", "finding", "CW-R10", "Cl.27, Cl.28 (p6); Sch 3, Sch 4 Part 3 (pp23-25)", "rate_differs",
+                  f"billed {line['rate_applied']} is the rate under no admissible alternative ({rates})")
     elif line["rate_applied"] != rate:
         r.add("rate", "finding", "CW-R10", "Cl.27, Cl.28 (p6); instruments pp38-43", "rate_differs", f"billed {line['rate_applied']}, contract {rate}")
     else:
         r.add("rate", "pass", "CW-R10", "Cl.27, Cl.28 (p6)")
-    # 9 arithmetic --------------------------------------------------------------------------------------------
-    if billed * line["rate_applied"] != line["amount"]:
-        r.add("arithmetic", "finding", "CW-R20", "Cl.28 (p6); Cl.43 (p8)", "amount_arithmetic",
-              f"{billed} x {line['rate_applied']} = {billed * line['rate_applied']}, billed {line['amount']}")
-    else:
+    # 9 arithmetic (F3): Cl.28 divides a quantity at a band edge and sums the parts, so where the band is G4 state an
+    # amount that a division at contract band rates reproduces exactly is not an established arithmetic error
+    if billed * line["rate_applied"] == line["amount"]:
         r.add("arithmetic", "pass", "CW-R20", "Cl.28 (p6)")
+    else:
+        split = band_split(code, billed, line["amount"], priced, T) if band_unknown and priced else None
+        if split:
+            r.add("arithmetic", "unresolved", "CW-R20", "Cl.28 (p6); Sch 4 Part 3 (pp24-25)", "amount_arithmetic",
+                  f"{billed} x {line['rate_applied']} = {billed * line['rate_applied']}, billed {line['amount']}; the amount equals "
+                  f"a division at a band edge ({split}); whether that division is the right one is G4 state")
+        else:
+            r.add("arithmetic", "finding", "CW-R20", "Cl.28 (p6); Cl.43 (p8)", "amount_arithmetic",
+                  f"{billed} x {line['rate_applied']} = {billed * line['rate_applied']}, billed {line['amount']}"
+                  + ("; no division at a band edge at the contract's band rates reproduces it" if band_unknown else ""))
     # amount --------------------------------------------------------------------------------------------------
     if payable and allowed == 0:
         payable = False
@@ -266,15 +306,15 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
             c.detail for c in r.checks if c.check == "quantity" and c.detail) + ")")
     r.payable = payable
     r.reasons = reasons
-    if payable and by_band:
+    if payable and multi:
         r.allowed_quantity, r.amount_status = allowed, "conditional"
-        reasons.append("rate depends on the annual quantity band (G4 state, CW-R14; Q6, Q12): the amount under each band "
-                       "is carried; a quantity crossing a band edge is divided at the edge, between these bounds")
-        for k, (rt, trk, _r) in by_band.items():
+        reasons.append("the rate depends on facts or state G3 does not have (" + "; ".join(
+            f"{c['dimension']}: {c['owner']}" for c in r.conditions) + "): the amount under each admissible alternative is "
+            "carried; a quantity crossing a band edge is divided at the edge, between the band amounts")
+        for k, (rt, trk, _r) in priced.items():
             amt = trk.amount(allowed, rt, "Cl.28 (p6): quantity x rounded rate")
-            r.alternatives[k] = {"condition": "whole allowed quantity in this band (G4 state)", "unit_rate": rt,
-                                 "allowed_quantity": allowed, "amount": amt, "trace": trk.steps}
-        tr.note("conditional on the G4 band state: one full trace per band in alternatives", "Sch 4 Part 3 (pp24-25)")
+            r.alternatives[k] = {"unit_rate": rt, "allowed_quantity": allowed, "amount": amt, "trace": trk.steps}
+        tr.note("conditional: one full trace per alternative in alternatives", "Sch 3 (p23); Sch 4 Part 3 (pp24-25)")
     elif payable:
         r.allowed_quantity = allowed
         r.amount = tr.amount(allowed, rate, "Cl.28 (p6): quantity x rounded rate")
@@ -282,6 +322,7 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
         r.allowed_quantity, r.amount = Decimal("0"), Decimal("0.00")
         tr.note("not payable: " + "; ".join(reasons), "; ".join(sorted({c.clause for c in r.checks if c.status == 'finding'})))
         r.amount_status = "not_payable"
+        r.conditions = []              # 0.00 whatever the band or ground: nothing is conditional
     r.trace = tr.steps
     # G4 dependencies (never applied here) --------------------------------------------------------------------
     if code in T.banded:
@@ -294,6 +335,36 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
     if any("31A protection" in x for x in r.readings):
         r.g4_dependencies.append("a3_adjustment (CW-R22): difference posted once on a later application")
     return r
+
+
+def band_split(code: str, quantity: Decimal, amount: Decimal, priced: dict, T) -> str | None:
+    """A division of the quantity at a band edge (Cl.28; Sch 4 Part 3) that reproduces the billed amount exactly at the
+    contract's own band rates (per ground alternative), with each part at the quantity's precision; None if none does.
+    Two adjacent bands, or all three where the quantity exceeds band 2's width. It does not say the division is right:
+    which part lies in which band follows the cumulative quantity (G4)."""
+    unit = Decimal(1).scaleb(min(quantity.as_tuple().exponent, 0))
+    by_ground = {}
+    for k, (rt, _t, _r) in priced.items():
+        dims = dict(x.split(":", 1) for x in k.split("|") if x)
+        by_ground.setdefault(dims.get("ground"), {})[int(dims["band"])] = rt
+    b1_to, b2_to = T.band_edges[code]
+    width2 = b2_to - b1_to
+    for g, rates in by_ground.items():
+        if len(rates) != 3:
+            continue
+        for lo, hi in ((1, 2), (2, 3)):
+            ra, rb = rates[lo], rates[hi]
+            if ra == rb:
+                continue
+            q = (amount - quantity * rb) / (ra - rb)
+            if 0 < q < quantity and q % unit == 0:
+                return f"{q} x {ra} (band {lo}) + {quantity - q} x {rb} (band {hi})" + (f", ground {g}" if g else "")
+        if quantity > width2 and rates[1] != rates[3]:
+            q1 = (amount - width2 * rates[2] - (quantity - width2) * rates[3]) / (rates[1] - rates[3])
+            if 0 < q1 < quantity - width2 and q1 % unit == 0:
+                return (f"{q1} x {rates[1]} (band 1) + {width2} x {rates[2]} (band 2) + {quantity - width2 - q1} x {rates[3]} (band 3)"
+                        + (f", ground {g}" if g else ""))
+    return None
 
 
 def inputs_from_world(w):

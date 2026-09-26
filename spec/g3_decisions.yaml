@@ -29,36 +29,42 @@ decisions:
     scope_key: Q4
     owner_after_G3: G5 (final amounts on the lines where the readings differ)
   - id: Q5
-    status: decided
-    reading: "DD-102 per coordinator recorded per day; HC-630 per clean-out run recorded; DD-120 on circulating hours only"
+    status: decided in part
+    reading: "DD-102 decided: per coordinator recorded per day. Residual (DD-120, RM-530, HC-630): not settled by the text; every reading is computed on every line and carried as alternatives where they differ"
     basis:
-      - "DD-102: Sch 8 introduction (p27) 'Item DD-102 is office based and is charged per day for each coordinator the Daily Drilling Report records' names the service; App G (p36) gives it the person term 'night man'; Sch 4 (p23) lists it as a position. The Sch 8 row's generic 'tool in the hole' wording cannot be applied: no tool term exists for DD-102"
-      - "HC-630: Sch 8 (p28) says 'each BHA run, as Clause 26 describes' but Cl.26 (p7) covers only DD-111 and LW-420; Cl.30 (p7) expressly counts 'clean-out runs ... in the numbers recorded on the Daily Drilling Report for an Operating day'"
-      - "DD-120: Cl.21 (p6) 'charged per circulating hour recorded'; back-reaming is its own service RM-530 (Sch 1; Cl.30)"
-    alternatives: {B_DD102: "per day the tool is in the hole (Sch 8 row): unestablishable on every DD-102 line", HC630_per_run: "one per BHA run (run lifecycle, G4)", DD120_back_reaming: "back-reaming hours added to DD-120"}
-    cases: [DDS-S36, DDS-S56, DDS-R11, DDS-R18]
+      - "DD-102: Sch 8 introduction (p27) 'Item DD-102 is office based and is charged per day for each coordinator the Daily Drilling Report records' names the service; App G (p36) gives it the person term 'night man'; Sch 4 (p23) lists it as a position. The Sch 8 row's generic 'tool in the hole' names no tool for DD-102"
+      - "DD-120 / RM-530: the Sch 8 rows (pp27-28) read 'each circulating or back-reaming hour recorded on the report' for both; Cl.21 (p6) charges DD-120 'per circulating hour recorded'; Cl.30 (p7) counts back-reaming hours as recorded; Sch 1 (pp15-16) describes DD-120 as 'circulating' and RM-530 as 'Back-reaming while tripping'"
+      - "HC-630: the Sch 8 row (p28) reads 'each BHA run, as Clause 26 describes', but Cl.26 (p7) describes only DD-111 and LW-420; Cl.30 (p7) counts 'clean-out runs ... in the numbers recorded on the Daily Drilling Report for an Operating day'"
+      - "Cl.2 (p3) 'A Schedule prevails over a Part' would favour the Sch 8 rows, but Cl.2 lists the contract documents as Parts I to VII, Schedules 1 to 6 and Appendices A to C, so it does not rank Schedule 8 by its own terms (decision D8); the G1 register decides each conflict on its own text (spec/overrides.yaml)"
+    alternatives: {B_DD102: "per day the tool is in the hole (Sch 8 row): unestablishable on every DD-102 line", HC630_per_run: "one charge per BHA run (Sch 8 row): once-per-run is G4 state", DD120_back_reaming: "DD-120 counts circulating or back-reaming hours (Sch 8 row)", RM530_circulating_or_back_reaming: "RM-530 counts circulating or back-reaming hours (Sch 8 row)"}
+    cases: [DDS-S36, DDS-S56, DDS-R11, DDS-R18, DDS-S64, DDS-S65]
     scope_key: Q5
+    residual_owner: "G5 (which hours DD-120/RM-530 count, and HC-630's reading); G4 (HC-630 once per BHA run under the Schedule 8 reading)"
   - id: Q8
-    status: decided
-    reading: "A: explicit contractual defaults and disclosed proxies; a condition no supplied document can evidence stays a stated condition on the amount"
+    status: decided in part
+    reading: "explicit contractual defaults applied (CW P11 rest-day alone); where the contract assigns a pricing input to a document not supplied, the claim's statement is not taken as that document: the value is carried under every admissible input (well class, ground class) or conditional on the fact (PD-210 nomination), each owned through G5"
     basis:
       - "CW P11 (p13): without a written instruction the rest-day uplift alone applies (explicit default)"
-      - "DDS P2/P3 (p11): class 'as the call-off so states' - the invoice header's well_class is used as the disclosed proxy for the unsupplied call-off"
+      - "DDS Cl.4 (p3): 'the well class stated in the call-off governs the whole well'; P2, P3 (p11) HPHT / Extended Reach 'where the call-off so states'; App A (p29) well class 'as stated in the call-off'. No call-off is supplied and no report states a class; the invoice header is the contractor's statement"
+      - "CW S4 (p10): material 'classified at the point of excavation and recorded on the daily excavation record'; 'a classification not recorded on the day of excavation shall be taken to be G2'; Cl.5 (p3): 'determined by the Engineer from the trial pit records and confirmed in writing'. The application's class (Cl.42 requires it to state one) is the claim; an unsupplied record is not proof that none was recorded"
       - "DDS Cl.19 (p6): section and status as recorded on the report (no proxy needed)"
       - "DDS Cl.23 (p6), App A (p29): PD-210 only on a 12-1/4 or 8-1/2 inch section the call-off nominates - section checked; the nomination is not supplied, so every PD-210 amount is 'conditional'"
-    alternatives: {B: "treat every charge depending on an unsupplied document as unresolved"}
-    cases: [DDS-S24, DDS-S14, DDS-R02, DDS-R04, DDS-R17, CW-S24]
+    note: "The drilling guidelines (principles 2-3) require uncertainty to be recorded where pricing evidence is missing."
+    alternatives: {A: "the claim's own class taken as a disclosed proxy (the reading before correction)", B: "treat every charge depending on an unsupplied document as unresolved (no value)"}
+    cases: [DDS-S24, DDS-S14, DDS-R02, DDS-R04, DDS-R17, CW-S24, DDS-S66, DDS-S67, CW-S59, CW-S60, CW-S61]
     scope_key: Q8
+    residual_owner: "G5 (reporting of class-, ground- and nomination-conditional amounts)"
   - id: Q11
     status: decided in part
-    reading: "accumulator: no effect on the pinned data (records bound); tolerance: 25A applied to each charge against the metres the report supports for its interval; wrong-unit remedy: open (no line affected)"
+    reading: "accumulator: no effect on the pinned data (records bound); tolerance: 25A applied to each charge against the metres the report supports for its interval, the charged metres priced at the band of the interval (F4); wrong-unit remedy: open (no line affected)"
     basis:
       - "Sch 2 Part 2 (p17) per well and Contract Year; records bound max 10,002 m per well < 40,000 m (spec/question_scopes.json Q11_DDS)"
-      - "25A (p35): 'Metres charged ... payable as charged ... exceeding that ... at the figure the report supports'; Cl.23, Cl.34 (pp6, 8): each charge states its depths"
+      - "25A (p35): 'Metres charged not exceeding the metres the report supports by more than 1 per cent are payable as charged'; Cl.23 (p6): PD-210 'at the rate of the Schedule 2 depth band in which the metres lie'; Cl.23, Cl.34 (pp6, 8): each charge states its depths"
       - "Cl.35 (p8) requires the Schedule 1 unit but states no remedy; CW Cl.26's full rejection is not imported"
     alternatives: {wrong_unit_A: "breach recorded, value per supported quantity", wrong_unit_B: "charge unsupported"}
-    cases: [DDS-S32, DDS-S33, DDS-S53, DDS-S14, DDS-S15, DDS-S16, DDS-S17]
+    cases: [DDS-S32, DDS-S33, DDS-S53, DDS-S14, DDS-S15, DDS-S16, DDS-S17, DDS-S68, DDS-S69, DDS-S70, DDS-S71]
     scope_key: Q11
+    residual_owner: "G5 (wrong-unit remedy; 0 lines on the pinned data)"
   - id: Q13
     status: decided
     reading: "A: the hours as stated on the Lost in Hole Report (Part E), corroborated by the lost tool's own daily history on the well"
@@ -78,6 +84,7 @@ decisions:
       - "CW Cl.41 (p8), DDS Cl.32-33 (p8): the period, window and one-well-per-invoice rules state no consequence"
       - "CW Agreement particulars (p1) and DDS particulars (p1) state the reference and the parties; CW Cl.42 (p8) lists an application's content without the reference; no clause makes a variant a condition of payment"
       - "CW Cl.48 / DDS Cl.42 (p8): they time payment of a correct submission; the contract states a payment bar expressly where it means one (CW Cl.43 'returned unpaid', Cl.46; DDS Cl.37)"
+    value_vs_payment: "payable here means the line's contract value is supported locally; whether a non-compliant submission is payable now (payment timing, withholding) is not decided at G3 and must not be read from this flag (G5, plan §8)"
     alternatives: {not_payable_now: "the line is not payable on the non-compliant submission (value 0.00 there)"}
     cases: [CW-S16, CW-S18, CW-S44, CW-S45, CW-S46, CW-S47, CW-S56, CW-S57, DDS-S06, DDS-S10, DDS-S44, DDS-S45, DDS-S46, DDS-S47, DDS-S57, DDS-S58, DDS-S59, DDS-S60]
     scope_key: G3-D1
@@ -91,3 +98,14 @@ decisions:
     alternatives: {all_lines: "every line on an unsigned report not payable"}
     cases: [DDS-S50]
     scope_key: G3-D2
+  - id: G3-D3
+    status: decided
+    reading: "facts the claim states and the contract names no other evidence for - the civil zone of physical execution and night working - are accepted as stated and disclosed on every line that relies on them; they are not classifications the contract assigns to another document"
+    basis:
+      - "CW Cl.4 (p3): 'The zone applicable to an item of work is the zone in which the work is physically executed'; Sch 2 (p20): 'A work area may extend into more than one zone' - no supplied record states the zone"
+      - "CW Cl.42 (p8): each application states 'the Site zone'; Cl.7 (p3): work between 18:00 and 06:00 is Night Work - no supplied record states the time of work"
+      - "Contrast (Q8): the well class is the call-off's (DDS Cl.4, p3) and the ground class the excavation record's or the Engineer's (CW S4 p10, Cl.5 p3) - there the claim is not taken"
+    alternatives: {unverified_zone: "value carried under every zone Z1-Z4", unverified_night: "value without the night uplift"}
+    cases: [CW-S22, CW-S23, CW-S24]
+    scope_key: G3-D3
+    note: "Disclosed on each line as a reading; tools/verify_g3.py X6 lists these two fields as not perturbed and why."

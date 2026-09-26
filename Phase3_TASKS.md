@@ -75,3 +75,16 @@ exclusions, duplicates, run/well lifecycles), no classification, flags, final to
 - [x] G3.4 Questions Q3, Q4, Q5, Q8, Q11, Q13 and carried items CI-01..03: decided with a discriminating case or kept open with alternatives and lines affected under each; G2 loss-hours corroboration corrected; stale check for missing-part items; G1 recorder path portability. — spec/g3_decisions.yaml + verification/g3/decision_scopes.json: Q3, Q5, Q8, Q13 decided; Q11 decided in part (wrong-unit remedy open, 0 lines); Q4 kept open (7 lines carry alternatives, owner G5); CI-01 resolved (Part E = tool history 54/54), CI-02/03 decided under Q3 A; stale check and recorder portability tested.
 - [x] G3.5 Code-family coverage: every billed code implemented or explicitly unresolved with owner. — spec/g3_code_families.yaml: 6 civil + 12 drilling families from the verified tables; every billed code (60 civil, 39 drilling) in one family; DS-900 deferred (G5); no unresolved line; X2 checks family, value/reason and pricing tables per line.
 - [x] G3.6 tools/verify_g3.py exit checks, each with a negative control that fails; all G0-G3 checks and tests; report Phase3_G3.md; fresh-clone run; gate3 tag text. — X1-X7 pass with 29 negative controls (tests/test_g3_gate.py); check_g3.sh: SPEC VERIFY OK, 159 tests, G2 VERIFY OK, G3 VERIFY OK; report Phase3_G3.md; fresh-clone run at the final commit and the gate3 text given in the conversation.
+
+## G3 correction round — independent audit Phase3_G3_audit_Agent2.md (G3 NOT PASS at c7abc4b)
+Closure evidence required (audit §8): F1/F2 supported authority or explicit conditional outcomes, false claim classes
+cannot silently set value; F3 split and non-split counterexamples without doing G4 early; F4 PD-210 reconciled with
+the two reproduced failures rejected; Q5 residual reconciled or kept with scope and owner; regenerated outputs with
+D1's value/payment distinction, Q13 and currency separation preserved.
+- [ ] R1 F1 well class: class-rated services priced under every class (Cl.4; P2, P3); header disclosed, owner G5; PD-210 nomination stays conditional; MDS-00001-008 counterexample; controls (X2 completeness, X6 claim perturbation).
+- [ ] R2 F2 ground class: record / 27A / every class with S4's G2 disclosed; PA-00031-06 counterexample; exposure 650/521; controls.
+- [ ] R3 F3 band arithmetic: Cl.28 division at contract band rates -> unresolved, else finding; PA-00076-08 and counterparts; prompt v3.
+- [ ] R4 F4 PD-210: allowed metres = parts = amount under 25A; crossing ambiguity exposed; X3 part rates/depths/quantities; controls 999.00 and quantity mismatch.
+- [ ] R5 Q5 residual: DD-120/RM-530 hours and HC-630 computed under every reading; Cl.2 list gap recorded (D8); owners G5/G4.
+- [ ] R6 X6 perturbs claim classifications; D1 value/payment; SAR/USD separated; Q11 blocks G5; G3-D3 zone/night disclosed.
+- [ ] R7 Independent v3 readers (new cases + 24 re-reads), scan check, all checks and tests, report Phase3_G3_corrections.md, fresh clone, gate3-r1 text.

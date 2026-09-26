@@ -66,11 +66,12 @@ questions:
       - {id: C, reading: "HC-630: per BHA run (Sch 8) vs per clean-out run recorded (Cl.30); RM-530/DD-120: whether back-reaming hours count for DD-120"}
     rules: [DDS-R06, DDS-R07, DDS-R15]
     scope_ref: [Q5_DDS]
-    status: decided
+    status: decided in part
     decided_at: G3
-    decision: "DD-102 A (per coordinator recorded; B is unestablishable: no tool term exists for DD-102); HC-630 per clean-out run recorded (Cl.30); DD-120 circulating hours only (Cl.21), back-reaming is RM-530"
+    decision: "DD-102 decided A (per coordinator recorded; B is unestablishable: no tool term exists for DD-102). Residual kept open (G3 correction round): DD-120 / RM-530 hours (Sch 8 rows vs Cl.21, Cl.30, Sch 1) and HC-630 (Sch 8 'each BHA run' vs Cl.30 count) - every reading computed on every line; 3 lines differ; Cl.2's precedence does not settle it (D8)"
     decision_ref: spec/g3_decisions.yaml#Q5
-    blocks: G3
+    blocks: G5
+    originally_blocks: G3
   - id: Q6
     title: Civil state basis - which quantity advances bands (measured vs claimed vs payable), cap/duplicate allocation, exclusion day counting
     sources: ["CW Cl.30-32, 44 (pp6, 8)", "Sch 4 Parts 3-5 (pp24-26)", "Cl.46, P23"]
@@ -102,11 +103,12 @@ questions:
       - {id: B, reading: "Treat every charge depending on an unsupplied document as unresolved"}
     rules: [CW-R13, CW-R18, CW-R19, CW-R23, DDS-R01, DDS-R15, DDS-R18, DDS-R19]
     scope_ref: [Q8]
-    status: decided
+    status: decided in part
     decided_at: G3
-    decision: "A with disclosed proxies: CW rest-day alone (P11); DDS class from the invoice header (proxy for the call-off); section/status from the report; every PD-210 amount stays conditional on the unsupplied call-off nomination (DDS-R19 stays open)"
+    decision: "Corrected at the G3 correction round: explicit contractual defaults applied (CW P11 rest-day alone; section/status from the report); the claim's own class is never taken for a document the contract names - DDS well class (Cl.4, P2/P3: the call-off) and CW ground class (S4, Cl.5: the excavation record / the Engineer) are carried under every admissible class, and PD-210 stays conditional on the unsupplied nomination; all owned through G5 (DDS-R19 stays open)"
     decision_ref: spec/g3_decisions.yaml#Q8
-    blocks: G3
+    blocks: G5
+    originally_blocks: G3
   - id: Q9
     title: Reporting semantics - binary flag for payment-only or procedural defects; unknown-total encoding; confidence meaning; undefined severity
     sources: ["README Task/Scoring", "guidelines principle 3, check 12"]
@@ -141,7 +143,8 @@ questions:
     decided_at: G3
     decision: "Accumulator: no effect on the pinned data (records bound). Tolerance: 25A per charge against the metres the report supports for its interval. Wrong-unit remedy (Cl.35 states none): kept open with alternatives A/B above; 0 DDS lines are billed in another unit (verification/g3/decision_scopes.json Q11), so it decides no line. DDS-R08 stays open."
     decision_ref: spec/g3_decisions.yaml#Q11
-    blocks: G3
+    blocks: G5
+    originally_blocks: G3
   - id: Q12
     title: "NEW (Phase 3). CW Contract Year for the Sch 4 Part 3 bands: does the count reset on 5 January 2026?"
     sources: ["CW 3A (p32, verbatim in verification/second_pass_visual_log.txt)", "Sch 4 Part 3 (p24)", "A1, A2 (pp40, 42)"]
@@ -224,3 +227,10 @@ decisions:
     reason: "'not exceeding' is the explicit bound and makes the bands contiguous without overlap, as the drilling contract states for its depth bands (boundary belongs to the shallower band, DDS Cl.23); no supplied record states 2 m or 4 m (scope), so the reading changes nothing on the pinned data"
     scope_ref: [D_scopes]
     scope_key: cw_dx_records_with_stated_depth_exactly_2_or_4_m
+  - id: D8
+    title: "NEW (G3 correction round). Documents bound in each contract but outside its Cl.2 list are operative"
+    settled_reading: "Every document bound in the contract under its reference is operative. CW Cl.2 (p3) lists only 'this Agreement, the General Conditions, Schedules 1 to 5 and Appendix A'; DDS Cl.2 (p3) lists 'Parts I to VII, Schedules 1 to 6 and Appendices A to C'. The lists are incomplete, and Cl.2's precedence sentence does not by itself rank the unlisted documents: each conflict is still decided on its own text (spec/overrides.yaml)"
+    alternative: "Only the listed documents are operative: the civil contract would lose Parts II-V (incl. Cl.26 units, Cl.28 rounding, Cl.46 records, S4, P11, P23) and the drilling contract Parts VIII-IX (17A, 17B, 21A, 25A, 31A), Schedules 7-8 and Appendices D-G"
+    reason: "Both contracts rely throughout on the unlisted documents (their contents pages list them; charges are built on Part II/III rules; Appendix G is how every report is read); the listed-only reading leaves no measurement, rounding or record rule and is not a workable contract. Consequence for Q5: Cl.2 'A Schedule prevails over a Part' does not by its own terms rank Schedule 8 (unlisted) over Cl.21/Cl.30, so the Q5 residual is kept as scoped alternatives"
+    scope_ref: [D_scopes]
+    scope_key: lines_relying_on_documents_outside_cl2_lists
