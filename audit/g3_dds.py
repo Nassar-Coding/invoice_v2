@@ -359,8 +359,11 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
                 t.note(f"allocation domain: {dom['count']} ways of placing {dom['allowed_m']} m in steps of {dom['step_m']} m; "
                        f"this is the {pl.split(':', 1)[1].split(',')[0]}-amount way; {dom['not_listed']}",
                        "Cl.23 (p6); Cl.34 (p8); 25A (p35); B2")
+            where = {p["band"]: p["measured"] for p in dom["parts"]} if dom else {}
             for band, pa, pb, qty, prate in parts:
-                t.part(f"band {band}: {pa}-{pb} m" + ("" if qty == pb - pa else f", {qty} m charged (25A)"), qty, prate,
+                m = where.get(band, f"{pa}-{pb}")
+                shown = "" if m == f"{pa}-{pb}" else f" (report measures {m} m)" if m else " (report measures no metres)"
+                t.part(f"band {band}: {pa}-{pb} m{shown}" + ("" if qty == pb - pa else f", {qty} m charged (25A)"), qty, prate,
                        f"DDS.T02_DEPTH_BANDS band {band} (Sch 2 p17); Cl.23 (p6): a boundary depth belongs to the shallower band; "
                        f"Cl.17 (p6): every amount in cents, half to even", mode="half_even")
             amt = t.total("amount = sum of depth-band parts", "Cl.23 (p6): each band part priced at its own rate")
@@ -556,14 +559,17 @@ def _pd210(line, a, r, T):
     parts = [(band, pa, pb, pb - pa, rate) for band, pa, pb, rate in pd210_parts(f, t, T)]
     if len(parts) > 1:
         r.add("quantity", "finding", "DDS-R12", "Cl.23 (p6)", "band_crossing_not_split", f"{f}-{t} spans {len(parts)} bands")
-    diff = allowed - sum((p[3] for p in parts), Decimal(0))
-    if not diff:
-        sets = {None: parts}
-    elif len(parts) == 1:
+    # where the metres can lie: in each band of the charged interval, the metres the report measures there (Cl.23: 'taken
+    # from the measured depths on the Daily Drilling Report'); the charge's own depths are the claim and never widen it
+    measured = {band: (pa, pb) for band, pa, pb, _rt in pd210_parts(lo, hi, T)}
+    cap = [measured[p[0]][1] - measured[p[0]][0] if p[0] in measured else Decimal(0) for p in parts]
+    if len(parts) == 1:
         band, pa, pb, _q, rate = parts[0]
         sets = {None: [(band, pa, pb, allowed, rate)]}
+    elif allowed == sum(cap, Decimal(0)) and cap == [p[3] for p in parts]:
+        sets = {None: parts}
     else:
-        sets = _allocation_sets(parts, allowed, pd210_step(allowed, f, t), r)
+        sets = _allocation_sets(parts, allowed, pd210_step(allowed, f, t, lo, hi), r, cap, measured)
     return allowed, f"report depths {start}-{end}; charged {f}-{t}; allowed {allowed} m", True, sets
 
 
@@ -575,12 +581,13 @@ def pd210_step(*xs: Decimal) -> Decimal:
     return Decimal(1).scaleb(min(min(x.as_tuple().exponent for x in xs), 0))
 
 
-def pd210_domain(parts, allowed: Decimal) -> tuple[list, list]:
+def pd210_domain(parts, allowed: Decimal, cap: list | None = None) -> tuple[list, list]:
     """Per-band bounds of the admissible allocations of the allowed metres to the bands a crossing interval spans (B2).
-    Fewer metres than the interval: each band carries between 0 and its interval length, the others taking the rest.
-    More metres than the interval (within 25A): each band carries at least its interval length, the excess anywhere in
-    the bands the charged interval spans."""
-    ln = [p[3] for p in parts]
+    `cap`: the metres the report measures in each band of the charged interval (default: the interval's own lengths).
+    Fewer metres than that: each band carries between 0 and its measured metres, the others taking the rest. More
+    (within 25A): each band carries at least its measured metres, the excess anywhere in the bands the charged interval
+    spans."""
+    ln = list(cap) if cap is not None else [p[3] for p in parts]
     total = sum(ln, Decimal(0))
     if allowed <= total:
         return [max(Decimal(0), allowed - (total - x)) for x in ln], [min(x, allowed) for x in ln]
@@ -601,13 +608,14 @@ def pd210_count(lo, hi, allowed: Decimal, step: Decimal) -> int:
     return ways[rest]
 
 
-def _allocation_sets(parts, allowed, step, r) -> dict:
+def _allocation_sets(parts, allowed, step, r, cap=None, measured=None) -> dict:
     """Every admissible allocation as its own alternative ('tolerance:<metres per band>'), or, beyond ENUMERATE_MAX,
     the lowest- and highest-amount allocations with the whole domain stated on the owned condition: the metres the
     charge's depths do not place are never put in one band by assumption (Cl.23 prices metres by the band they lie in;
     Cl.34 the charge states depths; 25A pays the charged metres)."""
-    lo, hi = pd210_domain(parts, allowed)
+    lo, hi = pd210_domain(parts, allowed, cap)
     count = pd210_count(lo, hi, allowed, step)
+    measured = measured or {p[0]: (p[1], p[2]) for p in parts}
 
     def label(qs, prefix=""):
         return "tolerance:" + prefix + " + ".join(f"{q} m in band {p[0]}" for q, p in zip(qs, parts))
@@ -646,6 +654,7 @@ def _allocation_sets(parts, allowed, step, r) -> dict:
         "dimension": "tolerance", "owner": DIM_OWNER["tolerance"][0], "basis": DIM_OWNER["tolerance"][1],
         "domain": {"mode": mode, "allowed_m": str(allowed), "step_m": str(step), "count": count,
                    "parts": [{"band": p[0], "from_m": str(p[1]), "to_m": str(p[2]), "interval_m": str(p[3]),
+                              "measured": (f"{measured[p[0]][0]}-{measured[p[0]][1]}" if p[0] in measured else None),
                               "min_m": str(a), "max_m": str(b)} for p, a, b in zip(parts, lo, hi)],
                    "listed": len(sets),
                    "not_listed": ("none" if mode == "enumerated" else

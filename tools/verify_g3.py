@@ -317,6 +317,35 @@ def _applies_to_work(rec, line: dict) -> bool:
     return same_day and rec.area is not None and rec.area == area and line["item_code"] in (rec.candidates or [])
 
 
+def pd210_measured_errors(r, ddr) -> list[str]:
+    """B2 (round 2): on a charge crossing band boundaries, each part's metres can lie only where the report measures them
+    within that part of the charged interval (Cl.23 'taken from the measured depths on the Daily Drilling Report'). The
+    range each part states (or, stated nothing, its whole interval) must equal the report's depths within the part -
+    read here from the report itself, not from the engine."""
+    if not r.payable or ddr is None:
+        return []
+    a = ddr.parts.get("A", {})
+    try:
+        start, end = D(a["Depth start (m MD)"]), D(a["Depth end (m MD)"])
+    except (KeyError, TypeError, ArithmeticError):
+        return []
+    e = []
+    for t in _traces(r):
+        steps = [s for s in t if s["op"] == "part" and PART_LABEL.search(s.get("label", ""))]
+        if len(steps) < 2:
+            continue                                        # one band: one rate wherever the metres lie
+        for s in steps:
+            m = PART_LABEL.search(s["label"])
+            pa, pb = D(m.group(2)), D(m.group(3))
+            lo, hi = max(pa, start), min(pb, end)
+            true = (lo, hi) if hi > lo else None
+            w = MEASURED.search(s["label"])
+            stated = ((D(w.group(1)), D(w.group(2))) if w.group(1) else None) if w else (pa, pb)
+            if stated != true:
+                e.append(f"PD-210 part {pa}-{pb} m: allocation bounded by {stated}, the report measures {true} there")
+    return sorted(set(e))
+
+
 def admissible_errors(contract: str, r, line: dict, T, w) -> list[str]:
     """F1: the well class is the call-off's (DDS Cl.4; P2, P3) - no call-off is supplied, so a class-rated service carries
     every class. F2: the ground class is the one recorded at excavation (CW S4; Cl.5) - where no supplied record states
@@ -338,6 +367,8 @@ def admissible_errors(contract: str, r, line: dict, T, w) -> list[str]:
             if _dim_values(r, "ground") or used != {f"ground {rec.ground}"}:
                 e.append(f"ground item whose record for this work states {rec.ground} priced under {sorted(used)} "
                          f"(alternatives over {sorted(_dim_values(r, 'ground'))}): an applicable record settles the class")
+    if contract == "DDS" and r.code == "PD-210":
+        e += pd210_measured_errors(r, w.ddr.get(line.get("report_ref") or ""))
     left = {x.split(":", 1)[0] for k in r.alternatives for x in (k or "").split("|") if x}
     owned = {c["dimension"]: c["owner"] for c in r.conditions}
     for d in left:
@@ -513,6 +544,7 @@ def table_figures(T, contract: str, code: str) -> set[Decimal]:
 
 
 PART_LABEL = re.compile(r"band (\d): (\d+(?:\.\d+)?)-(\d+(?:\.\d+)?) m")
+MEASURED = re.compile(r"report measures (?:(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?) m|no metres)")
 
 
 def pd210_part_errors(steps: list[dict], T) -> list[str]:
@@ -567,26 +599,33 @@ def pd210_domain_errors(r, T) -> list[str]:
         return []
     alts = [(k, a["trace"]) for k, a in r.alternatives.items() if a.get("trace") and any(s["op"] == "part" for s in a["trace"])]
     sets = alts or [(None, r.trace)]
-    parsed = {}
+    parsed, where = {}, {}
     for k, t in sets:
         ps = []
         for s in t:
             m = PART_LABEL.search(s.get("label", "")) if s["op"] == "part" else None
             if m:
                 ps.append((m.group(1), D(m.group(2)), D(m.group(3)), D(s["quantity"])))
+                w = MEASURED.search(s["label"])
+                where[m.group(1)] = (D(w.group(1)), D(w.group(2))) if w and w.group(1) else \
+                    None if w else (D(m.group(2)), D(m.group(3)))
         parsed[k] = ps
     intervals = {tuple(p[:3] for p in ps) for ps in parsed.values()}
     if len(intervals) != 1:
         return ["PD-210 alternatives priced on different intervals"]
     iv = next(iter(intervals))
-    lens = [b - a for _band, a, b in iv]
+    errs = [f"PD-210 band {b}: measured metres {where[b]} outside the charged part {a}-{e}"
+            for b, a, e in iv if where.get(b) and not (a <= where[b][0] <= where[b][1] <= e)]
+    # the metres can lie only where the report measures them within the charged interval (Cl.23); default the interval
+    lens = [(where[b][1] - where[b][0]) if where.get(b) else Decimal(0) for b, _a, _e in iv]
     allowed = r.allowed_quantity
     if allowed is None:
         return ["PD-210 alternatives without a common allowed quantity"]
     total = sum(lens, Decimal(0))
-    if len(iv) < 2 or total == allowed:
-        return []
-    unit = Decimal(1).scaleb(_grid_exponent(allowed, *[x for _b, a, b in iv for x in (a, b)]))
+    if len(iv) < 2 or (total == allowed and lens == [e - a for _b, a, e in iv]):
+        return errs
+    unit = Decimal(1).scaleb(_grid_exponent(allowed, *[x for _b, a, b in iv for x in (a, b)],
+                                            *[x for v in where.values() if v for x in v]))
     if allowed <= total:
         bounds = [(max(Decimal(0), allowed - (total - x)), min(x, allowed)) for x in lens]
     else:
@@ -602,7 +641,7 @@ def pd210_domain_errors(r, T) -> list[str]:
         return (sum(qs, Decimal(0)) == allowed and all(lo <= q <= hi and (q / unit) % 1 == 0 for q, (lo, hi) in zip(qs, bounds)))
 
     got = [tuple(p[3] for p in ps) for ps in parsed.values()]
-    errs = [f"PD-210 allocation {g} is not admissible (sum {allowed}, bands {bounds}, step {unit})" for g in got if not admissible(g)]
+    errs += [f"PD-210 allocation {g} is not admissible (sum {allowed}, bands {bounds}, step {unit})" for g in got if not admissible(g)]
     n = len(iv)
     verts = []
     for j in range(n):

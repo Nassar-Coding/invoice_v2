@@ -189,7 +189,7 @@ def test_b2_40_m_is_never_an_empty_payable_result():
     assert _x3(r) == []
 
 
-def _old_one_band_at_a_time(parts, allowed, step, r):
+def _old_one_band_at_a_time(parts, allowed, step, r, *_):
     """The round-1 engine: the whole difference moved into one band at a time (the re-audit's B2 defect)."""
     diff = allowed - sum(p[3] for p in parts)
     return {f"tolerance:{diff} m in band {band}": [p if j != i else (band, pa, pb, q + diff, rate) for j, p in enumerate(parts)]
@@ -210,7 +210,7 @@ def test_b2_control_x3_rejects_a_payable_line_with_no_amount_or_alternatives():
 
 
 def test_b2_engine_guard_never_emits_an_empty_payable_result(monkeypatch):
-    monkeypatch.setattr(g3_dds, "_allocation_sets", lambda *a: {})
+    monkeypatch.setattr(g3_dds, "_allocation_sets", lambda *a, **k: {})
     r = _case("DDS-S73")
     assert r.payable is None and r.amount_status == "unresolved" and "no_admissible_result" in r.unresolved
     assert _x3(r) == []
@@ -336,6 +336,70 @@ def test_b2_four_bands_checked_by_x3_independent_count():
     next(x for x in bad.conditions if x["dimension"] == "tolerance")["domain"]["count"] = 55
     assert any("bounds without the whole domain stated" in e for e in _x3(bad))
 
+
+
+from audit import records_dds  # noqa: E402
+from audit.common import Queue  # noqa: E402
+
+MEASURED_PROBES = [   # (charge from, to, quantity, report start, end): the report measures less than the charged interval
+    ("1450", "1550", "99", "1451", "1550"), ("1450", "1550", "97", "1451", "1550"), ("1400", "1610", "202", "1400", "1600"),
+    ("1440", "1560", "110", "1450", "1560"), ("1497", "3003", "1500", "1498", "3002")]
+
+
+def _measured_case(f, t, qty, start, end):
+    c = copy.deepcopy(gcc.load_cases()["DDS-S72"])
+    c["line"].update(quantity=qty, depth_from_m=f, depth_to_m=t)
+    c["report"] = c["report"].replace("Depth start (m MD): 1450", f"Depth start (m MD): {start}").replace(
+        "Depth end (m MD): 1550", f"Depth end (m MD): {end}")
+    return c
+
+
+@pytest.mark.parametrize("f, t, qty, start, end", MEASURED_PROBES)
+def test_b2_the_report_bounds_where_the_metres_lie(f, t, qty, start, end):
+    """Found in round 2's own falsification: the domain was bounded by the CHARGED interval (the claim), so 99 m on a
+    1,450-1,550 m charge whose report measures 1,451-1,550 m also offered 50 m in band 1, where the report measures 49.
+    The domain is now bounded by the metres the report measures in each band (Cl.23); checked by brute force from the
+    report's depths, by X3 and by X2's report-based check."""
+    c = _measured_case(f, t, qty, start, end)
+    r = gcc.engine_result(c)
+    ddr = records_dds.parse_file(f"drilling_services/records/{c['line']['report_ref']}.txt", c["report"], Queue())
+    F, T_, A, S, E = map(Decimal, (f, t, qty, start, end))
+    parts = [(b, pa, pb, pb - pa, rt) for b, pa, pb, rt in g3_dds.pd210_parts(F, T_, DT)]
+    meas = {b: pb - pa for b, pa, pb, _r in g3_dds.pd210_parts(max(F, S), min(T_, E), DT)}
+    cap = [meas.get(p[0], Decimal(0)) for p in parts]
+    allowed = r.allowed_quantity
+    short = allowed <= sum(cap)
+    span = [(Decimal(0), c_) if short else (c_, c_ + allowed - sum(cap)) for c_ in cap]
+    every = {qs + (allowed - sum(qs, Decimal(0)),) for qs in itertools.product(*[
+        [a + i for i in range(int(b - a) + 1)] for a, b in span[:-1]])
+        if span[-1][0] <= allowed - sum(qs, Decimal(0)) <= span[-1][1]}
+    got = _allocs(r) or {tuple(Decimal(s["quantity"]) for s in r.trace if s["op"] == "part")}
+    if len(every) <= 25:
+        assert got == every, (got, every)
+    assert _x3(r) == [] and vg.pd210_measured_errors(r, ddr) == []
+
+
+def test_b2_99_m_on_a_narrower_report_is_one_allocation():
+    r = gcc.engine_result(_measured_case("1450", "1550", "99", "1451", "1550"))
+    assert r.amount == Decimal("4982.65") and not r.alternatives                     # 49 x 42.35 + 50 x 58.15
+    assert [s["label"] for s in r.trace if s["op"] == "part"][0] == "band 1: 1450-1500 m (report measures 1451-1500 m), 49 m charged (25A)"
+
+
+def test_b2_control_a_domain_bounded_by_the_charge_is_rejected():
+    """The charge's own interval used as the bound (the engine before this fix, reproduced by pricing the charge against a
+    report that covers it): X2's report-based check rejects it against the real report; X3 rejects an allocation above
+    the measured metres a label states."""
+    real = _measured_case("1450", "1550", "99", "1451", "1550")
+    as_charged = gcc.engine_result(_measured_case("1450", "1550", "99", "1450", "1550"))
+    assert len(as_charged.alternatives) == 2                                          # 49+50 and 50+49
+    ddr = records_dds.parse_file(f"drilling_services/records/{real['line']['report_ref']}.txt", real["report"], Queue())
+    assert any("the report measures" in e for e in vg.pd210_measured_errors(as_charged, ddr))
+    bad = copy.deepcopy(as_charged)
+    for a in bad.alternatives.values():
+        for s in a["trace"]:
+            if s["op"] == "part" and s["label"].startswith("band 1"):
+                s["label"] = s["label"].replace("1450-1500 m", "1450-1500 m (report measures 1451-1500 m)")
+    assert any("is not admissible" in e for e in _x3(bad))
 
 # ---------------------------------------------------------------------------------------------------- D8 record
 import csv  # noqa: E402
