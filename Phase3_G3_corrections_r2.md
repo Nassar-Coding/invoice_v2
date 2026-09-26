@@ -283,7 +283,7 @@ All agree.
 
 ## Time
 
-The round-2 goal arrived at 21:22 UTC on 26 Sep 2026. The first round-2 commit was at 21:33 and the last fix commit at 22:12. The two readers ran in parallel for about 6 minutes each. The close (report, full checks, fresh clone) followed; its timings are in the conversation.
+The round-2 goal arrived at 21:22 UTC on 26 Sep 2026. The first round-2 commit was at 21:33 and the last fix commit at 22:12. The two readers ran in parallel for about 6 minutes each. The close commit `51cd4a4` was at about 22:25. `check_g3.sh` in a fresh clone of it passed in 3 minutes 35 seconds: 240 tests, X1–X7. It was re-run at the final SHA; see the conversation.
 
 ---
 
