@@ -523,13 +523,13 @@ def _pd210(line, a, r, T):
     lo, hi = max(f, start), min(t, end)
     sup = max(hi - lo, Decimal("0"))
     within = billed <= sup * (1 + T.metre_tolerance / 100)
+    if t - f != billed:                    # Cl.34: a charge states the depths of its metres, whatever 25A then allows
+        r.add("quantity", "finding", "DDS-R07", "Cl.34 (p8)", "depths_differ_from_quantity", f"{f}-{t} vs {billed}")
     if not within:
         r.add("quantity", "finding", "DDS-R07", "Cl.23 (p6); 25A (p35)", "quantity_above_report", f"billed {billed}; report supports {sup} m in {f}-{t}")
         f, t, allowed = lo, hi, sup
     else:
         allowed = billed
-        if t - f != billed:
-            r.add("quantity", "finding", "DDS-R07", "Cl.34 (p8)", "depths_differ_from_quantity", f"{f}-{t} vs {billed}")
         r.add("quantity", "pass", "DDS-R07", "Cl.23 (p6); 25A (p35)", detail=f"{billed} m charged; report supports {sup} m (1% tolerance)")
     if allowed == 0:
         return Decimal("0"), "no metres the report supports in the charged interval (Cl.23)", False, None

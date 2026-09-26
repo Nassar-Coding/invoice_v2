@@ -33,3 +33,18 @@ falsification_probes:   # real lines where billing differs from the engine: coul
   - line: PA-00297-07
     question: "D.41.020 billed 72.71, engine 252.47"
     finding: "72.71 = the Sch 1 base 63.50 x zone Z3 1.145; for work in November 2025 S1 cl.1.2 (CW p39) makes the monthly re-measured rate payable; the last published month, September 2025 (220.50, G1-verified table), is carried forward ('the rate last published applies until it is superseded', p39); x 1.145 = 252.4725 -> 252.47. Carry-forward itself is independently confirmed by case CW-S09."
+correction_round:   # G3 correction round: the v3 readers' figures and the clauses the fixes rest on, read on the images
+  - {case: "DDS-S66, S67, R23; all class-rated re-reads", figure: "well class factors Standard / Extended Reach / HPHT (Sch 3 Part 2)", used: "1.00 / 1.175 / 1.325", page: "DDS p20", printed: "1.00 / 1.175 / 1.325 (HPHT row cut in the crop; OCR 1.325)", agrees: true}
+  - {case: "CW-S62, S63", figure: "A.13.010 Schedule 1 rate", used: "18.90", page: "CW p17", printed: "18.90", agrees: true}
+  - {case: "CW-S59, R23", figure: "A.12.050 Schedule 1 rate", used: "52.40", page: "CW p17", printed: "52.40", agrees: true}
+  - {case: "CW-S60", figure: "A.12.030 Schedule 1 rate", used: "47.60", page: "CW p17", printed: "47.60", agrees: true}
+  - {case: "CW-R22", figure: "C.35.010 Schedule 1 rate", used: "9.40", page: "CW p18", printed: "9.40", agrees: true}
+  - {case: "CW-R21", figure: "D.41.040 band 1 extent (Sch 4 Part 3)", used: "1 to 3,500 m2 at 100%", page: "CW p25", printed: "1 to 3,500 m2 100%", agrees: true}
+  - {case: "DDS-S65", figure: "HC-630 Schedule 1 rate", used: "4295.85", page: "DDS p16", printed: "4,295.85", agrees: true}
+  - {case: "DDS-S01/S02", figure: "DD-120 substituted rate from 2025-07-01 (Supplement No. 1)", used: "398.50", page: "DDS p38", printed: "398.50", agrees: true}
+clauses_read_for_the_fixes:
+  - {fix: F1, clause: "DDS Cl.4 'The well class stated in the call-off governs the whole well'; P2, P3 'where the call-off so states'", page: "DDS p3, p11"}
+  - {fix: F2, clause: "CW S4 'classified at the point of excavation and recorded on the daily excavation record ... not recorded on the day ... G2'; Cl.5 'determined by the Engineer ... confirmed in writing'", page: "CW p10, p3"}
+  - {fix: F3, clause: "CW Cl.28 'where Clause 30 divides a quantity at a rebate threshold, each part is multiplied by its own rounded rate and the amount is their sum'; Sch 4 Part 3 'a measurement that crosses a band is divided at the band'", page: "CW p6, p24"}
+  - {fix: F4, clause: "DDS Cl.23 'at the rate of the Schedule 2 depth band in which the metres lie'; 25A 'payable as charged'", page: "DDS p6, p35"}
+  - {fix: Q5/D8, clause: "DDS Cl.2 'Parts I to VII, Schedules 1 to 6 and Appendices A to C. A Schedule prevails over a Part'; CW Cl.2 'the General Conditions, Schedules 1 to 5 and Appendix A'", page: "DDS p3, CW p3"}

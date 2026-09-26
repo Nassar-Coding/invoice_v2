@@ -78,9 +78,10 @@ def test_x1_fails_when_a_scope_case_is_missing(cmp_, cases, case_results):
 def test_x1_fails_when_a_rounding_case_does_not_discriminate(cmp_, cases, case_results):
     cr = dict(case_results)
     r = copy.deepcopy(cr["CW-S29"])
-    for s in r.trace:
-        if s["op"] == "round":
-            s["mode"] = "half_even"
+    for t in vg.all_traces(r):                  # the line's own trace and every alternative's
+        for s in t:
+            if s["op"] == "round":
+                s["mode"] = "half_even"
     cr["CW-S29"] = r
     assert any("CW-S29 does not show mode_at_half:half_up" in e for e in vg.x1(cmp_, cases, cr))
 
@@ -150,7 +151,7 @@ def test_x3_passes(res, case_results):
 
 
 def test_x3_fails_on_a_tampered_step(res):
-    ref, r = _one(res, "DDS", lambda r: r.code == "MW-310" and r.payable)
+    ref, r = _one(res, "DDS", lambda r: r.code == "HC-620" and r.payable and r.amount is not None)   # indexed, not class-rated
     step = next(s for s in r.trace if s["op"] == "mul")
     step["value"] = str(Decimal(step["value"]) + Decimal("0.01"))
     assert any("recorded" in e and "replayed" in e for e in vg.x3({"DDS": {ref: r}}))
@@ -158,7 +159,7 @@ def test_x3_fails_on_a_tampered_step(res):
 
 def test_x3_fails_when_drilling_rounds_half_up(res):
     """Cl.17: every step half to even. A trace that rounds half up (value consistent with half up) fails."""
-    ref, r = _one(res, "DDS", lambda r: r.code == "MW-310" and r.payable)
+    ref, r = _one(res, "DDS", lambda r: r.code == "HC-620" and r.payable and r.amount is not None)
     for s in r.trace:
         if s["op"] == "round":
             s["mode"] = "half_up"
@@ -187,11 +188,11 @@ def test_x3_fails_when_the_trace_does_not_start_at_a_contract_figure(res):
 def test_x3_fails_when_the_amount_does_not_follow_the_trace(res):
     ref, r = _one(res, "DDS", lambda r: r.code == "DD-101" and r.payable)
     r.amount += Decimal("1.00")
-    assert any("!= result amount" in e for e in vg.x3({"DDS": {ref: r}}))
+    assert any("trace amount" in e and f"!= amount {r.amount}" in e for e in vg.x3({"DDS": {ref: r}}))
 
 
 def test_x3_fails_on_a_band_alternative_that_does_not_follow_its_trace(res):
-    ref, r = _one(res, "CW", lambda r: r.amount_status == "conditional")
+    ref, r = _one(res, "CW", lambda r: "band:2" in r.alternatives)
     r.alternatives["band:2"]["amount"] += Decimal("0.01")
     assert any("band:2: trace amount" in e for e in vg.x3({"CW": {ref: r}}))
 
@@ -221,7 +222,7 @@ def test_x4_fails_when_a_large_decision_reports_no_lines_under_a_reading(cmp_):
 def test_x4_fails_when_registers_disagree(cmp_):
     def q(qs):
         next(x for x in qs["questions"] if x["id"] == "Q5")["status"] = "open"
-    assert "Q5: register status 'open' vs decision 'decided'" in _x4(cmp_, questions=q)
+    assert "Q5: register status 'open' vs decision 'decided in part'" in _x4(cmp_, questions=q)
 
 
 def test_x4_fails_when_an_open_question_still_blocks_g3(cmp_):

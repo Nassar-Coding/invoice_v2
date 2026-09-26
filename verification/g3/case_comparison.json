@@ -1,20 +1,10 @@
 {
  "cases": 180,
- "expected": 171,
- "comparisons": 806,
- "agree": 761,
+ "expected": 180,
+ "comparisons": 837,
+ "agree": 801,
  "disposed": 36,
- "failures": [
-  "DDS-S64 annotation: reader None engine 'present'",
-  "DDS-S65 annotation: reader None engine 'present'",
-  "DDS-S66 annotation: reader None engine 'present'",
-  "DDS-S67 annotation: reader None engine 'present'",
-  "DDS-S68 annotation: reader None engine 'present'",
-  "DDS-S69 annotation: reader None engine 'present'",
-  "DDS-S70 annotation: reader None engine 'present'",
-  "DDS-S71 annotation: reader None engine 'present'",
-  "DDS-R23 annotation: reader None engine 'present'"
- ],
+ "failures": [],
  "categories": [
   "A.16.010 dewatering week",
   "A1 row effective 2025-10-01 (not the instrument date 2025-09-28)",
@@ -4042,66 +4032,625 @@
   },
   {
    "id": "DDS-S64",
-   "field": "annotation",
-   "reader": null,
-   "engine": "present",
-   "agree": false
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "DDS-S64",
+   "field": "alternatives",
+   "reader": {
+    "class:Extended Reach": [
+     [
+      "10",
+      "4513.80"
+     ],
+     [
+      "7",
+      "3159.66"
+     ]
+    ],
+    "class:HPHT": [
+     [
+      "10",
+      "5090.00"
+     ],
+     [
+      "7",
+      "3563.00"
+     ]
+    ],
+    "class:Standard": [
+     [
+      "10",
+      "3841.50"
+     ],
+     [
+      "7",
+      "2689.05"
+     ]
+    ]
+   },
+   "engine": {
+    "class:Extended Reach": [
+     [
+      "10",
+      "4513.80"
+     ],
+     [
+      "7",
+      "3159.66"
+     ]
+    ],
+    "class:HPHT": [
+     [
+      "10",
+      "5090.00"
+     ],
+     [
+      "7",
+      "3563.00"
+     ]
+    ],
+    "class:Standard": [
+     [
+      "10",
+      "3841.50"
+     ],
+     [
+      "7",
+      "2689.05"
+     ]
+    ]
+   },
+   "agree": true
+  },
+  {
+   "id": "DDS-S64",
+   "field": "findings",
+   "reader": [],
+   "engine": [],
+   "agree": true
+  },
+  {
+   "id": "DDS-S64",
+   "field": "unresolved",
+   "reader": [
+    "quantity_above_report",
+    "rate_differs"
+   ],
+   "engine": [
+    "quantity_above_report",
+    "rate_differs"
+   ],
+   "agree": true
   },
   {
    "id": "DDS-S65",
-   "field": "annotation",
-   "reader": null,
-   "engine": "present",
-   "agree": false
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "DDS-S65",
+   "field": "alternatives",
+   "reader": {
+    "": [
+     [
+      "1",
+      "4295.85"
+     ],
+     [
+      "2",
+      "8591.70"
+     ]
+    ]
+   },
+   "engine": {
+    "": [
+     [
+      "1",
+      "4295.85"
+     ],
+     [
+      "2",
+      "8591.70"
+     ]
+    ]
+   },
+   "agree": true
+  },
+  {
+   "id": "DDS-S65",
+   "field": "unit_rate",
+   "reader": "4295.85",
+   "engine": "4295.85",
+   "agree": true
+  },
+  {
+   "id": "DDS-S65",
+   "field": "findings",
+   "reader": [],
+   "engine": [],
+   "agree": true
+  },
+  {
+   "id": "DDS-S65",
+   "field": "unresolved",
+   "reader": [
+    "quantity_above_report"
+   ],
+   "engine": [
+    "quantity_above_report"
+   ],
+   "agree": true
   },
   {
    "id": "DDS-S66",
-   "field": "annotation",
-   "reader": null,
-   "engine": "present",
-   "agree": false
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "DDS-S66",
+   "field": "alternatives",
+   "reader": {
+    "class:Extended Reach": [
+     [
+      "1",
+      "2733.87"
+     ]
+    ],
+    "class:HPHT": [
+     [
+      "1",
+      "3082.88"
+     ]
+    ],
+    "class:Standard": [
+     [
+      "1",
+      "2326.70"
+     ]
+    ]
+   },
+   "engine": {
+    "class:Extended Reach": [
+     [
+      "1",
+      "2733.87"
+     ]
+    ],
+    "class:HPHT": [
+     [
+      "1",
+      "3082.88"
+     ]
+    ],
+    "class:Standard": [
+     [
+      "1",
+      "2326.70"
+     ]
+    ]
+   },
+   "agree": true
+  },
+  {
+   "id": "DDS-S66",
+   "field": "findings",
+   "reader": [
+    "rate_differs"
+   ],
+   "engine": [
+    "rate_differs"
+   ],
+   "agree": true
+  },
+  {
+   "id": "DDS-S66",
+   "field": "unresolved",
+   "reader": [],
+   "engine": [],
+   "agree": true
   },
   {
    "id": "DDS-S67",
-   "field": "annotation",
-   "reader": null,
-   "engine": "present",
-   "agree": false
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "DDS-S67",
+   "field": "alternatives",
+   "reader": {
+    "class:Extended Reach": [
+     [
+      "100",
+      "1336.00"
+     ]
+    ],
+    "class:HPHT": [
+     [
+      "100",
+      "1507.00"
+     ]
+    ],
+    "class:Standard": [
+     [
+      "100",
+      "1137.00"
+     ]
+    ]
+   },
+   "engine": {
+    "class:Extended Reach": [
+     [
+      "100",
+      "1336.00"
+     ]
+    ],
+    "class:HPHT": [
+     [
+      "100",
+      "1507.00"
+     ]
+    ],
+    "class:Standard": [
+     [
+      "100",
+      "1137.00"
+     ]
+    ]
+   },
+   "agree": true
+  },
+  {
+   "id": "DDS-S67",
+   "field": "findings",
+   "reader": [],
+   "engine": [],
+   "agree": true
+  },
+  {
+   "id": "DDS-S67",
+   "field": "unresolved",
+   "reader": [
+    "rate_differs"
+   ],
+   "engine": [
+    "rate_differs"
+   ],
+   "agree": true
   },
   {
    "id": "DDS-S68",
-   "field": "annotation",
-   "reader": null,
-   "engine": "present",
-   "agree": false
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "DDS-S68",
+   "field": "alternatives",
+   "reader": {
+    "": [
+     [
+      "0",
+      "0.00"
+     ],
+     [
+      "101",
+      "5873.15"
+     ]
+    ]
+   },
+   "engine": {
+    "": [
+     [
+      "0",
+      "0.00"
+     ],
+     [
+      "101",
+      "5873.15"
+     ]
+    ]
+   },
+   "agree": true
+  },
+  {
+   "id": "DDS-S68",
+   "field": "unit_rate",
+   "reader": "58.15",
+   "engine": "58.15",
+   "agree": true
+  },
+  {
+   "id": "DDS-S68",
+   "field": "findings",
+   "reader": [
+    "depths_differ_from_quantity",
+    "rate_differs"
+   ],
+   "engine": [
+    "depths_differ_from_quantity",
+    "rate_differs"
+   ],
+   "agree": true
+  },
+  {
+   "id": "DDS-S68",
+   "field": "unresolved",
+   "reader": [],
+   "engine": [],
+   "agree": true
   },
   {
    "id": "DDS-S69",
-   "field": "annotation",
-   "reader": null,
-   "engine": "present",
-   "agree": false
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "DDS-S69",
+   "field": "alternatives",
+   "reader": {
+    "": [
+     [
+      "0",
+      "0.00"
+     ],
+     [
+      "100",
+      "5815.00"
+     ]
+    ]
+   },
+   "engine": {
+    "": [
+     [
+      "0",
+      "0.00"
+     ],
+     [
+      "100",
+      "5815.00"
+     ]
+    ]
+   },
+   "agree": true
+  },
+  {
+   "id": "DDS-S69",
+   "field": "unit_rate",
+   "reader": "58.15",
+   "engine": "58.15",
+   "agree": true
+  },
+  {
+   "id": "DDS-S69",
+   "field": "findings",
+   "reader": [
+    "depths_differ_from_quantity",
+    "quantity_above_report",
+    "rate_differs"
+   ],
+   "engine": [
+    "depths_differ_from_quantity",
+    "quantity_above_report",
+    "rate_differs"
+   ],
+   "agree": true
+  },
+  {
+   "id": "DDS-S69",
+   "field": "unresolved",
+   "reader": [],
+   "engine": [],
+   "agree": true
   },
   {
    "id": "DDS-S70",
-   "field": "annotation",
-   "reader": null,
-   "engine": "present",
-   "agree": false
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "DDS-S70",
+   "field": "alternatives",
+   "reader": {
+    "": [
+     [
+      "0",
+      "0.00"
+     ],
+     [
+      "99",
+      "5756.85"
+     ]
+    ]
+   },
+   "engine": {
+    "": [
+     [
+      "0",
+      "0.00"
+     ],
+     [
+      "99",
+      "5756.85"
+     ]
+    ]
+   },
+   "agree": true
+  },
+  {
+   "id": "DDS-S70",
+   "field": "unit_rate",
+   "reader": "58.15",
+   "engine": "58.15",
+   "agree": true
+  },
+  {
+   "id": "DDS-S70",
+   "field": "findings",
+   "reader": [
+    "depths_differ_from_quantity",
+    "rate_differs"
+   ],
+   "engine": [
+    "depths_differ_from_quantity",
+    "rate_differs"
+   ],
+   "agree": true
+  },
+  {
+   "id": "DDS-S70",
+   "field": "unresolved",
+   "reader": [],
+   "engine": [],
+   "agree": true
   },
   {
    "id": "DDS-S71",
-   "field": "annotation",
-   "reader": null,
-   "engine": "present",
-   "agree": false
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "DDS-S71",
+   "field": "alternatives",
+   "reader": {
+    "": [
+     [
+      "0",
+      "0.00"
+     ],
+     [
+      "101",
+      "5067.35"
+     ],
+     [
+      "101",
+      "5083.15"
+     ]
+    ]
+   },
+   "engine": {
+    "": [
+     [
+      "0",
+      "0.00"
+     ],
+     [
+      "101",
+      "5067.35"
+     ],
+     [
+      "101",
+      "5083.15"
+     ]
+    ]
+   },
+   "agree": true
+  },
+  {
+   "id": "DDS-S71",
+   "field": "findings",
+   "reader": [
+    "band_crossing_not_split",
+    "depths_differ_from_quantity"
+   ],
+   "engine": [
+    "band_crossing_not_split",
+    "depths_differ_from_quantity"
+   ],
+   "agree": true
+  },
+  {
+   "id": "DDS-S71",
+   "field": "unresolved",
+   "reader": [],
+   "engine": [],
+   "agree": true
   },
   {
    "id": "DDS-R23",
-   "field": "annotation",
-   "reader": null,
-   "engine": "present",
-   "agree": false
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "DDS-R23",
+   "field": "alternatives",
+   "reader": {
+    "class:Extended Reach": [
+     [
+      "1",
+      "3470.12"
+     ]
+    ],
+    "class:HPHT": [
+     [
+      "1",
+      "3913.11"
+     ]
+    ],
+    "class:Standard": [
+     [
+      "1",
+      "2953.29"
+     ]
+    ]
+   },
+   "engine": {
+    "class:Extended Reach": [
+     [
+      "1",
+      "3470.12"
+     ]
+    ],
+    "class:HPHT": [
+     [
+      "1",
+      "3913.11"
+     ]
+    ],
+    "class:Standard": [
+     [
+      "1",
+      "2953.29"
+     ]
+    ]
+   },
+   "agree": true
+  },
+  {
+   "id": "DDS-R23",
+   "field": "findings",
+   "reader": [],
+   "engine": [],
+   "agree": true
+  },
+  {
+   "id": "DDS-R23",
+   "field": "unresolved",
+   "reader": [
+    "rate_differs"
+   ],
+   "engine": [
+    "rate_differs"
+   ],
+   "agree": true
   },
   {
    "id": "DDS-S57",

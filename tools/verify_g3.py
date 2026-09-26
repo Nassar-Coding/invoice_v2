@@ -157,6 +157,23 @@ def all_traces(res) -> list[list[dict]]:
     return [res.trace] + [a["trace"] for a in res.alternatives.values() if isinstance(a, dict) and a.get("trace")]
 
 
+# The first case set (153 cases) was written before any pricing code existed; the identity, correction and re-read
+# packets came later, when the engines existed (they must still precede their readers' outputs; disclosed).
+FIRST_SET = {"packet_cw_synthetic_1.jsonl", "packet_cw_synthetic_2.jsonl", "packet_dds_synthetic_1.jsonl",
+             "packet_dds_synthetic_2.jsonl", "packet_cw_real.jsonl", "packet_dds_real.jsonl"}
+
+
+def _rates_by_fact(res) -> dict:
+    """The line's rate, or its rate under each factual alternative (class/ground/band) where it has no single rate."""
+    if res.unit_rate is not None:
+        return {"": res.unit_rate}
+    out = {}
+    for k, a in res.alternatives.items():
+        fact = "|".join(sorted(x for x in (k or "").split("|") if x.split(":", 1)[0] in ("class", "ground", "band")))
+        out[fact] = a.get("unit_rate")
+    return out
+
+
 def git_first_commit(path: str) -> str | None:
     out = subprocess.run(["git", "log", "--diff-filter=A", "--format=%H", "--", path], cwd=ROOT, capture_output=True, text=True)
     lines = out.stdout.split()
@@ -181,9 +198,9 @@ def x1(comparison: dict, cases: dict, results: dict, first_commit=git_first_comm
             if set(ids) & bad_case:
                 errs.append(f"scope '{item}': case {cid} does not agree with its independent expected value")
             if want == "rates_differ":
-                a, b = (results[i] for i in ids)
-                if a.unit_rate is None or b.unit_rate is None or a.unit_rate == b.unit_rate:
-                    errs.append(f"scope '{item}': boundary pair {cid} does not change the rate")
+                ra, rb = (_rates_by_fact(results[i]) for i in ids)
+                if not ra or set(ra) != set(rb) or any(ra[k] is None or ra[k] == rb[k] for k in ra):
+                    errs.append(f"scope '{item}': boundary pair {cid} does not change the rate (under every admissible class/ground/band)")
             elif not _show(results[ids[0]], want, results):
                 errs.append(f"scope '{item}': case {cid} does not show {want}")
     # provenance: inputs committed before outputs; the first case set before the pricing code
@@ -192,7 +209,7 @@ def x1(comparison: dict, cases: dict, results: dict, first_commit=git_first_comm
         pc, ec = first_commit(str(f.relative_to(ROOT))), first_commit(str(exp.relative_to(ROOT)))
         if not before(pc, ec):
             errs.append(f"{f.name}: inputs not committed strictly before the readers' output {exp.name}")
-        if "identity" not in f.name:
+        if f.name in FIRST_SET:
             for mod in ("audit/g3_cw.py", "audit/g3_dds.py"):
                 if not before(pc, first_commit(mod)):
                     errs.append(f"{f.name}: not committed before the pricing code {mod}")

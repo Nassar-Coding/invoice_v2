@@ -150,6 +150,10 @@ def compare(case: dict, exp: dict | None, res) -> list[dict]:
     if ealts or ralts:
         if ralts:
             et, rt = _alt_table(ealts) if ealts else {"": [(str(res.allowed_quantity), str(res.amount))]}, _alt_table(ralts)
+            if any(c["dimension"] == "nomination" for c in res.conditions):
+                # the engine's nomination condition (Cl.23: PD-210 only on a nominated section; no call-off supplied) means
+                # the stated amount if nominated and nothing otherwise - the same content as a 0.00 alternative
+                et = {k: sorted(set(v) | {("0", "0.00")}) for k, v in et.items()}
             add("alternatives", rt, et)
         else:
             # a reader who gave one value: it agrees only where the engine's alternatives are readings of text the

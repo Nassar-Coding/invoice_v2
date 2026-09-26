@@ -253,3 +253,14 @@ def test_d1_value_payment_distinction_and_currencies():
     assert set(adopted["value"]) == {"SAR", "USD"} and "payment timing" in adopted["note"]
     d1 = next(x for x in yaml.safe_load((ROOT / "spec/g3_decisions.yaml").read_text())["decisions"] if x["id"] == "G3-D1")
     assert "must not be read from this flag" in d1["value_vs_payment"]
+
+
+# ---------------------------------------------------------------------------------------------------- X1 boundary under classes
+def test_x1_control_rate_boundary_must_change_under_every_class():
+    cases = gcc.load_cases()
+    cr = {k: gcc.engine_result(v) for k, v in cases.items()}
+    s02 = copy.deepcopy(cr["DDS-S02"])
+    s02.alternatives["class:HPHT"]["unit_rate"] = cr["DDS-S01"].alternatives["class:HPHT"]["unit_rate"]
+    cr["DDS-S02"] = s02
+    errs = vg.x1(gcc.run(), cases, cr)
+    assert any("boundary pair DDS-S01|DDS-S02 does not change the rate" in e for e in errs)
