@@ -1,7 +1,7 @@
 """Compare the G3 engines with the independent expected values for every reference case.
 
 Inputs: verification/g3/cases/packet_*.jsonl (inputs, written before the pricing code) and expected_*.jsonl (the
-independent readers' results from the contract scans, prompts/phase3/g3_expected_cases_v1.md). The engine is run on
+independent readers' results from the contract scans, prompts/phase3/g3_expected_cases_v1.md to v4). The engine is run on
 exactly the packet inputs (record/report text parsed by the G2 parser). Compared per case:
 payable, allowed_quantity, amount, the findings in the readers' vocabulary (as sets), and unit_rate where both sides
 give one on a payable line. Where the engine carries open-question alternatives, the reader's value must equal one
@@ -46,7 +46,7 @@ VOCAB = VOCAB_V3                     # the union; each expected file is compared
 
 
 def vocab_for(expected_file: str, contract: str) -> set:
-    if "_correction" in expected_file or "_reread" in expected_file:
+    if "_correction" in expected_file or "_reread" in expected_file:        # v3 and v4 (round 2) share the vocabulary
         return VOCAB_V3[contract]
     if "_identity" in expected_file:
         return VOCAB_V2[contract]
@@ -167,6 +167,9 @@ def compare(case: dict, exp: dict | None, res) -> list[dict]:
         add("allowed_quantity", str(rq) if rq is not None else None, str(res.allowed_quantity) if res.allowed_quantity is not None else None,
             agree=(rq == res.allowed_quantity))
         add("amount", str(ra) if ra is not None else None, str(res.amount) if res.amount is not None else None, agree=(ra == res.amount))
+    if "allocation_count" in exp:          # v4: the number of admissible ways of placing metres the depths do not place
+        dom = next((c["domain"] for c in res.conditions if c.get("domain")), None)
+        add("allocation_count", exp.get("allocation_count"), dom["count"] if dom else None)
     rr = _d(exp.get("unit_rate"))
     if rr is not None and res.unit_rate is not None and (res.payable or exp.get("payable")):
         add("unit_rate", str(rr), str(res.unit_rate), agree=(rr == res.unit_rate))

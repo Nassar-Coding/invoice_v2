@@ -1,23 +1,10 @@
 {
  "cases": 192,
- "expected": 180,
- "comparisons": 849,
- "agree": 801,
- "disposed": 36,
- "failures": [
-  "CW-S64 annotation: reader None engine 'present'",
-  "CW-S65 annotation: reader None engine 'present'",
-  "CW-S66 annotation: reader None engine 'present'",
-  "CW-S67 annotation: reader None engine 'present'",
-  "CW-S68 annotation: reader None engine 'present'",
-  "CW-R24 annotation: reader None engine 'present'",
-  "CW-R25 annotation: reader None engine 'present'",
-  "DDS-S72 annotation: reader None engine 'present'",
-  "DDS-S73 annotation: reader None engine 'present'",
-  "DDS-S74 annotation: reader None engine 'present'",
-  "DDS-S75 annotation: reader None engine 'present'",
-  "DDS-S76 annotation: reader None engine 'present'"
- ],
+ "expected": 192,
+ "comparisons": 903,
+ "agree": 858,
+ "disposed": 45,
+ "failures": [],
  "categories": [
   "A.16.010 dewatering week",
   "A1 row effective 2025-10-01 (not the instrument date 2025-09-28)",
@@ -880,52 +867,586 @@
   },
   {
    "id": "CW-S64",
-   "field": "annotation",
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "CW-S64",
+   "field": "allowed_quantity",
+   "reader": "100",
+   "engine": "100",
+   "agree": true
+  },
+  {
+   "id": "CW-S64",
+   "field": "amount",
+   "reader": "3898.00",
+   "engine": "3898.00",
+   "agree": true
+  },
+  {
+   "id": "CW-S64",
+   "field": "allocation_count",
    "reader": null,
-   "engine": "present",
-   "agree": false
+   "engine": null,
+   "agree": true
+  },
+  {
+   "id": "CW-S64",
+   "field": "unit_rate",
+   "reader": "38.98",
+   "engine": "38.98",
+   "agree": true
+  },
+  {
+   "id": "CW-S64",
+   "field": "findings",
+   "reader": [
+    "ground_differs_from_record",
+    "rate_differs"
+   ],
+   "engine": [
+    "ground_differs_from_record",
+    "rate_differs"
+   ],
+   "agree": true
+  },
+  {
+   "id": "CW-S64",
+   "field": "unresolved",
+   "reader": [],
+   "engine": [],
+   "agree": true
   },
   {
    "id": "CW-S65",
-   "field": "annotation",
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "CW-S65",
+   "field": "alternatives",
+   "reader": {
+    "ground:G1": [
+     [
+      "100",
+      "3271.00"
+     ]
+    ],
+    "ground:G2": [
+     [
+      "100",
+      "3480.00"
+     ]
+    ],
+    "ground:G3": [
+     [
+      "100",
+      "3898.00"
+     ]
+    ],
+    "ground:G4": [
+     [
+      "100",
+      "4785.00"
+     ]
+    ],
+    "ground:G5": [
+     [
+      "100",
+      "5672.00"
+     ]
+    ]
+   },
+   "engine": {
+    "ground:G1": [
+     [
+      "100",
+      "3271.00"
+     ]
+    ],
+    "ground:G2": [
+     [
+      "100",
+      "3480.00"
+     ]
+    ],
+    "ground:G3": [
+     [
+      "100",
+      "3898.00"
+     ]
+    ],
+    "ground:G4": [
+     [
+      "100",
+      "4785.00"
+     ]
+    ],
+    "ground:G5": [
+     [
+      "100",
+      "5672.00"
+     ]
+    ]
+   },
+   "agree": true
+  },
+  {
+   "id": "CW-S65",
+   "field": "allocation_count",
    "reader": null,
-   "engine": "present",
-   "agree": false
+   "engine": null,
+   "agree": true
+  },
+  {
+   "id": "CW-S65",
+   "field": "findings",
+   "reader": [
+    "record_date_mismatch"
+   ],
+   "engine": [],
+   "agree": false,
+   "disposition": "G3 correction round 2: The item needs no Schedule 5 record (Sch 5 p27 does not list it); the evidence findings apply to 'a record required by Schedule 5' (Cl.46, Cl.47 p8), and Cl.42 (p8) does not require an application line to cite a record. The cited record's other date / area / item therefore has no consequence under Cl.46-47; its effect is that it is not the classification of this excavation (S4 p10; Cl.5 p3), which reader and engine agree on: every ground class carried (owner G5), ground_differs_from_record unresolved, and the line payable. The engine states the mismatch in its reading (B1). The reader's own note on each case says the mismatch 'does not stop payment'."
+  },
+  {
+   "id": "CW-S65",
+   "field": "unresolved",
+   "reader": [
+    "ground_differs_from_record",
+    "rate_differs"
+   ],
+   "engine": [
+    "ground_differs_from_record",
+    "rate_differs"
+   ],
+   "agree": true
   },
   {
    "id": "CW-S66",
-   "field": "annotation",
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "CW-S66",
+   "field": "alternatives",
+   "reader": {
+    "ground:G1": [
+     [
+      "100",
+      "3271.00"
+     ]
+    ],
+    "ground:G2": [
+     [
+      "100",
+      "3480.00"
+     ]
+    ],
+    "ground:G3": [
+     [
+      "100",
+      "3898.00"
+     ]
+    ],
+    "ground:G4": [
+     [
+      "100",
+      "4785.00"
+     ]
+    ],
+    "ground:G5": [
+     [
+      "100",
+      "5672.00"
+     ]
+    ]
+   },
+   "engine": {
+    "ground:G1": [
+     [
+      "100",
+      "3271.00"
+     ]
+    ],
+    "ground:G2": [
+     [
+      "100",
+      "3480.00"
+     ]
+    ],
+    "ground:G3": [
+     [
+      "100",
+      "3898.00"
+     ]
+    ],
+    "ground:G4": [
+     [
+      "100",
+      "4785.00"
+     ]
+    ],
+    "ground:G5": [
+     [
+      "100",
+      "5672.00"
+     ]
+    ]
+   },
+   "agree": true
+  },
+  {
+   "id": "CW-S66",
+   "field": "allocation_count",
    "reader": null,
-   "engine": "present",
-   "agree": false
+   "engine": null,
+   "agree": true
+  },
+  {
+   "id": "CW-S66",
+   "field": "findings",
+   "reader": [
+    "record_area_mismatch"
+   ],
+   "engine": [],
+   "agree": false,
+   "disposition": "G3 correction round 2: The item needs no Schedule 5 record (Sch 5 p27 does not list it); the evidence findings apply to 'a record required by Schedule 5' (Cl.46, Cl.47 p8), and Cl.42 (p8) does not require an application line to cite a record. The cited record's other date / area / item therefore has no consequence under Cl.46-47; its effect is that it is not the classification of this excavation (S4 p10; Cl.5 p3), which reader and engine agree on: every ground class carried (owner G5), ground_differs_from_record unresolved, and the line payable. The engine states the mismatch in its reading (B1). The reader's own note on each case says the mismatch 'does not stop payment'."
+  },
+  {
+   "id": "CW-S66",
+   "field": "unresolved",
+   "reader": [
+    "ground_differs_from_record",
+    "rate_differs"
+   ],
+   "engine": [
+    "ground_differs_from_record",
+    "rate_differs"
+   ],
+   "agree": true
   },
   {
    "id": "CW-S67",
-   "field": "annotation",
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "CW-S67",
+   "field": "alternatives",
+   "reader": {
+    "ground:G1": [
+     [
+      "100",
+      "3271.00"
+     ]
+    ],
+    "ground:G2": [
+     [
+      "100",
+      "3480.00"
+     ]
+    ],
+    "ground:G3": [
+     [
+      "100",
+      "3898.00"
+     ]
+    ],
+    "ground:G4": [
+     [
+      "100",
+      "4785.00"
+     ]
+    ],
+    "ground:G5": [
+     [
+      "100",
+      "5672.00"
+     ]
+    ]
+   },
+   "engine": {
+    "ground:G1": [
+     [
+      "100",
+      "3271.00"
+     ]
+    ],
+    "ground:G2": [
+     [
+      "100",
+      "3480.00"
+     ]
+    ],
+    "ground:G3": [
+     [
+      "100",
+      "3898.00"
+     ]
+    ],
+    "ground:G4": [
+     [
+      "100",
+      "4785.00"
+     ]
+    ],
+    "ground:G5": [
+     [
+      "100",
+      "5672.00"
+     ]
+    ]
+   },
+   "agree": true
+  },
+  {
+   "id": "CW-S67",
+   "field": "allocation_count",
    "reader": null,
-   "engine": "present",
-   "agree": false
+   "engine": null,
+   "agree": true
+  },
+  {
+   "id": "CW-S67",
+   "field": "findings",
+   "reader": [
+    "item_not_supported_by_record"
+   ],
+   "engine": [],
+   "agree": false,
+   "disposition": "G3 correction round 2: The item needs no Schedule 5 record (Sch 5 p27 does not list it); the evidence findings apply to 'a record required by Schedule 5' (Cl.46, Cl.47 p8), and Cl.42 (p8) does not require an application line to cite a record. The cited record's other date / area / item therefore has no consequence under Cl.46-47; its effect is that it is not the classification of this excavation (S4 p10; Cl.5 p3), which reader and engine agree on: every ground class carried (owner G5), ground_differs_from_record unresolved, and the line payable. The engine states the mismatch in its reading (B1). The reader's own note on each case says the mismatch 'does not stop payment'."
+  },
+  {
+   "id": "CW-S67",
+   "field": "unresolved",
+   "reader": [
+    "ground_differs_from_record",
+    "rate_differs"
+   ],
+   "engine": [
+    "ground_differs_from_record",
+    "rate_differs"
+   ],
+   "agree": true
   },
   {
    "id": "CW-S68",
-   "field": "annotation",
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "CW-S68",
+   "field": "allowed_quantity",
+   "reader": "100",
+   "engine": "100",
+   "agree": true
+  },
+  {
+   "id": "CW-S68",
+   "field": "amount",
+   "reader": "5672.00",
+   "engine": "5672.00",
+   "agree": true
+  },
+  {
+   "id": "CW-S68",
+   "field": "allocation_count",
    "reader": null,
-   "engine": "present",
-   "agree": false
+   "engine": null,
+   "agree": true
+  },
+  {
+   "id": "CW-S68",
+   "field": "unit_rate",
+   "reader": "56.72",
+   "engine": "56.72",
+   "agree": true
+  },
+  {
+   "id": "CW-S68",
+   "field": "findings",
+   "reader": [
+    "rate_differs"
+   ],
+   "engine": [
+    "rate_differs"
+   ],
+   "agree": true
+  },
+  {
+   "id": "CW-S68",
+   "field": "unresolved",
+   "reader": [],
+   "engine": [],
+   "agree": true
   },
   {
    "id": "CW-R24",
-   "field": "annotation",
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "CW-R24",
+   "field": "alternatives",
+   "reader": {
+    "ground:G1": [
+     [
+      "390",
+      "19211.40"
+     ]
+    ],
+    "ground:G2": [
+     [
+      "390",
+      "20436.00"
+     ]
+    ],
+    "ground:G3": [
+     [
+      "390",
+      "22889.10"
+     ]
+    ],
+    "ground:G4": [
+     [
+      "390",
+      "28099.50"
+     ]
+    ],
+    "ground:G5": [
+     [
+      "390",
+      "33309.90"
+     ]
+    ]
+   },
+   "engine": {
+    "ground:G1": [
+     [
+      "390",
+      "19211.40"
+     ]
+    ],
+    "ground:G2": [
+     [
+      "390",
+      "20436.00"
+     ]
+    ],
+    "ground:G3": [
+     [
+      "390",
+      "22889.10"
+     ]
+    ],
+    "ground:G4": [
+     [
+      "390",
+      "28099.50"
+     ]
+    ],
+    "ground:G5": [
+     [
+      "390",
+      "33309.90"
+     ]
+    ]
+   },
+   "agree": true
+  },
+  {
+   "id": "CW-R24",
+   "field": "allocation_count",
    "reader": null,
-   "engine": "present",
-   "agree": false
+   "engine": null,
+   "agree": true
+  },
+  {
+   "id": "CW-R24",
+   "field": "findings",
+   "reader": [
+    "item_not_supported_by_record",
+    "record_area_mismatch",
+    "record_date_mismatch"
+   ],
+   "engine": [],
+   "agree": false,
+   "disposition": "G3 correction round 2: The item needs no Schedule 5 record (Sch 5 p27 does not list it); the evidence findings apply to 'a record required by Schedule 5' (Cl.46, Cl.47 p8), and Cl.42 (p8) does not require an application line to cite a record. The cited record's other date / area / item therefore has no consequence under Cl.46-47; its effect is that it is not the classification of this excavation (S4 p10; Cl.5 p3), which reader and engine agree on: every ground class carried (owner G5), ground_differs_from_record unresolved, and the line payable. The engine states the mismatch in its reading (B1). The reader's own note on each case says the mismatch 'does not stop payment'."
+  },
+  {
+   "id": "CW-R24",
+   "field": "unresolved",
+   "reader": [
+    "ground_differs_from_record",
+    "rate_differs"
+   ],
+   "engine": [
+    "ground_differs_from_record",
+    "rate_differs"
+   ],
+   "agree": true
   },
   {
    "id": "CW-R25",
-   "field": "annotation",
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "CW-R25",
+   "field": "allowed_quantity",
+   "reader": "366",
+   "engine": "366",
+   "agree": true
+  },
+  {
+   "id": "CW-R25",
+   "field": "amount",
+   "reader": "23808.30",
+   "engine": "23808.30",
+   "agree": true
+  },
+  {
+   "id": "CW-R25",
+   "field": "allocation_count",
    "reader": null,
-   "engine": "present",
-   "agree": false
+   "engine": null,
+   "agree": true
+  },
+  {
+   "id": "CW-R25",
+   "field": "unit_rate",
+   "reader": "65.05",
+   "engine": "65.05",
+   "agree": true
+  },
+  {
+   "id": "CW-R25",
+   "field": "findings",
+   "reader": [],
+   "engine": [],
+   "agree": true
+  },
+  {
+   "id": "CW-R25",
+   "field": "unresolved",
+   "reader": [],
+   "engine": [],
+   "agree": true
   },
   {
    "id": "CW-S56",
@@ -4728,38 +5249,471 @@
   },
   {
    "id": "DDS-S72",
-   "field": "annotation",
-   "reader": null,
-   "engine": "present",
-   "agree": false
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "DDS-S72",
+   "field": "alternatives",
+   "reader": {
+    "": [
+     [
+      "98",
+      "4908.70"
+     ],
+     [
+      "98",
+      "4924.50"
+     ],
+     [
+      "98",
+      "4940.30"
+     ]
+    ]
+   },
+   "engine": {
+    "": [
+     [
+      "0",
+      "0.00"
+     ],
+     [
+      "98",
+      "4908.70"
+     ],
+     [
+      "98",
+      "4924.50"
+     ],
+     [
+      "98",
+      "4940.30"
+     ]
+    ]
+   },
+   "agree": false,
+   "disposition": "G3 correction round 2: Nomination not supplied (Cl.23 p6, last sentence: 'Item PD-210 is charged only on the performance-drilled sections nominated in the call-off'; App A p29; no call-off is supplied; decision Q8 in part, owner G5). The prompt (v4, as v3) says not to take the claim's own statement as the document the contract names; the reader assumed the section was nominated 'as the charge implies' and stated in its note that otherwise the line pays 0.00 - the engine's 0.00 alternative. Every allocation of the tolerance domain and its amount agree exactly (and the allocation counts agree)."
+  },
+  {
+   "id": "DDS-S72",
+   "field": "allocation_count",
+   "reader": 3,
+   "engine": 3,
+   "agree": true
+  },
+  {
+   "id": "DDS-S72",
+   "field": "findings",
+   "reader": [
+    "band_crossing_not_split",
+    "depths_differ_from_quantity"
+   ],
+   "engine": [
+    "band_crossing_not_split",
+    "depths_differ_from_quantity"
+   ],
+   "agree": true
+  },
+  {
+   "id": "DDS-S72",
+   "field": "unresolved",
+   "reader": [],
+   "engine": [],
+   "agree": true
   },
   {
    "id": "DDS-S73",
-   "field": "annotation",
-   "reader": null,
-   "engine": "present",
-   "agree": false
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "DDS-S73",
+   "field": "alternatives",
+   "reader": {
+    "": [
+     [
+      "40",
+      "1694.00"
+     ],
+     [
+      "40",
+      "2326.00"
+     ]
+    ]
+   },
+   "engine": {
+    "": [
+     [
+      "0",
+      "0.00"
+     ],
+     [
+      "40",
+      "1694.00"
+     ],
+     [
+      "40",
+      "2326.00"
+     ]
+    ]
+   },
+   "agree": false,
+   "disposition": "G3 correction round 2: Nomination not supplied (Cl.23 p6, last sentence: 'Item PD-210 is charged only on the performance-drilled sections nominated in the call-off'; App A p29; no call-off is supplied; decision Q8 in part, owner G5). The prompt (v4, as v3) says not to take the claim's own statement as the document the contract names; the reader assumed the section was nominated 'as the charge implies' and stated in its note that otherwise the line pays 0.00 - the engine's 0.00 alternative. Every allocation of the tolerance domain and its amount agree exactly (and the allocation counts agree)."
+  },
+  {
+   "id": "DDS-S73",
+   "field": "allocation_count",
+   "reader": 41,
+   "engine": 41,
+   "agree": true
+  },
+  {
+   "id": "DDS-S73",
+   "field": "findings",
+   "reader": [
+    "band_crossing_not_split",
+    "depths_differ_from_quantity"
+   ],
+   "engine": [
+    "band_crossing_not_split",
+    "depths_differ_from_quantity"
+   ],
+   "agree": true
+  },
+  {
+   "id": "DDS-S73",
+   "field": "unresolved",
+   "reader": [],
+   "engine": [],
+   "agree": true
   },
   {
    "id": "DDS-S74",
-   "field": "annotation",
-   "reader": null,
-   "engine": "present",
-   "agree": false
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "DDS-S74",
+   "field": "alternatives",
+   "reader": {
+    "": [
+     [
+      "202",
+      "10134.70"
+     ],
+     [
+      "202",
+      "10150.50"
+     ],
+     [
+      "202",
+      "10166.30"
+     ]
+    ]
+   },
+   "engine": {
+    "": [
+     [
+      "0",
+      "0.00"
+     ],
+     [
+      "202",
+      "10134.70"
+     ],
+     [
+      "202",
+      "10150.50"
+     ],
+     [
+      "202",
+      "10166.30"
+     ]
+    ]
+   },
+   "agree": false,
+   "disposition": "G3 correction round 2: Nomination not supplied (Cl.23 p6, last sentence: 'Item PD-210 is charged only on the performance-drilled sections nominated in the call-off'; App A p29; no call-off is supplied; decision Q8 in part, owner G5). The prompt (v4, as v3) says not to take the claim's own statement as the document the contract names; the reader assumed the section was nominated 'as the charge implies' and stated in its note that otherwise the line pays 0.00 - the engine's 0.00 alternative. Every allocation of the tolerance domain and its amount agree exactly (and the allocation counts agree)."
+  },
+  {
+   "id": "DDS-S74",
+   "field": "allocation_count",
+   "reader": 3,
+   "engine": 3,
+   "agree": true
+  },
+  {
+   "id": "DDS-S74",
+   "field": "findings",
+   "reader": [
+    "band_crossing_not_split",
+    "depths_differ_from_quantity"
+   ],
+   "engine": [
+    "band_crossing_not_split",
+    "depths_differ_from_quantity"
+   ],
+   "agree": true
+  },
+  {
+   "id": "DDS-S74",
+   "field": "unresolved",
+   "reader": [],
+   "engine": [],
+   "agree": true
   },
   {
    "id": "DDS-S75",
-   "field": "annotation",
-   "reader": null,
-   "engine": "present",
-   "agree": false
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "DDS-S75",
+   "field": "alternatives",
+   "reader": {
+    "": [
+     [
+      "1510",
+      "87648.50"
+     ],
+     [
+      "1510",
+      "87989.50"
+     ]
+    ]
+   },
+   "engine": {
+    "": [
+     [
+      "0",
+      "0.00"
+     ],
+     [
+      "1510",
+      "87648.50"
+     ],
+     [
+      "1510",
+      "87989.50"
+     ]
+    ]
+   },
+   "agree": false,
+   "disposition": "G3 correction round 2: Nomination not supplied (Cl.23 p6, last sentence: 'Item PD-210 is charged only on the performance-drilled sections nominated in the call-off'; App A p29; no call-off is supplied; decision Q8 in part, owner G5). The prompt (v4, as v3) says not to take the claim's own statement as the document the contract names; the reader assumed the section was nominated 'as the charge implies' and stated in its note that otherwise the line pays 0.00 - the engine's 0.00 alternative. Every allocation of the tolerance domain and its amount agree exactly (and the allocation counts agree)."
+  },
+  {
+   "id": "DDS-S75",
+   "field": "allocation_count",
+   "reader": 66,
+   "engine": 66,
+   "agree": true
+  },
+  {
+   "id": "DDS-S75",
+   "field": "findings",
+   "reader": [
+    "band_crossing_not_split",
+    "depths_differ_from_quantity"
+   ],
+   "engine": [
+    "band_crossing_not_split",
+    "depths_differ_from_quantity"
+   ],
+   "agree": true
+  },
+  {
+   "id": "DDS-S75",
+   "field": "unresolved",
+   "reader": [],
+   "engine": [],
+   "agree": true
   },
   {
    "id": "DDS-S76",
-   "field": "annotation",
-   "reader": null,
-   "engine": "present",
-   "agree": false
+   "field": "payable",
+   "reader": true,
+   "engine": true,
+   "agree": true
+  },
+  {
+   "id": "DDS-S76",
+   "field": "alternatives",
+   "reader": {
+    "": [
+     [
+      "98.5",
+      "4937.78"
+     ],
+     [
+      "98.5",
+      "4939.35"
+     ],
+     [
+      "98.5",
+      "4940.93"
+     ],
+     [
+      "98.5",
+      "4942.52"
+     ],
+     [
+      "98.5",
+      "4944.10"
+     ],
+     [
+      "98.5",
+      "4945.67"
+     ],
+     [
+      "98.5",
+      "4947.25"
+     ],
+     [
+      "98.5",
+      "4948.84"
+     ],
+     [
+      "98.5",
+      "4950.42"
+     ],
+     [
+      "98.5",
+      "4951.99"
+     ],
+     [
+      "98.5",
+      "4953.57"
+     ],
+     [
+      "98.5",
+      "4955.16"
+     ],
+     [
+      "98.5",
+      "4956.74"
+     ],
+     [
+      "98.5",
+      "4958.31"
+     ],
+     [
+      "98.5",
+      "4959.89"
+     ],
+     [
+      "98.5",
+      "4961.48"
+     ]
+    ]
+   },
+   "engine": {
+    "": [
+     [
+      "0",
+      "0.00"
+     ],
+     [
+      "98.5",
+      "4937.78"
+     ],
+     [
+      "98.5",
+      "4939.35"
+     ],
+     [
+      "98.5",
+      "4940.93"
+     ],
+     [
+      "98.5",
+      "4942.52"
+     ],
+     [
+      "98.5",
+      "4944.10"
+     ],
+     [
+      "98.5",
+      "4945.67"
+     ],
+     [
+      "98.5",
+      "4947.25"
+     ],
+     [
+      "98.5",
+      "4948.84"
+     ],
+     [
+      "98.5",
+      "4950.42"
+     ],
+     [
+      "98.5",
+      "4951.99"
+     ],
+     [
+      "98.5",
+      "4953.57"
+     ],
+     [
+      "98.5",
+      "4955.16"
+     ],
+     [
+      "98.5",
+      "4956.74"
+     ],
+     [
+      "98.5",
+      "4958.31"
+     ],
+     [
+      "98.5",
+      "4959.89"
+     ],
+     [
+      "98.5",
+      "4961.48"
+     ]
+    ]
+   },
+   "agree": false,
+   "disposition": "G3 correction round 2: Nomination not supplied (Cl.23 p6, last sentence: 'Item PD-210 is charged only on the performance-drilled sections nominated in the call-off'; App A p29; no call-off is supplied; decision Q8 in part, owner G5). The prompt (v4, as v3) says not to take the claim's own statement as the document the contract names; the reader assumed the section was nominated 'as the charge implies' and stated in its note that otherwise the line pays 0.00 - the engine's 0.00 alternative. Every allocation of the tolerance domain and its amount agree exactly (and the allocation counts agree)."
+  },
+  {
+   "id": "DDS-S76",
+   "field": "allocation_count",
+   "reader": 16,
+   "engine": 16,
+   "agree": true
+  },
+  {
+   "id": "DDS-S76",
+   "field": "findings",
+   "reader": [
+    "band_crossing_not_split",
+    "depths_differ_from_quantity"
+   ],
+   "engine": [
+    "band_crossing_not_split",
+    "depths_differ_from_quantity"
+   ],
+   "agree": true
+  },
+  {
+   "id": "DDS-S76",
+   "field": "unresolved",
+   "reader": [],
+   "engine": [],
+   "agree": true
   },
   {
    "id": "DDS-S57",

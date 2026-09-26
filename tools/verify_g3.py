@@ -31,7 +31,9 @@ Usage::  python tools/verify_g3.py
 from __future__ import annotations
 
 import copy
+import itertools
 import json
+import math
 import re
 import subprocess
 import sys
@@ -111,6 +113,14 @@ SCOPE = {
     "F4 PD-210: allowed metres, parts and amount agree under 25A": [
         ("DDS-S68", "allowed:101"), ("DDS-S69", "allowed:100"), ("DDS-S70", "allowed:99"), ("DDS-S71", "conditional_on:tolerance")],
     "Q5 residual kept as scoped alternatives": [("DDS-S64", "conditional_on:Q5-DD120"), ("DDS-S65", "conditional_on:Q5-HC630")],
+    # G3 correction round 2 (re-audit Phase3_G3_reaudit_Agent2.md) ---------------------------------------------------
+    "B1 a record settles the ground class only for the work it records (same day, area and item)": [
+        ("CW-S64", "no_conditional_on:ground"), ("CW-S64", "trace:ground G3"), ("CW-S68", "trace:ground G5"),
+        ("CW-R25", "no_conditional_on:ground"), ("CW-S65", "conditional_on:ground"), ("CW-S66", "conditional_on:ground"),
+        ("CW-S67", "conditional_on:ground"), ("CW-R24", "conditional_on:ground")],
+    "B2 PD-210 crossing charge: the complete allocation domain (listed, or bounds with the domain stated)": [
+        ("DDS-S71", "domain:enumerated:2"), ("DDS-S72", "domain:enumerated:3"), ("DDS-S73", "domain:bounds:41"),
+        ("DDS-S74", "domain:enumerated:3"), ("DDS-S75", "domain:bounds:66"), ("DDS-S76", "domain:enumerated:16")],
 }
 
 
@@ -148,6 +158,14 @@ def _show(res, want: str, results: dict) -> bool:
     if kind == "conditional_on":
         dims = {x.split(":", 1)[0] for k in res.alternatives for x in (k or "").split("|") if x}
         return arg in dims and res.amount is None
+    if kind == "no_conditional_on":
+        return arg not in {x.split(":", 1)[0] for k in res.alternatives for x in (k or "").split("|") if x} and \
+            not any(c["dimension"] == arg for c in res.conditions)
+    if kind == "domain":
+        mode, n = arg.split(":")
+        dom = next((c.get("domain") for c in res.conditions if c.get("dimension") == "tolerance"), None) or {}
+        return dom.get("mode") == mode and dom.get("count") == int(n) and res.amount is None and \
+            len(res.alternatives) == (int(n) if mode == "enumerated" else 2)
     if kind == "amount":
         return res.amount == D(arg)
     raise ValueError(want)
@@ -427,6 +445,8 @@ def replay(steps: list[dict]) -> tuple[list[str], dict]:
             v = v.quantize(CENT, rounding=MODES[s["mode"]])
         elif op in ("amount", "part"):
             x = D(s["quantity"]) * D(s["rate"])
+            if s.get("round"):
+                x = x.quantize(CENT, rounding=MODES[s["round"]])
             if op == "amount":
                 if v is not None and D(s["rate"]) != v:
                     errs.append(f"step {i}: amount uses rate {s['rate']}, the trace built {v}")
@@ -522,6 +542,103 @@ def pd210_part_errors(steps: list[dict], T) -> list[str]:
     return errs
 
 
+def _grid_exponent(*xs: Decimal) -> int:
+    return min(min(x.as_tuple().exponent for x in xs), 0)
+
+
+def _ie_count(widths: list[int], rest: int) -> int:
+    """Solutions of x_1 + ... + x_n = rest with 0 <= x_i <= widths[i] (inclusion-exclusion; independent of the engine's
+    dynamic programme)."""
+    n, total = len(widths), 0
+    for mask in range(1 << n):
+        left = rest - sum(widths[i] + 1 for i in range(n) if mask >> i & 1)
+        if left >= 0:
+            total += (-1) ** bin(mask).count("1") * math.comb(left + n - 1, n - 1)
+    return total
+
+
+def pd210_domain_errors(r, T) -> list[str]:
+    """B2: where the allowed metres differ from a charge interval that crosses band boundaries, the result must carry
+    the COMPLETE admissible allocation domain - every allocation (each admissible, all distinct, as many as the domain
+    holds) or, beyond 25, the lowest- and highest-amount allocations with the whole domain stated on the owned
+    condition. Recomputed here from the interval, the allowed metres and the verified band rates: the count by
+    inclusion-exclusion and the extremes over the vertices of the domain."""
+    if r.code != "PD-210" or not r.payable:
+        return []
+    alts = [(k, a["trace"]) for k, a in r.alternatives.items() if a.get("trace") and any(s["op"] == "part" for s in a["trace"])]
+    sets = alts or [(None, r.trace)]
+    parsed = {}
+    for k, t in sets:
+        ps = []
+        for s in t:
+            m = PART_LABEL.search(s.get("label", "")) if s["op"] == "part" else None
+            if m:
+                ps.append((m.group(1), D(m.group(2)), D(m.group(3)), D(s["quantity"])))
+        parsed[k] = ps
+    intervals = {tuple(p[:3] for p in ps) for ps in parsed.values()}
+    if len(intervals) != 1:
+        return ["PD-210 alternatives priced on different intervals"]
+    iv = next(iter(intervals))
+    lens = [b - a for _band, a, b in iv]
+    allowed = r.allowed_quantity
+    if allowed is None:
+        return ["PD-210 alternatives without a common allowed quantity"]
+    total = sum(lens, Decimal(0))
+    if len(iv) < 2 or total == allowed:
+        return []
+    unit = Decimal(1).scaleb(_grid_exponent(allowed, *[x for _b, a, b in iv for x in (a, b)]))
+    if allowed <= total:
+        bounds = [(max(Decimal(0), allowed - (total - x)), min(x, allowed)) for x in lens]
+    else:
+        bounds = [(x, x + allowed - total) for x in lens]
+    widths = [int((hi - lo) / unit) for lo, hi in bounds]
+    count = _ie_count(widths, int((allowed - sum(lo for lo, _hi in bounds)) / unit))
+    rate = {b: rt for _lo, _hi, rt, b in T.depth_bands}
+
+    def amount(qs):
+        return sum(((q * rate[band]).quantize(CENT, rounding=ROUND_HALF_EVEN) for q, (band, _a, _b) in zip(qs, iv)), Decimal(0))
+
+    def admissible(qs):
+        return (sum(qs, Decimal(0)) == allowed and all(lo <= q <= hi and (q / unit) % 1 == 0 for q, (lo, hi) in zip(qs, bounds)))
+
+    got = [tuple(p[3] for p in ps) for ps in parsed.values()]
+    errs = [f"PD-210 allocation {g} is not admissible (sum {allowed}, bands {bounds}, step {unit})" for g in got if not admissible(g)]
+    n = len(iv)
+    verts = []
+    for j in range(n):
+        for pick in itertools.product((0, 1), repeat=n - 1):
+            others = [i for i in range(n) if i != j]
+            qs = [None] * n
+            for i, side in zip(others, pick):
+                qs[i] = bounds[i][side]
+            qs[j] = allowed - sum(qs[i] for i in others)
+            if bounds[j][0] <= qs[j] <= bounds[j][1]:
+                verts.append(tuple(qs))
+    lo_amt, hi_amt = min(map(amount, verts)), max(map(amount, verts))
+    dom = next((c.get("domain") for c in r.conditions if c.get("dimension") == "tolerance"), None)
+    listed = [k for k, _t in alts]
+    if alts and all(("lowest" in k or "highest" in k) for k in listed) and len(listed) == 2:
+        if count <= 2:
+            errs.append(f"PD-210 domain of {count} allocations given as bounds")
+        if sorted(amount(g) for g in got) != [lo_amt, hi_amt]:
+            errs.append(f"PD-210 bounds {sorted(amount(g) for g in got)} are not the domain's lowest and highest amounts "
+                        f"{[lo_amt, hi_amt]}")
+        want = {"mode": "bounds", "count": count, "step_m": str(unit),
+                "parts": [(str(lo), str(hi)) for lo, hi in bounds]}
+        have = dom and {"mode": dom.get("mode"), "count": dom.get("count"), "step_m": dom.get("step_m"),
+                        "parts": [(p["min_m"], p["max_m"]) for p in dom.get("parts", [])]}
+        if have != want:
+            errs.append(f"PD-210 bounds without the whole domain stated: condition states {have}, domain is {want}")
+        elif "unresolved" not in (dom.get("not_listed") or "") or not re.search(r"G[4-7]", dom.get("not_listed") or ""):
+            errs.append("PD-210 bounds: the allocations between them are not marked unresolved with an owner")
+    elif len(set(got)) != len(got) or len(got) != count:
+        errs.append(f"PD-210 allocation domain incomplete: {len(set(got))} distinct allocation(s) listed, the domain holds "
+                    f"{count} (step {unit}); amounts {lo_amt}..{hi_amt}")
+    if count > 1 and not any(c.get("dimension") == "tolerance" and re.fullmatch(r"G[4-7]", c.get("owner", "")) for c in r.conditions):
+        errs.append("PD-210 allocation domain without an owned 'tolerance' condition")
+    return errs
+
+
 def _check_trace(contract, code, steps, T, want_amount, want_quantity, want_rate) -> list[str]:
     e, rep = replay(steps)
     starts = [s for s in steps if s["op"] == "start"]
@@ -531,6 +648,12 @@ def _check_trace(contract, code, steps, T, want_amount, want_quantity, want_rate
         e += rounding_errors(contract, [s for s in steps if s["op"] != "amount"])
     if code == "PD-210":
         e += pd210_part_errors(steps, T[contract])
+    if contract == "DDS":
+        for s in steps:
+            if s["op"] in ("amount", "part", "sum_parts") and D(s["value"]) != D(s["value"]).quantize(CENT):
+                e.append(f"{s['op']} {s['value']} is not ascertained in cents (DDS Cl.17)")
+            if s.get("round") and s["round"] != "half_even":
+                e.append(f"{s['op']} rounded {s['round']}, not half to even (DDS Cl.17)")
     if rep["amount"] != want_amount:
         e.append(f"trace amount {rep['amount']} != amount {want_amount}")
     if rep["quantity"] != want_quantity:
@@ -555,6 +678,8 @@ def x3(results: dict, T=None) -> list[str]:
                     e += _check_trace(contract, r.code, r.trace, T, r.amount, r.allowed_quantity, r.unit_rate)
                 elif not r.alternatives:
                     e.append("payable without an amount or alternatives")
+                if contract == "DDS" and r.code == "PD-210":
+                    e += pd210_domain_errors(r, T[contract])
                 for k, a in r.alternatives.items():
                     if a.get("trace") and any(s["op"] in ("amount", "sum_parts") for s in a["trace"]):
                         e += [f"{k}: {x}" for x in _check_trace(contract, r.code, a["trace"], T, a["amount"],

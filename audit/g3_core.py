@@ -54,9 +54,16 @@ class Trace:
                            "value": str(v), "source": source})
         return v
 
-    def part(self, label: str, quantity: Decimal, rate: Decimal, source: str) -> Decimal:
+    def part(self, label: str, quantity: Decimal, rate: Decimal, source: str, mode: str | None = None) -> Decimal:
+        """A separately priced part; with `mode`, a fraction of a cent is rounded in that mode (recorded as `round`)."""
         v = quantity * rate
-        self.steps.append({"op": "part", "label": label, "quantity": str(quantity), "rate": str(rate), "value": str(v), "source": source})
+        step = {"op": "part", "label": label, "quantity": str(quantity), "rate": str(rate), "value": str(v), "source": source}
+        if mode:                            # stated in cents; `round` records a fraction of a cent actually rounded
+            if v != q(v, mode):
+                step["round"] = mode
+            v = q(v, mode)
+            step["value"] = str(v)
+        self.steps.append(step)
         return v
 
     def total(self, label: str, source: str) -> Decimal:

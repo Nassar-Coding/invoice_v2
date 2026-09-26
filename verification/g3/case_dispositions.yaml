@@ -340,3 +340,160 @@ dispositions:
       own well. The reader chose the alternative (not chargeable on this invoice) and noted the engine''s figure as the other
       reading. Scope: G3-D1 (line_well_differs_from_invoice: 0 DDS lines).'
     settled_against: scan CW p1, p8 / DDS p8 (read on the image); reader note
+  CW-S65|findings:
+    reader: [record_date_mismatch]
+    engine: []
+    disposition: 'G3 correction round 2: The item needs no Schedule 5 record (Sch 5 p27 does not list it); the evidence findings
+      apply to ''a record required by Schedule 5'' (Cl.46, Cl.47 p8), and Cl.42 (p8) does not require an application line to
+      cite a record. The cited record''s other date / area / item therefore has no consequence under Cl.46-47; its effect is
+      that it is not the classification of this excavation (S4 p10; Cl.5 p3), which reader and engine agree on: every ground
+      class carried (owner G5), ground_differs_from_record unresolved, and the line payable. The engine states the mismatch
+      in its reading (B1). The reader''s own note on each case says the mismatch ''does not stop payment''.'
+    settled_against: scan pages cited; reader note
+  CW-S66|findings:
+    reader: [record_area_mismatch]
+    engine: []
+    disposition: 'G3 correction round 2: The item needs no Schedule 5 record (Sch 5 p27 does not list it); the evidence findings
+      apply to ''a record required by Schedule 5'' (Cl.46, Cl.47 p8), and Cl.42 (p8) does not require an application line to
+      cite a record. The cited record''s other date / area / item therefore has no consequence under Cl.46-47; its effect is
+      that it is not the classification of this excavation (S4 p10; Cl.5 p3), which reader and engine agree on: every ground
+      class carried (owner G5), ground_differs_from_record unresolved, and the line payable. The engine states the mismatch
+      in its reading (B1). The reader''s own note on each case says the mismatch ''does not stop payment''.'
+    settled_against: scan pages cited; reader note
+  CW-S67|findings:
+    reader: [item_not_supported_by_record]
+    engine: []
+    disposition: 'G3 correction round 2: The item needs no Schedule 5 record (Sch 5 p27 does not list it); the evidence findings
+      apply to ''a record required by Schedule 5'' (Cl.46, Cl.47 p8), and Cl.42 (p8) does not require an application line to
+      cite a record. The cited record''s other date / area / item therefore has no consequence under Cl.46-47; its effect is
+      that it is not the classification of this excavation (S4 p10; Cl.5 p3), which reader and engine agree on: every ground
+      class carried (owner G5), ground_differs_from_record unresolved, and the line payable. The engine states the mismatch
+      in its reading (B1). The reader''s own note on each case says the mismatch ''does not stop payment''.'
+    settled_against: scan pages cited; reader note
+  CW-R24|findings:
+    reader: [item_not_supported_by_record, record_area_mismatch, record_date_mismatch]
+    engine: []
+    disposition: 'G3 correction round 2: The item needs no Schedule 5 record (Sch 5 p27 does not list it); the evidence findings
+      apply to ''a record required by Schedule 5'' (Cl.46, Cl.47 p8), and Cl.42 (p8) does not require an application line to
+      cite a record. The cited record''s other date / area / item therefore has no consequence under Cl.46-47; its effect is
+      that it is not the classification of this excavation (S4 p10; Cl.5 p3), which reader and engine agree on: every ground
+      class carried (owner G5), ground_differs_from_record unresolved, and the line payable. The engine states the mismatch
+      in its reading (B1). The reader''s own note on each case says the mismatch ''does not stop payment''.'
+    settled_against: scan pages cited; reader note
+  DDS-S72|alternatives:
+    reader:
+      ? ''
+      : - ['98', '4908.70']
+        - ['98', '4924.50']
+        - ['98', '4940.30']
+    engine:
+      ? ''
+      : - ['0', '0.00']
+        - ['98', '4908.70']
+        - ['98', '4924.50']
+        - ['98', '4940.30']
+    disposition: 'G3 correction round 2: Nomination not supplied (Cl.23 p6, last sentence: ''Item PD-210 is charged only on
+      the performance-drilled sections nominated in the call-off''; App A p29; no call-off is supplied; decision Q8 in part,
+      owner G5). The prompt (v4, as v3) says not to take the claim''s own statement as the document the contract names; the
+      reader assumed the section was nominated ''as the charge implies'' and stated in its note that otherwise the line pays
+      0.00 - the engine''s 0.00 alternative. Every allocation of the tolerance domain and its amount agree exactly (and the
+      allocation counts agree).'
+    settled_against: scan pages cited; reader note
+  DDS-S73|alternatives:
+    reader:
+      ? ''
+      : - ['40', '1694.00']
+        - ['40', '2326.00']
+    engine:
+      ? ''
+      : - ['0', '0.00']
+        - ['40', '1694.00']
+        - ['40', '2326.00']
+    disposition: 'G3 correction round 2: Nomination not supplied (Cl.23 p6, last sentence: ''Item PD-210 is charged only on
+      the performance-drilled sections nominated in the call-off''; App A p29; no call-off is supplied; decision Q8 in part,
+      owner G5). The prompt (v4, as v3) says not to take the claim''s own statement as the document the contract names; the
+      reader assumed the section was nominated ''as the charge implies'' and stated in its note that otherwise the line pays
+      0.00 - the engine''s 0.00 alternative. Every allocation of the tolerance domain and its amount agree exactly (and the
+      allocation counts agree).'
+    settled_against: scan pages cited; reader note
+  DDS-S74|alternatives:
+    reader:
+      ? ''
+      : - ['202', '10134.70']
+        - ['202', '10150.50']
+        - ['202', '10166.30']
+    engine:
+      ? ''
+      : - ['0', '0.00']
+        - ['202', '10134.70']
+        - ['202', '10150.50']
+        - ['202', '10166.30']
+    disposition: 'G3 correction round 2: Nomination not supplied (Cl.23 p6, last sentence: ''Item PD-210 is charged only on
+      the performance-drilled sections nominated in the call-off''; App A p29; no call-off is supplied; decision Q8 in part,
+      owner G5). The prompt (v4, as v3) says not to take the claim''s own statement as the document the contract names; the
+      reader assumed the section was nominated ''as the charge implies'' and stated in its note that otherwise the line pays
+      0.00 - the engine''s 0.00 alternative. Every allocation of the tolerance domain and its amount agree exactly (and the
+      allocation counts agree).'
+    settled_against: scan pages cited; reader note
+  DDS-S75|alternatives:
+    reader:
+      ? ''
+      : - ['1510', '87648.50']
+        - ['1510', '87989.50']
+    engine:
+      ? ''
+      : - ['0', '0.00']
+        - ['1510', '87648.50']
+        - ['1510', '87989.50']
+    disposition: 'G3 correction round 2: Nomination not supplied (Cl.23 p6, last sentence: ''Item PD-210 is charged only on
+      the performance-drilled sections nominated in the call-off''; App A p29; no call-off is supplied; decision Q8 in part,
+      owner G5). The prompt (v4, as v3) says not to take the claim''s own statement as the document the contract names; the
+      reader assumed the section was nominated ''as the charge implies'' and stated in its note that otherwise the line pays
+      0.00 - the engine''s 0.00 alternative. Every allocation of the tolerance domain and its amount agree exactly (and the
+      allocation counts agree).'
+    settled_against: scan pages cited; reader note
+  DDS-S76|alternatives:
+    reader:
+      ? ''
+      : - ['98.5', '4937.78']
+        - ['98.5', '4939.35']
+        - ['98.5', '4940.93']
+        - ['98.5', '4942.52']
+        - ['98.5', '4944.10']
+        - ['98.5', '4945.67']
+        - ['98.5', '4947.25']
+        - ['98.5', '4948.84']
+        - ['98.5', '4950.42']
+        - ['98.5', '4951.99']
+        - ['98.5', '4953.57']
+        - ['98.5', '4955.16']
+        - ['98.5', '4956.74']
+        - ['98.5', '4958.31']
+        - ['98.5', '4959.89']
+        - ['98.5', '4961.48']
+    engine:
+      ? ''
+      : - ['0', '0.00']
+        - ['98.5', '4937.78']
+        - ['98.5', '4939.35']
+        - ['98.5', '4940.93']
+        - ['98.5', '4942.52']
+        - ['98.5', '4944.10']
+        - ['98.5', '4945.67']
+        - ['98.5', '4947.25']
+        - ['98.5', '4948.84']
+        - ['98.5', '4950.42']
+        - ['98.5', '4951.99']
+        - ['98.5', '4953.57']
+        - ['98.5', '4955.16']
+        - ['98.5', '4956.74']
+        - ['98.5', '4958.31']
+        - ['98.5', '4959.89']
+        - ['98.5', '4961.48']
+    disposition: 'G3 correction round 2: Nomination not supplied (Cl.23 p6, last sentence: ''Item PD-210 is charged only on
+      the performance-drilled sections nominated in the call-off''; App A p29; no call-off is supplied; decision Q8 in part,
+      owner G5). The prompt (v4, as v3) says not to take the claim''s own statement as the document the contract names; the
+      reader assumed the section was nominated ''as the charge implies'' and stated in its note that otherwise the line pays
+      0.00 - the engine''s 0.00 alternative. Every allocation of the tolerance domain and its amount agree exactly (and the
+      allocation counts agree).'
+    settled_against: scan pages cited; reader note

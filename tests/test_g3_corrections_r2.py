@@ -142,3 +142,196 @@ def test_b1_population_unchanged(res):
     by = {s: sum(1 for r in cw if r.amount_status == s) for s in ("determined", "conditional", "not_payable")}
     assert by == {"determined": 6171, "conditional": 1560, "not_payable": 15}
     assert sum(1 for r in cw if any(c["dimension"] == "ground" for c in r.conditions)) == 649
+
+
+# ---------------------------------------------------------------------------------------------------- B2 PD-210 domain
+from decimal import Decimal  # noqa: E402
+import itertools  # noqa: E402
+import random  # noqa: E402
+
+from audit import terms  # noqa: E402
+
+DT = terms.dds()
+
+
+def _case(cid, **line):
+    c = copy.deepcopy(gcc.load_cases()[cid])
+    c["line"].update(line)
+    return gcc.engine_result(c)
+
+
+def _allocs(r):
+    return {tuple(Decimal(s["quantity"]) for s in a["trace"] if s["op"] == "part") for a in r.alternatives.values()}
+
+
+def _x3(r):
+    return vg.x3({"DDS": {"case": r}})
+
+
+def test_b2_98_m_carries_every_allocation():
+    r = _case("DDS-S72")
+    assert r.amount is None and r.allowed_quantity == Decimal("98") and r.payable
+    assert _allocs(r) == {(Decimal(48), Decimal(50)), (Decimal(49), Decimal(49)), (Decimal(50), Decimal(48))}
+    assert sorted(str(a["amount"]) for a in r.alternatives.values()) == ["4908.70", "4924.50", "4940.30"]
+    dom = next(c for c in r.conditions if c["dimension"] == "tolerance")
+    assert dom["owner"] == "G5" and dom["domain"]["count"] == 3 and dom["domain"]["mode"] == "enumerated"
+    assert _x3(r) == []
+
+
+def test_b2_40_m_is_never_an_empty_payable_result():
+    r = _case("DDS-S73")
+    assert r.payable and r.allowed_quantity == Decimal("40") and r.alternatives        # was: no amount, no alternatives
+    dom = next(c for c in r.conditions if c["dimension"] == "tolerance")["domain"]
+    assert (dom["mode"], dom["count"], dom["listed"]) == ("bounds", 41, 2)
+    assert [(p["min_m"], p["max_m"]) for p in dom["parts"]] == [("0", "40"), ("0", "40")]
+    assert "39 allocations between the two listed extremes" in dom["not_listed"] and "G5" in dom["not_listed"]
+    assert sorted(str(a["amount"]) for a in r.alternatives.values()) == ["1694.00", "2326.00"]
+    assert _x3(r) == []
+
+
+def _old_one_band_at_a_time(parts, allowed, step, r):
+    """The round-1 engine: the whole difference moved into one band at a time (the re-audit's B2 defect)."""
+    diff = allowed - sum(p[3] for p in parts)
+    return {f"tolerance:{diff} m in band {band}": [p if j != i else (band, pa, pb, q + diff, rate) for j, p in enumerate(parts)]
+            for i, (band, pa, pb, q, rate) in enumerate(parts) if q + diff >= 0}
+
+
+def test_b2_control_x3_rejects_the_incomplete_domain(monkeypatch):
+    monkeypatch.setattr(g3_dds, "_allocation_sets", _old_one_band_at_a_time)
+    r = _case("DDS-S72")
+    assert len(r.alternatives) == 2                                    # 49+49 missing (the re-audit's finding)
+    assert any("allocation domain incomplete: 2 distinct allocation(s) listed, the domain holds 3" in e for e in _x3(r))
+
+
+def test_b2_control_x3_rejects_a_payable_line_with_no_amount_or_alternatives():
+    r = copy.deepcopy(_case("DDS-S73"))
+    r.alternatives, r.conditions = {}, [c for c in r.conditions if c["dimension"] != "tolerance"]
+    assert any("payable without an amount or alternatives" in e for e in _x3(r))
+
+
+def test_b2_engine_guard_never_emits_an_empty_payable_result(monkeypatch):
+    monkeypatch.setattr(g3_dds, "_allocation_sets", lambda *a: {})
+    r = _case("DDS-S73")
+    assert r.payable is None and r.amount_status == "unresolved" and "no_admissible_result" in r.unresolved
+    assert _x3(r) == []
+
+
+def test_b2_control_x3_rejects_one_missing_enumerated_allocation():
+    r = copy.deepcopy(_case("DDS-S76"))
+    r.alternatives.pop(next(iter(r.alternatives)))
+    assert any("domain incomplete: 15 distinct allocation(s) listed, the domain holds 16" in e for e in _x3(r))
+
+
+def test_b2_control_x3_rejects_bounds_that_are_not_the_extremes_or_hide_the_domain():
+    r = _case("DDS-S75")
+    wrong = copy.deepcopy(r)
+    k = next(k for k in wrong.alternatives if "highest" in k)
+    wrong.alternatives[k] = copy.deepcopy(wrong.alternatives[next(k2 for k2 in wrong.alternatives if "lowest" in k2)])
+    assert any("are not the domain's lowest and highest amounts" in e for e in _x3(wrong))
+    hidden = copy.deepcopy(r)
+    next(c for c in hidden.conditions if c["dimension"] == "tolerance").pop("domain")
+    assert any("bounds without the whole domain stated" in e for e in _x3(hidden))
+    uncounted = copy.deepcopy(r)
+    next(c for c in uncounted.conditions if c["dimension"] == "tolerance")["domain"]["count"] = 2
+    assert any("bounds without the whole domain stated" in e for e in _x3(uncounted))
+
+
+def test_b2_existing_controls_still_fail(monkeypatch):
+    """The round-1 controls (a 999.00 part rate; parts pricing fewer metres than allowed) on a crossing charge."""
+    r = copy.deepcopy(_case("DDS-S72"))
+    k = next(iter(r.alternatives))
+    part = next(s for s in r.alternatives[k]["trace"] if s["op"] == "part")
+    part["rate"], part["value"] = "999.00", str(Decimal(part["quantity"]) * Decimal("999.00"))
+    assert any("PD-210 part rate 999.00 is not band 1's 42.35" in e for e in _x3(r))
+    r = copy.deepcopy(_case("DDS-S72"))
+    part = next(s for s in r.alternatives[k]["trace"] if s["op"] == "part")
+    part["quantity"], part["value"] = str(Decimal(part["quantity"]) - 1), str((Decimal(part["quantity"]) - 1) * Decimal(part["rate"]))
+    assert any("trace quantity 97 != allowed quantity 98" in e for e in _x3(r))
+
+
+def test_b2_decimal_metres_are_ascertained_in_cents_and_the_control_fails(monkeypatch):
+    """DDS Cl.17 'Every amount is ascertained in cents': found by the round-2 reader on DDS-S76 (98.5 m)."""
+    r = _case("DDS-S76")
+    assert len(r.alternatives) == 16 and all(a["amount"] == a["amount"].quantize(Decimal("0.01")) for a in r.alternatives.values())
+    assert {str(a["amount"]) for a in r.alternatives.values()} >= {"4937.78", "4961.48"}
+    assert _x3(r) == []
+    real_part = g3_dds.Trace.part
+    monkeypatch.setattr(g3_dds.Trace, "part", lambda self, label, qty, rate, source, mode=None: real_part(self, label, qty, rate, source))
+    bad = _case("DDS-S76")
+    assert any("is not ascertained in cents (DDS Cl.17)" in e for e in _x3(bad))
+
+
+def _brute(parts, allowed, step):
+    """Independent of engine and X3: every allocation on the grid by direct product, then filtered."""
+    lens = [p[3] for p in parts]
+    short = allowed <= sum(lens)          # fewer metres: each band 0..its length; more: each band its length plus some excess
+    span = [(Decimal(0), le) if short else (le, le + allowed - sum(lens)) for le in lens]
+    ranges = [[a + Decimal(i) * step for i in range(int((b - a) / step) + 1)] for a, b in span]
+    out = set()
+    for qs in itertools.product(*ranges[:-1]):
+        last = allowed - sum(qs, Decimal(0))
+        if span[-1][0] <= last <= span[-1][1] and (last / step) % 1 == 0:
+            out.add(qs + (last,))
+    return out
+
+
+SCENARIOS = (
+    # two bands, short interval: reductions (whole and half metres)
+    [("1490", "1510", str(20 - d)) for d in (1, 2, 5, 8)] + [("1495", "1505", "9.5"), ("1480", "1530", "42.5"), ("2990", "3006", "13")]
+    # two bands, long interval: excess within 25A's 1% (whole and half metres) and a reduction beyond 25 allocations
+    + [("1400", "1600", "201"), ("1400", "1600", "202"), ("1400", "1600", "200.5"), ("2800", "3100", "303"), ("4400", "4700", "301.5"),
+       ("1400", "1600", "170")]
+    # three bands: excesses and reductions (every one beyond 25 allocations except the smallest)
+    + [("1497", "3003", str(1506 + d)) for d in (1, 2, 9, 15, -1, -3, -8)] + [("1480", "3020", "1530"), ("1480", "3020", "1525")]
+)
+
+
+@pytest.mark.parametrize("f, t, allowed", SCENARIOS)
+def test_b2_falsification_crossing_charges(f, t, allowed):
+    """Branches no reference case exercises: 2-3 bands, reductions and excesses, whole and decimal metres, listed and
+    bounded domains. The engine's domain equals a brute-force enumeration (count, and the listed allocations or the
+    extremes) and X3 accepts it."""
+    f, t, allowed = Decimal(f), Decimal(t), Decimal(allowed)
+    c = copy.deepcopy(gcc.load_cases()["DDS-S72"])
+    c["line"].update(quantity=str(allowed), depth_from_m=str(f), depth_to_m=str(t))
+    c["report"] = c["report"].replace("Depth start (m MD): 1450", f"Depth start (m MD): {f}").replace("Depth end (m MD): 1550", f"Depth end (m MD): {t}")
+    r = gcc.engine_result(c)
+    assert r.payable and r.allowed_quantity == allowed
+    parts = [(b, pa, pb, pb - pa, rt) for b, pa, pb, rt in g3_dds.pd210_parts(f, t, DT)]
+    every = _brute(parts, allowed, g3_dds.pd210_step(allowed, f, t))
+    dom = next(x for x in r.conditions if x["dimension"] == "tolerance")["domain"]
+    assert dom["count"] == len(every) and dom["mode"] == ("enumerated" if len(every) <= 25 else "bounds")
+    if dom["mode"] == "enumerated":
+        assert _allocs(r) == every
+    else:
+        amt = lambda qs: sum(((q * p[4]).quantize(Decimal("0.01"), rounding="ROUND_HALF_EVEN") for q, p in zip(qs, parts)), Decimal(0))  # noqa: E731
+        assert sorted(a["amount"] for a in r.alternatives.values()) == [min(map(amt, every)), max(map(amt, every))]
+    assert _x3(r) == []
+
+
+def test_b2_scenarios_cover_every_branch():
+    kinds = set()
+    for f, t, a in SCENARIOS:
+        f, t, a = Decimal(f), Decimal(t), Decimal(a)
+        n = len(g3_dds.pd210_parts(f, t, DT))
+        parts = [(b, pa, pb, pb - pa, rt) for b, pa, pb, rt in g3_dds.pd210_parts(f, t, DT)]
+        big = len(_brute(parts, a, g3_dds.pd210_step(a, f, t))) > 25
+        kinds.add((n, "excess" if a > t - f else "reduction", "decimal" if a % 1 else "whole", "bounds" if big else "listed"))
+    assert {(2, "excess", "whole", "listed"), (2, "excess", "decimal", "listed"), (2, "reduction", "whole", "listed"),
+            (2, "reduction", "decimal", "listed"), (2, "reduction", "whole", "bounds"), (3, "excess", "whole", "bounds"),
+            (3, "reduction", "whole", "bounds"), (3, "reduction", "whole", "listed")} <= kinds
+
+
+def test_b2_four_bands_checked_by_x3_independent_count():
+    """1,400-4,600 m spans all four bands; brute force is too large here, so the engine's dynamic programme is checked
+    against X3's inclusion-exclusion count and vertex extremes (independent methods)."""
+    c = copy.deepcopy(gcc.load_cases()["DDS-S72"])
+    c["line"].update(quantity="3195", depth_from_m="1400", depth_to_m="4600")
+    c["report"] = c["report"].replace("Depth start (m MD): 1450", "Depth start (m MD): 1400").replace("Depth end (m MD): 1550", "Depth end (m MD): 4600")
+    r = gcc.engine_result(c)
+    dom = next(x for x in r.conditions if x["dimension"] == "tolerance")["domain"]
+    assert (dom["mode"], dom["count"], len(dom["parts"])) == ("bounds", 56, 4)       # C(5 + 3, 3): 5 m short over 4 bands
+    assert _x3(r) == []
+    bad = copy.deepcopy(r)
+    next(x for x in bad.conditions if x["dimension"] == "tolerance")["domain"]["count"] = 55
+    assert any("bounds without the whole domain stated" in e for e in _x3(bad))

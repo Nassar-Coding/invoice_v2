@@ -202,8 +202,10 @@ def test_f4_control_part_quantity_mismatch_is_rejected():
 def test_f4_crossing_charge_with_a_tolerance_difference_is_exposed():
     c = copy.deepcopy(gcc.load_cases()["DDS-S71"])
     r = gcc.engine_result(c)
-    assert r.amount is None and {k.split("|")[0] for k in r.alternatives} == {"tolerance:1 m in band 1", "tolerance:1 m in band 2"}
-    assert any(x["dimension"] == "tolerance" and x["owner"] == "G5" for x in r.conditions)
+    # round 2 (B2): labelled by the full allocation; 101 m on 50 + 50 m: the one excess metre in either band (complete)
+    assert r.amount is None and {k.split("|")[0] for k in r.alternatives} == {
+        "tolerance:51 m in band 1 + 50 m in band 2", "tolerance:50 m in band 1 + 51 m in band 2"}
+    assert any(x["dimension"] == "tolerance" and x["owner"] == "G5" and x["domain"]["count"] == 2 for x in r.conditions)
 
 
 # ---------------------------------------------------------------------------------------------------- Q5 residual

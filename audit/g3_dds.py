@@ -25,6 +25,7 @@ from decimal import Decimal
 
 from . import links, terms
 from .g3_core import LineResult, Trace
+from .g3_core import q as to_cents
 
 CONTRACT_REF = "DDS-2025-118"
 CONTRACTOR = "MERIDIAN DOWNHOLE SERVICES LTD"       # agreement particulars (p1)
@@ -353,15 +354,22 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
         for pl, parts in part_sets.items():
             t = Trace()
             t.steps = list(tr.steps)
+            dom = next((c["domain"] for c in r.conditions if c.get("domain")), None)
+            if dom and dom["mode"] == "bounds":
+                t.note(f"allocation domain: {dom['count']} ways of placing {dom['allowed_m']} m in steps of {dom['step_m']} m; "
+                       f"this is the {pl.split(':', 1)[1].split(',')[0]}-amount way; {dom['not_listed']}",
+                       "Cl.23 (p6); Cl.34 (p8); 25A (p35); B2")
             for band, pa, pb, qty, prate in parts:
                 t.part(f"band {band}: {pa}-{pb} m" + ("" if qty == pb - pa else f", {qty} m charged (25A)"), qty, prate,
-                       f"DDS.T02_DEPTH_BANDS band {band} (Sch 2 p17); Cl.23 (p6): a boundary depth belongs to the shallower band")
+                       f"DDS.T02_DEPTH_BANDS band {band} (Sch 2 p17); Cl.23 (p6): a boundary depth belongs to the shallower band; "
+                       f"Cl.17 (p6): every amount in cents, half to even", mode="half_even")
             amt = t.total("amount = sum of depth-band parts", "Cl.23 (p6): each band part priced at its own rate")
             options[pl] = (sum((x[3] for x in parts), Decimal(0)), parts[0][4] if len(parts) == 1 else None, amt, t.steps)
     else:
         for (ql, sup), (rl, (rt, trk)) in itertools.product((q_opts or {None: supported}).items(), rates.items()):
             alw = min(billed, sup)
-            options["|".join(x for x in (ql, rl) if x)] = (alw, rt, alw * rt, trk.steps + [_amount_step(alw, rt)])
+            step = _amount_step(alw, rt)
+            options["|".join(x for x in (ql, rl) if x)] = (alw, rt, Decimal(step["value"]), trk.steps + [step])
     if wrong_unit:
         options = {("Q11:A|" + k if k else "Q11:A"): v for k, v in options.items()}
         options["Q11:B"] = (Decimal("0"), None, Decimal("0.00"),
@@ -369,9 +377,15 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
     return _finish(r, tr, True, reasons, _collapse(options))
 
 
-def _amount_step(q: Decimal, rate: Decimal) -> dict:
-    return {"op": "amount", "label": "amount = quantity x rate", "quantity": str(q), "rate": str(rate), "value": str(q * rate),
-            "source": "Cl.18 (p6): quantity x rate so built up"}
+def _amount_step(qty: Decimal, rate: Decimal) -> dict:
+    """Cl.18: quantity x rate; Cl.17: every amount is ascertained in cents (a fraction of a cent rounded half to even)."""
+    v = qty * rate
+    step = {"op": "amount", "label": "amount = quantity x rate", "quantity": str(qty), "rate": str(rate), "value": str(v),
+            "source": "Cl.18 (p6): quantity x rate so built up; Cl.17 (p6): every amount in cents"}
+    if v != to_cents(v, "half_even"):
+        step["round"] = "half_even"
+    step["value"] = str(to_cents(v, "half_even"))
+    return step
 
 
 READING_DIMS = {"Q4", "Q5-DD120", "Q5-RM530", "Q5-HC630", "Q11"}
@@ -443,6 +457,10 @@ def _finish(r, tr, payable, reasons, options=None):
         r.trace = tr.steps
         r.conditions = []              # 0.00 whatever the class: nothing is conditional
         return r
+    if not options:                    # guard (B2): a payable line always carries an amount or its alternatives
+        r.add("quantity", "unresolved", "DDS-R07", "Cl.23 (p6); 25A (p35)", "no_admissible_result",
+              "no admissible result could be formed for this line")
+        return _finish(r, tr, None, reasons + ["no admissible result could be formed (engine guard)"])
     if len(options) == 1:
         (alw, rt, amt, steps), = options.values()
         r.allowed_quantity, r.amount, r.trace = alw, amt, steps
@@ -511,7 +529,8 @@ def _pd210(line, a, r, T):
     """PD-210 (Cl.23, 25A; F4): the allowed metres (25A: as charged within 1% of the metres the report supports for the
     charged interval, else the supported metres), priced by the band the metres lie in. The parts always carry the allowed
     quantity: in one band the charged metres take that band's rate; across bands a difference between the charged
-    metres and the interval cannot be placed from the charge (-> one alternative per band, 'tolerance')."""
+    metres and the interval cannot be placed from the charge (-> every admissible allocation, or the two extremes and the
+    whole domain beyond ENUMERATE_MAX: 'tolerance', owner G5; B2)."""
     start, end = Decimal(a.get("Depth start (m MD)")), Decimal(a.get("Depth end (m MD)"))
     billed = line["quantity"]
     f, t = line.get("depth_from_m"), line.get("depth_to_m")
@@ -543,11 +562,94 @@ def _pd210(line, a, r, T):
         band, pa, pb, _q, rate = parts[0]
         sets = {None: [(band, pa, pb, allowed, rate)]}
     else:
-        sets = {}
-        for i, (band, pa, pb, q, rate) in enumerate(parts):
-            if q + diff >= 0:
-                sets[f"tolerance:{diff} m in band {band}"] = [p if j != i else (band, pa, pb, q + diff, rate) for j, p in enumerate(parts)]
+        sets = _allocation_sets(parts, allowed, pd210_step(allowed, f, t), r)
     return allowed, f"report depths {start}-{end}; charged {f}-{t}; allowed {allowed} m", True, sets
+
+
+ENUMERATE_MAX = 25        # allocations listed one by one up to this many; beyond it the two extremes and the domain
+
+
+def pd210_step(*xs: Decimal) -> Decimal:
+    """The finest decimal place used by the charged quantity and the depths (whole metres when all are whole)."""
+    return Decimal(1).scaleb(min(min(x.as_tuple().exponent for x in xs), 0))
+
+
+def pd210_domain(parts, allowed: Decimal) -> tuple[list, list]:
+    """Per-band bounds of the admissible allocations of the allowed metres to the bands a crossing interval spans (B2).
+    Fewer metres than the interval: each band carries between 0 and its interval length, the others taking the rest.
+    More metres than the interval (within 25A): each band carries at least its interval length, the excess anywhere in
+    the bands the charged interval spans."""
+    ln = [p[3] for p in parts]
+    total = sum(ln, Decimal(0))
+    if allowed <= total:
+        return [max(Decimal(0), allowed - (total - x)) for x in ln], [min(x, allowed) for x in ln]
+    return list(ln), [x + allowed - total for x in ln]
+
+
+def pd210_count(lo, hi, allowed: Decimal, step: Decimal) -> int:
+    """Number of allocations q (lo <= q <= hi, sum q = allowed) in steps of `step` (dynamic programme over the bands)."""
+    width = [int((h - l) / step) for l, h in zip(lo, hi)]
+    rest = int((allowed - sum(lo, Decimal(0))) / step)
+    ways = [1] + [0] * rest
+    for w in width:
+        new, run = [0] * (rest + 1), 0
+        for s in range(rest + 1):
+            run += ways[s] - (ways[s - w - 1] if s - w - 1 >= 0 else 0)
+            new[s] = run
+        ways = new
+    return ways[rest]
+
+
+def _allocation_sets(parts, allowed, step, r) -> dict:
+    """Every admissible allocation as its own alternative ('tolerance:<metres per band>'), or, beyond ENUMERATE_MAX,
+    the lowest- and highest-amount allocations with the whole domain stated on the owned condition: the metres the
+    charge's depths do not place are never put in one band by assumption (Cl.23 prices metres by the band they lie in;
+    Cl.34 the charge states depths; 25A pays the charged metres)."""
+    lo, hi = pd210_domain(parts, allowed)
+    count = pd210_count(lo, hi, allowed, step)
+
+    def label(qs, prefix=""):
+        return "tolerance:" + prefix + " + ".join(f"{q} m in band {p[0]}" for q, p in zip(qs, parts))
+
+    def as_set(qs):
+        return [(band, pa, pb, q, rate) for q, (band, pa, pb, _l, rate) in zip(qs, parts)]
+
+    if count <= ENUMERATE_MAX:
+        found = []
+
+        def walk(i, acc, left):
+            if i == len(parts) - 1:
+                if lo[i] <= left <= hi[i]:
+                    found.append(acc + [left])
+                return
+            q = lo[i]
+            while q <= hi[i] and q <= left:
+                walk(i + 1, acc + [q], left - q)
+                q += step
+        walk(0, [], allowed)
+        sets = {label(qs): as_set(qs) for qs in found}
+        mode = "enumerated"
+    else:
+        def extreme(order):
+            qs, left = list(lo), allowed - sum(lo, Decimal(0))
+            for i in order:
+                add = min(hi[i] - lo[i], left)
+                qs[i] += add
+                left -= add
+            return qs
+        by_rate = sorted(range(len(parts)), key=lambda i: parts[i][4])
+        low, high = extreme(by_rate), extreme(by_rate[::-1])
+        sets = {label(low, "lowest, "): as_set(low), label(high, "highest, "): as_set(high)}
+        mode = "bounds"
+    r.conditions.append({
+        "dimension": "tolerance", "owner": DIM_OWNER["tolerance"][0], "basis": DIM_OWNER["tolerance"][1],
+        "domain": {"mode": mode, "allowed_m": str(allowed), "step_m": str(step), "count": count,
+                   "parts": [{"band": p[0], "from_m": str(p[1]), "to_m": str(p[2]), "interval_m": str(p[3]),
+                              "min_m": str(a), "max_m": str(b)} for p, a, b in zip(parts, lo, hi)],
+                   "listed": len(sets),
+                   "not_listed": ("none" if mode == "enumerated" else
+                                  f"{count - 2} allocations between the two listed extremes: each admissible, unresolved, owner G5")}})
+    return sets
 
 
 def _metres(code, line, a, tools, r, T, tr):
