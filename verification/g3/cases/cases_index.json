@@ -199,6 +199,22 @@
   "DDS-S71",
   "DDS-R23"
  ],
+ "packet_cw_correction_r2": [
+  "CW-S64",
+  "CW-S65",
+  "CW-S66",
+  "CW-S67",
+  "CW-S68",
+  "CW-R24",
+  "CW-R25"
+ ],
+ "packet_dds_correction_r2": [
+  "DDS-S72",
+  "DDS-S73",
+  "DDS-S74",
+  "DDS-S75",
+  "DDS-S76"
+ ],
  "packet_cw_reread": [
   "CW-R10",
   "CW-S20",
