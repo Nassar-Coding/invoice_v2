@@ -63,3 +63,15 @@ Governing: the audit (Phase0-1-2-audit.docx) and plan §2 exit conditions. Bound
 - [x] C3 (finding 3, G2) Independent semantic review of derived meanings (tool term→code, service-keyed crew counts, invoice-to-tool, civil numbers by attribute name); sample completeness enforced; controls: wrong tool code, wrong crew count, mislabelled civil number, missing sample fail. — S4: ddr 583/583, lines 482/482, civil 161/161 fields by name, 160/160 sampled items; controls in tests/test_g2_semantic.py; link branches now include tool/crew/part/LH outcomes (118/118).
 - [x] C4 (finding 4, G2) Run/version context over parser/link code and reviewed inputs, referenced by every derived fact (code-only change changes it); register of carried conflicts with owning gate and treatment; Q11 corrected to the records-based depth bound. — every one of 212,717 facts carries the run context; spec/carried_items.yaml CI-01..03 (G3); Q11 bound 6,026 m (NGP-BD-027); S5 + tests/test_g2_provenance.py.
 - [x] C5 Report `Phase3_G1_G2_corrections.md`; all G0/G1/G2 checks and tests in a fresh clone at the final commit; annotation text for gate1-r1 and gate2-r1. — report written; fresh-clone re-run at the final commit reported with the tag text.
+
+## G3 — Local entitlement and pricing (from gate1-r1/gate2-r1 @ 8745f9c)
+Exit (plan §2): independently calculated clause-based cases pass, including exceptions and boundaries; all billed code
+families are implemented or explicitly marked unresolved; each amount has an explainable calculation trace.
+Binding: re-audit carry-forward safeguards (Phase3_G1_G2_reaudit_Agent2.md). Boundary: no G4 state (bands, caps,
+exclusions, duplicates, run/well lifecycles), no classification, flags, final totals or submission.csv.
+- [ ] G3.1 Reference cases written BEFORE pricing code: 55 civil + 56 drilling synthetic boundary/exception cases and 42 real lines (inputs only); six independent readers compute expected values from the scans.
+- [ ] G3.2 Terms access and pricing engines per contract (rate version by work date and issue order, retrospective protection, FX, indexation, build-up, rounding), each amount with a replayable trace.
+- [ ] G3.3 Local line checks per contract: identity/period, term, submission window, evidence and signatures, unit, identification, quantities (first hour, 2%/1% tolerances, 5-day weeks, minimum), rate, arithmetic; amount status and explicit G4 dependencies.
+- [ ] G3.4 Questions Q3, Q4, Q5, Q8, Q11, Q13 and carried items CI-01..03: decided with a discriminating case or kept open with alternatives and lines affected under each; G2 loss-hours corroboration corrected; stale check for missing-part items; G1 recorder path portability.
+- [ ] G3.5 Code-family coverage: every billed code implemented or explicitly unresolved with owner.
+- [ ] G3.6 tools/verify_g3.py exit checks, each with a negative control that fails; all G0-G3 checks and tests; report Phase3_G3.md; fresh-clone run; gate3 tag text.
