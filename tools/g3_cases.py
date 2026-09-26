@@ -65,10 +65,16 @@ def cw_synthetic() -> list[dict]:
     return out
 
 
+CW_AREAS = {r[0]: r[1] for r in sl.load_terms("CW")["tables"]["CW.T03_WORK_AREAS"]["rows"]}
+CW_GROUND = {r[0]: r[1] for r in sl.load_terms("CW")["tables"]["CW.T08_GROUND_FACTORS"]["rows"]}
+
+
 def _cw_record_text(rec, line) -> str | None:
+    """Record text in the real layout (Area and Ground carry their names, as in every supplied record)."""
     if not rec:
         return None
-    lines = [rec["title"], f"Ticket: {line['record_ref']}", "Job: Northern Access Road, Package 4", f"Area: {rec['area']}"]
+    lines = [rec["title"], f"Ticket: {line['record_ref']}", "Job: Northern Access Road, Package 4",
+             f"Area: {rec['area']} {CW_AREAS[rec['area']]}"]
     if rec.get("week_beginning"):
         wb = dt.date.fromisoformat(rec["week_beginning"])
         lines.append(f"Week beginning: {wb:%d/%m/%Y}")
@@ -76,7 +82,7 @@ def _cw_record_text(rec, line) -> str | None:
     else:
         lines.append(f"Date: {dt.date.fromisoformat(rec['date']):%d/%m/%Y}")
     if rec.get("ground"):
-        lines.append(f"Ground: {rec['ground']}")
+        lines.append(f"Ground: {rec['ground']} {CW_GROUND[rec['ground']]}")
     lines += ["", rec["narrative"], ""]
     lines.append("Signed (foreman): <signature>")
     lines.append("Countersigned (Engineer's representative): " + ("<signature>" if rec["signed"] == "both" else "____________________"))
