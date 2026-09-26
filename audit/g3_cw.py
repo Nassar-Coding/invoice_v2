@@ -225,20 +225,25 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
     ground_opts = [(None, None)]
     if code in T.ground_items:
         claimed = (line.get("ground_class") or "").split(" ")[0] or None
+        applies, why = record_applies(record, line, code) if record is not None else (False, "no record referenced")
+        recorded = bool(applies and evidence_ok and record.ground)
         if wd > T.g2_after:
             ground_opts = [(None, "G2")]
             r.readings.append("ground G2: 27A, work after 27 Sep 2025 taken as G2")
-        elif record is not None and evidence_ok and record.ground:
+        elif recorded:
             ground_opts = [(None, record.ground)]
-            r.readings.append(f"ground {record.ground}: classification recorded on the site record {line.get('record_ref')} (S4)")
+            r.readings.append(f"ground {record.ground}: classification recorded on the site record {line.get('record_ref')} for this "
+                              f"work (same date, area and item; S4)")
         else:
             ground_opts = [(f"ground:{g}", g) for g in T.ground]
-            r.readings.append(f"ground not evidenced: no supplied record states the classification; the application states "
-                              f"{claimed or 'none'} (the claim, not authority: S4, Cl.5); G2 if not recorded on the day (S4)")
+            if record is not None and record.ground and not applies:
+                r.readings.append(f"ground not evidenced: the referenced record {line.get('record_ref')} states {record.ground} but "
+                                  f"does not apply to this work ({why}), so it is not the classification of this excavation (S4, Cl.5)")
+            r.readings.append(f"ground not evidenced: no supplied record for this work states the classification; the application "
+                              f"states {claimed or 'none'} (the claim, not authority: S4, Cl.5); G2 if not recorded on the day (S4)")
             r.condition("ground", "G5", "S4 (p10) classification recorded at excavation, G2 if not recorded on the day; "
                         "Cl.5 (p3) Engineer's written confirmation (not supplied); the application's class is the claim "
                         f"({claimed or 'none'}), not authority")
-        recorded = record is not None and evidence_ok and record.ground
         if recorded and claimed and claimed != record.ground and wd <= T.g2_after:
             r.add("rate", "finding", "CW-R13", "S4 (p10); Cl.42 (p8)", "ground_differs_from_record",
                   f"application {claimed}, {record.ground} recorded")
@@ -335,6 +340,26 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
     if any("31A protection" in x for x in r.readings):
         r.g4_dependencies.append("a3_adjustment (CW-R22): difference posted once on a later application")
     return r
+
+
+def record_applies(record, line: dict, code: str) -> tuple[bool, str]:
+    """Whether a site record is evidence about THIS work (B1): the same day (or the week that contains it), the same work
+    area, and an item basis covering the billed item. Checked for every record, whether or not the item needs a
+    Schedule 5 record: a record of another day, area or item says nothing about this excavation's material (CW Cl.5,
+    S4 'classified at the point of excavation and recorded on the daily excavation record')."""
+    wd = line["work_date"]
+    area = (line.get("site") or "").split(" ")[0]
+    why = []
+    if record.week_beginning:
+        if not (record.week_beginning <= wd <= record.week_beginning + dt.timedelta(days=6)):
+            why.append(f"week beginning {record.week_beginning}, work {wd}")
+    elif record.date != wd:
+        why.append(f"dated {record.date}, work {wd}")
+    if record.area is None or record.area != area:
+        why.append(f"area {record.area}, work {area}")
+    if code not in (record.candidates or []):
+        why.append(f"evidences {record.candidates}, line bills {code}")
+    return (not why), "; ".join(why)
 
 
 def band_split(code: str, quantity: Decimal, amount: Decimal, priced: dict, T) -> str | None:

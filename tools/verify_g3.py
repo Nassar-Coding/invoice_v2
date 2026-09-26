@@ -288,6 +288,17 @@ def _dim_values(r, dim: str) -> set[str]:
     return {x.split(":", 1)[1] for k in r.alternatives for x in (k or "").split("|") if x.startswith(dim + ":")}
 
 
+def _applies_to_work(rec, line: dict) -> bool:
+    """Independent of the engine: a record is evidence about this work only for the same day (or its week), the same work
+    area and an item basis covering the billed item (B1; CW Cl.5, S4) - for every record, required or optional."""
+    wd, area = line["work_date"], (line.get("site") or "").split(" ")[0]
+    if rec.week_beginning:
+        same_day = (wd - rec.week_beginning).days in range(7)
+    else:
+        same_day = rec.date == wd
+    return same_day and rec.area is not None and rec.area == area and line["item_code"] in (rec.candidates or [])
+
+
 def admissible_errors(contract: str, r, line: dict, T, w) -> list[str]:
     """F1: the well class is the call-off's (DDS Cl.4; P2, P3) - no call-off is supplied, so a class-rated service carries
     every class. F2: the ground class is the one recorded at excavation (CW S4; Cl.5) - where no supplied record states
@@ -299,10 +310,16 @@ def admissible_errors(contract: str, r, line: dict, T, w) -> list[str]:
                      "invoice header is not the call-off")
     if contract == "CW" and r.code in T.ground_items and line["work_date"] <= T.g2_after:
         rec = w.cw.get(line.get("record_ref") or "")
-        if not (rec is not None and rec.ground):
+        if not (rec is not None and rec.ground and _applies_to_work(rec, line)):
             if _dim_values(r, "ground") != set(T.ground):
                 e.append(f"ground item with no recorded classification without every ground class (has "
                          f"{sorted(_dim_values(r, 'ground'))}): the application's class is not authority")
+        elif r.amount_status != "not_payable":
+            # the positive side (B1): a record that applies to this work settles the class - one class, the record's
+            used = {s["label"] for t in _traces(r) for s in t if s.get("label", "").startswith("ground G")}
+            if _dim_values(r, "ground") or used != {f"ground {rec.ground}"}:
+                e.append(f"ground item whose record for this work states {rec.ground} priced under {sorted(used)} "
+                         f"(alternatives over {sorted(_dim_values(r, 'ground'))}): an applicable record settles the class")
     left = {x.split(":", 1)[0] for k in r.alternatives for x in (k or "").split("|") if x}
     owned = {c["dimension"]: c["owner"] for c in r.conditions}
     for d in left:
@@ -658,9 +675,15 @@ def evaluate_all(w, order=1, cw_eval=None, dds_eval=None, mutate=None, only=None
     `only` limits the run to those line refs (tests)."""
     cw_eval, dds_eval = cw_eval or g3_cw.evaluate, dds_eval or g3_dds.evaluate
     out = {"CW": {}, "DDS": {}}
+    for ref in UNRELATED_RECORDS:
+        if ref in w.cw:
+            _REC_FACTS[ref] = (w.cw[ref].date, w.cw[ref].area)
     for line, app, rec, exists in list(g3_cw.inputs_from_world(w))[::order]:
         if only is None or line["line_ref"] in only:
-            line, app = mutate("CW", line, app) if mutate else (line, app)
+            if mutate:
+                line, app = mutate("CW", line, app)
+                rec = w.cw.get(line.get("record_ref") or "")
+                exists = rec is not None
             r = cw_eval(line, app, rec, exists)
             out["CW"][r.line_ref] = r
     for line, inv, ddr in list(g3_dds.inputs_from_world(w))[::order]:
@@ -705,7 +728,8 @@ SECTIONS = ['26"', '17-1/2"', '12-1/4"', '8-1/2"', '6"']
 def perturb_claim_classes(contract: str, line: dict, header: dict):
     """Classifications the claim states but the contract assigns elsewhere: the well class (DDS Cl.4: the call-off), the
     ground class (CW S4, Cl.5: the excavation record / the Engineer), the hole section and day status (DDS Cl.19: as the
-    report records). Shifting each to another admissible value must change no contract value."""
+    report records) - and, for a ground item that needs no Schedule 5 record, the record the claim cites, pointed at a
+    record of another day and area (B1). Shifting each must change no contract value."""
     line, header = dict(line), dict(header)
     if contract == "DDS":
         header["well_class"] = CLASSES[(CLASSES.index(header["well_class"]) + 1) % 3] if header.get("well_class") in CLASSES else "HPHT"
@@ -715,7 +739,21 @@ def perturb_claim_classes(contract: str, line: dict, header: dict):
     else:
         g = line.get("ground_class") or ""
         line["ground_class"] = GROUNDS[(GROUNDS.index(g) + 2) % 5] if g in GROUNDS else "G4 Weathered Rock"
+        # a record the claim may cite for an item that needs none: point it at a record of another day and area that
+        # states a class (DX-00007: 25 Jan 2025, S-04, G5; or DX-00008 when the line is itself on that day or area)
+        if line["item_code"] in terms.cw().ground_items and line["item_code"] not in terms.cw().records:
+            line["record_ref"] = UNRELATED_RECORDS[0] if not _near(line, UNRELATED_RECORDS[0]) else UNRELATED_RECORDS[1]
     return line, header
+
+
+UNRELATED_RECORDS = ["DX-00007", "DX-00008"]
+_REC_FACTS = {}
+
+
+def _near(line, ref) -> bool:
+    import datetime as _dt
+    d, a = _REC_FACTS.get(ref, (None, None))
+    return line["work_date"] == d or (line.get("site") or "").startswith(a or "@")
 
 
 # Claim facts the contract names no other evidence for; they are disclosed on every result that relies on them and

@@ -1,10 +1,23 @@
 {
- "cases": 180,
+ "cases": 192,
  "expected": 180,
- "comparisons": 837,
+ "comparisons": 849,
  "agree": 801,
  "disposed": 36,
- "failures": [],
+ "failures": [
+  "CW-S64 annotation: reader None engine 'present'",
+  "CW-S65 annotation: reader None engine 'present'",
+  "CW-S66 annotation: reader None engine 'present'",
+  "CW-S67 annotation: reader None engine 'present'",
+  "CW-S68 annotation: reader None engine 'present'",
+  "CW-R24 annotation: reader None engine 'present'",
+  "CW-R25 annotation: reader None engine 'present'",
+  "DDS-S72 annotation: reader None engine 'present'",
+  "DDS-S73 annotation: reader None engine 'present'",
+  "DDS-S74 annotation: reader None engine 'present'",
+  "DDS-S75 annotation: reader None engine 'present'",
+  "DDS-S76 annotation: reader None engine 'present'"
+ ],
  "categories": [
   "A.16.010 dewatering week",
   "A1 row effective 2025-10-01 (not the instrument date 2025-09-28)",
@@ -85,9 +98,14 @@
   "MW-310; the invoice header states Standard; no call-off supplied (audit F1)",
   "MW-320 at the standby percentage (exact half cent)",
   "PD-210",
+  "PD-210 1,510 m charged on one interval 1,490-3,010 m crossing 1,500 m and 3,000 m (report 1,490-3,010 m)",
   "PD-210 101 m charged on one interval 1,450-1,550 m crossing 1,500 m (report 1,450-1,550 m)",
   "PD-210 101 m charged on the interval 2,900-3,000 m (report 2,900-3,000 m)",
   "PD-210 102 m charged on the interval 2,900-3,000 m (report 2,900-3,000 m)",
+  "PD-210 202 m charged on one interval 1,400-1,600 m crossing 1,500 m (report 1,400-1,600 m)",
+  "PD-210 40 m charged on one interval 1,450-1,550 m crossing 1,500 m (report 1,450-1,550 m)",
+  "PD-210 98 m charged on one interval 1,450-1,550 m crossing 1,500 m (report 1,450-1,550 m)",
+  "PD-210 98.5 m charged on one interval 1,450-1,550 m crossing 1,500 m (report 1,450-1,550 m)",
   "PD-210 99 m charged on the interval 2,900-3,000 m (report 2,900-3,000 m)",
   "PD-210 interval ending at the 3,000 m boundary, HPHT well",
   "PD-210 interval ending exactly at 1,500 m",
@@ -103,12 +121,18 @@
   "S2 5% discount from 2025-12-01",
   "S2 row replaces the monthly table from 2025-12-01, with the 5% discount",
   "Sch 1 rate before S1",
+  "Schedule 5 ground item before 28 Sep 2025 with its own excavation record",
   "Schedule 5 item with no record reference",
   "Series E: no zone factor; Sch 1 rate before A1 row",
   "USD item",
   "USD item converted at the work month's halalas per USD / 100",
   "application names a subcontractor other than the contract's",
   "application quotes contract reference CW-2024-0417-CIV (one digit group differs)",
+  "as CW-S64 with no ground class stated in the application",
+  "as CW-S64, but the cited record is dated the day before the work",
+  "as CW-S64, but the cited record is for another work area",
+  "as CW-S64, but the cited record is for trench work of another depth (another item)",
+  "audit probe B1: the real line with its blank record reference replaced by DX-00007, a record of another day and work area (the claim cites it; it is not a record of this work)",
   "band-rated item, band state not known, billed amount = quantity x billed rate",
   "band-rated item, band state not known, billed amount not quantity x billed rate",
   "band-rated item, band state not known: amount = a division at a band edge (audit F3)",
@@ -123,6 +147,7 @@
   "day before the S2 discount",
   "ground item G5 before 2025-09-28",
   "ground item after 2025-09-27 not G2",
+  "ground item needing no Schedule 5 record; application states G4; the cited excavation record is for the same day, area and trench work and states G3",
   "ground item worked 2025-09-27 with G4 recorded",
   "ground item worked 2025-09-28 with G4 recorded (extension period)",
   "ground item, application states G4, no record supplied (audit F2)",
@@ -852,6 +877,55 @@
     "rate_differs"
    ],
    "agree": true
+  },
+  {
+   "id": "CW-S64",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "CW-S65",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "CW-S66",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "CW-S67",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "CW-S68",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "CW-R24",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "CW-R25",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
   },
   {
    "id": "CW-S56",
@@ -4651,6 +4725,41 @@
     "rate_differs"
    ],
    "agree": true
+  },
+  {
+   "id": "DDS-S72",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "DDS-S73",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "DDS-S74",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "DDS-S75",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "DDS-S76",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
   },
   {
    "id": "DDS-S57",
