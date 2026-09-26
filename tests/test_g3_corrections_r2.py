@@ -512,34 +512,39 @@ def test_q5_residual_still_carried_as_scoped_alternatives(res):
     assert all(v.amount is None and v.alternatives for v in q5.values())
 
 
-SERVICE = re.compile(r"\b(?:[A-Z]{2}-\d{3})\b")
-LINE = re.compile(r"\bMDS-\d{5}-\d{3}\b")
+CODE = {"MDS": re.compile(r"\b[A-Z]{2}-\d{3}\b"), "PA": re.compile(r"\b[A-E]\.\d{2}\.\d{3}\b")}
+REF = {"MDS": re.compile(r"\bMDS-\d{5}-\d{3}\b"), "PA": re.compile(r"\bPA-\d{5}-\d{2}\b")}
+
+
+def _source_codes() -> dict:
+    out = {}
+    for rel, key in (("drilling_services/invoices/invoice_lines.csv", "service_code"), ("civilwork/invoices/application_lines.csv", "item_code")):
+        with (SNAPSHOT / rel).open(newline="") as fh:
+            out.update({r["line_ref"]: r[key] for r in csv.DictReader(fh)})
+    return out
 
 
 def report_identity_errors(text: str) -> list[str]:
-    """Every drilling line named in a report sentence with a service code must be that service in the source invoice
-    lines: each line reference is paired with the next service code on the same line of text (round 2: the round-1
-    report swapped DD-120 and RM-530 in its Q5 summary)."""
-    with (SNAPSHOT / "drilling_services/invoices/invoice_lines.csv").open(newline="") as fh:
-        src = {r["line_ref"]: r["service_code"] for r in csv.DictReader(fh)}
-    errs = []
+    """Every billed line named in a report next to a service or item code must be that code in the source lines: each
+    line reference is paired with the next code of its contract on the same line of text (round 2: the round-1 report
+    swapped DD-120 and RM-530 in its Q5 summary)."""
+    src, errs = _source_codes(), []
     for ln in text.splitlines():
-        pending = []
-        for m in re.finditer(rf"{LINE.pattern}|{SERVICE.pattern}", ln):
-            tok = m.group(0)
-            if tok.startswith("MDS-"):
-                pending.append(tok)
-            elif pending:
-                errs += [f"{ref} named as {tok}, source {src.get(ref)}" for ref in pending if src.get(ref) != tok]
-                pending = []
+        for kind in ("MDS", "PA"):
+            pending = []
+            for m in re.finditer(f"{REF[kind].pattern}|{CODE[kind].pattern}", ln):
+                tok = m.group(0)
+                if REF[kind].fullmatch(tok):
+                    pending.append(tok)
+                elif pending:
+                    errs += [f"{ref} named as {tok}, source {src.get(ref)}" for ref in pending if src.get(ref) != tok]
+                    pending = []
     return errs
 
 
 def test_report_line_identities_match_the_source():
-    for name in ("Phase3_G3_corrections.md", "Phase3_G3_corrections_r2.md"):
-        p = ROOT / name
-        if p.exists():
-            assert report_identity_errors(p.read_text()) == [], name
+    for p in sorted(ROOT.glob("Phase3_*.md")):
+        assert report_identity_errors(p.read_text()) == [], p.name
 
 
 def test_report_identity_control_rejects_the_round1_text():
