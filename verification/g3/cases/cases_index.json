@@ -177,5 +177,54 @@
   "DDS-S61",
   "DDS-S62",
   "DDS-S63"
+ ],
+ "packet_cw_correction": [
+  "CW-S59",
+  "CW-S60",
+  "CW-S61",
+  "CW-S62",
+  "CW-S63",
+  "CW-R21",
+  "CW-R22",
+  "CW-R23"
+ ],
+ "packet_dds_correction": [
+  "DDS-S64",
+  "DDS-S65",
+  "DDS-S66",
+  "DDS-S67",
+  "DDS-S68",
+  "DDS-S69",
+  "DDS-S70",
+  "DDS-S71",
+  "DDS-R23"
+ ],
+ "packet_cw_reread": [
+  "CW-R10",
+  "CW-S20",
+  "CW-S21",
+  "CW-S28",
+  "CW-S29"
+ ],
+ "packet_dds_reread": [
+  "DDS-R02",
+  "DDS-R03",
+  "DDS-R04",
+  "DDS-R06",
+  "DDS-R15",
+  "DDS-R21",
+  "DDS-S01",
+  "DDS-S02",
+  "DDS-S09",
+  "DDS-S10",
+  "DDS-S12",
+  "DDS-S13",
+  "DDS-S24",
+  "DDS-S26",
+  "DDS-S28",
+  "DDS-S29",
+  "DDS-S30",
+  "DDS-S32",
+  "DDS-S33"
  ]
 }

@@ -63,7 +63,7 @@ def cw_synthetic(name: str = "synthetic_cw.yaml") -> list[dict]:
         line.update({"line_ref": f"{app['application_no']}-01", "application_no": app["application_no"],
                      "description": CW_SCH1[code][1] if code in CW_SCH1 else ""})
         out.append({"id": c["id"], "kind": "synthetic", "contract": "CW", "tests": c["tests"], "application": app,
-                    "line": line, "record": _cw_record_text(c.get("record"), line), "state": dfl["state"]})
+                    "line": line, "record": _cw_record_text(c.get("record"), line), "state": {**dfl["state"], **c.get("state", {})}})
     return out
 
 
@@ -253,10 +253,64 @@ def dds_real() -> list[dict]:
     return out
 
 
+# G3 correction round: real lines named by the independent audit (F1, F2, F3) and a real inconsistent counterpart
+CW_CORR_REAL = [("CW-R21", "PA-00076-08", "band-rated item, band state not known: amount = a division at a band edge (audit F3)", None),
+                ("CW-R22", "PA-00610-02", "item without bands whose amount is not quantity x rate (F3 counterpart)", "100"),
+                ("CW-R23", "PA-00031-06", "ground item, application states G4, no record supplied (audit F2)", "100")]
+DDS_CORR_REAL = [("DDS-R23", "MDS-00001-008", "MW-310; the invoice header states Standard; no call-off supplied (audit F1)")]
+# earlier cases whose v1 expected value cannot express the corrected treatment (alternatives): re-read from the SAME
+# inputs with prompt v3; the v1 results stay in their files and the comparison uses the v3 re-reading for these ids
+REREAD = {"CW": ["CW-R10", "CW-S20", "CW-S21", "CW-S28", "CW-S29"],
+          "DDS": ["DDS-R02", "DDS-R03", "DDS-R04", "DDS-R06", "DDS-R15", "DDS-R21", "DDS-S01", "DDS-S02", "DDS-S09", "DDS-S10",
+                  "DDS-S12", "DDS-S13", "DDS-S24", "DDS-S26", "DDS-S28", "DDS-S29", "DDS-S30", "DDS-S32", "DDS-S33"]}
+
+
+def cw_corr_real() -> list[dict]:
+    hdr = {h["application_no"]: h for h in _rows("civilwork/invoices/applications.csv")}
+    lines = {r["line_ref"]: r for r in _rows("civilwork/invoices/application_lines.csv")}
+    out = []
+    for cid, ref, label, band in CW_CORR_REAL:
+        l = lines[ref]
+        rec_path = SNAPSHOT / f"civilwork/records/{l['record_ref']}.txt" if l["record_ref"] else None
+        rec = _mask(rec_path.read_text()) if rec_path and rec_path.exists() else None
+        out.append({"id": cid, "kind": "real", "contract": "CW", "tests": label, "application": hdr[l["application_no"]], "line": l,
+                    "record": rec, "record_note": None if rec or not l["record_ref"] else f"no record file exists for {l['record_ref']}",
+                    "state": {"band_pct": band, "note": ("annual quantity-band state is NOT known (it depends on other lines)" if band is None
+                                                         else "annual quantity-band state is supplied as an input (G4 owns it); other lines are not considered")}})
+    return out
+
+
+def dds_corr_real() -> list[dict]:
+    hdr = {h["invoice_no"]: h for h in _rows("drilling_services/invoices/invoices.csv")}
+    lines = {r["line_ref"]: r for r in _rows("drilling_services/invoices/invoice_lines.csv")}
+    reports = {}
+    for f in (SNAPSHOT / "drilling_services/records").iterdir():
+        t = f.read_text()
+        reports[t.splitlines()[1].split(": ", 1)[1]] = t
+    out = []
+    for cid, ref, label in DDS_CORR_REAL:
+        l = lines[ref]
+        out.append({"id": cid, "kind": "real", "contract": "DDS", "tests": label, "invoice": hdr[l["invoice_no"]], "line": l,
+                    "report": _mask(reports[l["report_ref"]]) if l["report_ref"] in reports else None,
+                    "state": {"annual_footage_pct": "100", "note": "annual footage-band state is supplied as an input (G4 owns it); other lines and invoices are not considered"},
+                    "question_readings": {}})
+    return out
+
+
+def reread(contract: str, earlier: list[dict]) -> list[dict]:
+    by = {c["id"]: c for c in earlier}
+    return [by[i] for i in REREAD[contract]]
+
+
 def main() -> int:
     groups = {"cw_synthetic": cw_synthetic(), "dds_synthetic": dds_synthetic(), "cw_real": cw_real(), "dds_real": dds_real(),
               "cw_identity": cw_synthetic("identity_cw.yaml"), "dds_identity": dds_synthetic("identity_dds.yaml")}
-    split = {"cw_synthetic": 2, "dds_synthetic": 2, "cw_real": 1, "dds_real": 1, "cw_identity": 1, "dds_identity": 1}
+    groups["cw_correction"] = cw_synthetic("correction_cw.yaml") + cw_corr_real()
+    groups["dds_correction"] = dds_synthetic("correction_dds.yaml") + dds_corr_real()
+    groups["cw_reread"] = reread("CW", groups["cw_synthetic"] + groups["cw_real"])
+    groups["dds_reread"] = reread("DDS", groups["dds_synthetic"] + groups["dds_real"])
+    split = {"cw_synthetic": 2, "dds_synthetic": 2, "cw_real": 1, "dds_real": 1, "cw_identity": 1, "dds_identity": 1,
+             "cw_correction": 1, "dds_correction": 1, "cw_reread": 1, "dds_reread": 1}
     index = {}
     for g, cases in groups.items():
         n = split[g]
