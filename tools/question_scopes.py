@@ -204,6 +204,7 @@ def main() -> int:
         "losses_recorded": len(losses),
         "part_e_differs_from_well_daily_sum": sum(l["hours_on_well"] != l["well_daily_hours_through_loss_day"] for l in losses),
         "part_e_equals_run_daily_sum_only": sum(l["hours_on_well"] == l["run_daily_hours_through_loss_day"] != l["well_daily_hours_through_loss_day"] for l in losses),
+        "part_e_equals_tool_daily_sum": sum(l["hours_on_well"] == l["tool_daily_hours_through_loss_day"] for l in losses),
         "part_e_matches_neither": sum(l["hours_on_well"] not in (l["well_daily_hours_through_loss_day"], l["run_daily_hours_through_loss_day"]) for l in losses),
     }
     # ---- Settled decisions with recorded alternatives ---------------------------------------------

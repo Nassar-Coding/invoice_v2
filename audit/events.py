@@ -84,23 +84,28 @@ def identify(ddrs: dict, q: Queue) -> tuple[dict[tuple[str, int], Run], dict[str
                 q.conflict("run", f"{r.well}#{r.run}", "run_days_not_all_reported", f"{len(r.dates)} of {len(span)}")
         if r.source_days and r.metadata.get("Radioactive source carried") is False:
             q.conflict("run", f"{r.well}#{r.run}", "source_handled_on_run_without_source", "")
-    # Loss corroboration (plan §6 "Loss history": use Part E's hours AND corroborating history). P12 (p11):
-    # the hours are those on the well where lost, including the day of loss. Both daily sums are kept as facts.
+    # Loss corroboration (plan §6 "Loss history": use Part E's hours AND corroborating history). Cl.31 (p7) takes the
+    # hours "the tool accumulated on the well, as stated on the Lost in Hole Report" (Part E); P12 (p11): "those the
+    # tool accumulated on the well on which it was lost, including the day of the loss". The corroborating history is
+    # therefore the LOST TOOL's own days in the hole on that well (correction at G3: G2 compared the whole-well sum).
+    # The whole-well and run-to-date sums are kept as facts.
     daily = defaultdict(list)
     for d in ddrs.values():
         a = d.parts.get("A", {})
         if isinstance(a.get("Circulating hours"), int):
-            daily[d.well].append((d.date, (d.parts.get("B") or {}).get("Run"), a["Circulating hours"]))
+            daily[d.well].append((d.date, (d.parts.get("B") or {}).get("Run"), a["Circulating hours"], set(d.tools_in_hole)))
     for r in runs.values():
         for loss in r.losses:
-            well_sum = sum(h for day, _run, h in daily[r.well] if day <= loss["date"])
-            run_sum = sum(h for day, run, h in daily[r.well] if day <= loss["date"] and run == r.run)
+            well_sum = sum(h for day, _run, h, _t in daily[r.well] if day <= loss["date"])
+            run_sum = sum(h for day, run, h, _t in daily[r.well] if day <= loss["date"] and run == r.run)
+            tool_sum = sum(h for day, _run, h, terms in daily[r.well] if day <= loss["date"] and loss["tool_term"] in terms)
             loss["well_daily_hours_through_loss_day"] = well_sum
             loss["run_daily_hours_through_loss_day"] = run_sum
+            loss["tool_daily_hours_through_loss_day"] = tool_sum
             loss["run_continues_after_loss"] = bool(isinstance(r.metadata.get("Run last day"), dt.date) and r.metadata["Run last day"] > loss["date"])
-            if loss["hours_on_well"] != well_sum:
-                q.conflict("loss", loss["report"], "part_E_hours_vs_well_daily_sum",
-                           f"Part E {loss['hours_on_well']} vs well daily sum {well_sum} (run-to-date {run_sum})")
+            if loss["hours_on_well"] != tool_sum:
+                q.conflict("loss", loss["report"], "part_E_hours_vs_tool_daily_sum",
+                           f"Part E {loss['hours_on_well']} vs the lost tool's daily sum {tool_sum} (well {well_sum}, run-to-date {run_sum})")
     spans = {}
     for well, dates in by_well.items():
         ds = sorted(x for x in dates if x)

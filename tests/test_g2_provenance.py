@@ -77,9 +77,9 @@ def _ids():
 def test_register_covers_every_disclosed_item(world):
     reg = _register()
     assert verify_g2.carried_items_check(world, reg, *_ids()) == []
-    ci01 = next(i for i in reg["items"] if i["id"] == "CI-01")
-    assert len(ci01["idents"]) == 27 and len(ci01["subsets"]["part_E_matches_neither_reading"]) == 15
-    assert {i["id"]: i["owner_gate"] for i in reg["items"]} == {"CI-01": "G3", "CI-02": "G3", "CI-03": "G3"}
+    assert {i["id"]: i["owner_gate"] for i in reg["items"]} == {"CI-02": "G3", "CI-03": "G3"}
+    ci01 = next(i for i in reg["resolved"] if i["id"] == "CI-01")          # resolved at G3: tool-history corroboration
+    assert len(ci01["idents"]) == 27 and ci01["resolved_at"] == "G3"
 
 
 def test_unregistered_conflict_fails(world):
@@ -107,3 +107,17 @@ def test_q11_uses_the_records_based_bound():
     assert "6,026" in q11["observation"] and "Max billed" not in q11["observation"]
     d4 = next(d for d in yaml.safe_load((ROOT / "spec" / "open_questions.yaml").read_text())["decisions"] if d["id"] == "D4")
     assert d4["scope_key"] == "max_physical_depth_increment_per_well_all_dates"
+
+
+def test_stale_missing_part_entry_fails(world):
+    """Re-audit qualification 2: a registered missing-part line whose part is now present must fail."""
+    import copy
+    w2 = copy.copy(world)
+    w2.dds_links = dict(world.dds_links)
+    for ref in ("MDS-00876-062", "MDS-01393-036"):
+        l = copy.deepcopy(world.dds_links[ref])
+        l.semantic["required_part_present"] = True
+        w2.dds_links[ref] = l
+    errs = verify_g2.carried_items_check(w2, _register(), *_ids())
+    assert errs == ["CI-03: registered line MDS-00876-062 no longer lacks its Schedule 5 part",
+                    "CI-03: registered line MDS-01393-036 no longer lacks its Schedule 5 part"]

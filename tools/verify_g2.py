@@ -106,6 +106,12 @@ def carried_items_check(w, register: dict, rule_ids: set, question_ids: set) -> 
     for ident, l in w.dds_links.items():
         if l.semantic.get("required_part_present") is False and ident not in reg_lines:
             errs.append(f"line {ident} lacks its Schedule 5 part {l.semantic['required_part']} and is not registered")
+    for it in register["items"]:              # stale-entry check for missing-part items (G1/G2 re-audit qualification 2)
+        if it["kind"] == "missing_required_part" or it.get("check") == "gyro_surveys_without_part_C":
+            for l in it.get("lines", []):
+                link = w.dds_links.get(l)
+                if link is not None and link.semantic.get("required_part_present") is not False:
+                    errs.append(f"{it['id']}: registered line {l} no longer lacks its Schedule 5 part")
     for it in register["items"]:
         if it.get("owner_gate") not in {"G3", "G4", "G5", "G6", "G7"} or not it.get("treatment"):
             errs.append(f"{it['id']}: owner gate or treatment missing")

@@ -4,7 +4,7 @@ method: 'Second verification of every parameter and rule against the scan images
   pages and supported with verbatim quotes. Every quote is machine-matched to the OCR text of its page; a parameter''s value
   as printed is machine-compared with the specification value. Non-supported verdicts, unquoted cited pages and weak OCR matches
   are settled on the scan image and recorded in verification/param_rule_dispositions.yaml, bound to the item''s content hash.'
-reviewed: '2026-09-25'
+reviewed: '2026-09-26'
 entries:
   CW.P.commencement:
     kind: parameter
@@ -1183,7 +1183,7 @@ entries:
     - 14
     - 27
     - 33
-    content_sha256: 3829fe0f360aaaacf569ba313cc4029442f9b872745a07b7c164798fd760c43a
+    content_sha256: 7cb37f60ed92decb9c7b329c23ee1e110ae762cabf44af5cf148264fd2a3d5a3
     reading:
       reader: B
       file: verification/param_rule_readings/B.jsonl
@@ -2797,7 +2797,7 @@ entries:
     - 28
     - 35
     - 36
-    content_sha256: 60722e38efba11743a5e134fd6b0eb91b65902ffa0fc01af26a8aa76003a7714
+    content_sha256: 289e1e180042be74cd3168f78a3a8bff65dc59956e18140408a30a50190f9716
     reading:
       reader: E
       file: verification/param_rule_readings/E.jsonl
@@ -3621,7 +3621,7 @@ entries:
     - 25
     - 34
     - 35
-    content_sha256: a6eb7e296d92218cf483eb803f3887b345ffdcc2db284a3fc9f225ff1abfbec8
+    content_sha256: bb93b754dd61be1cde3b1db77a563f27b1c7b543d757c641453cf3d53e519790
     reading:
       reader: H
       file: verification/param_rule_readings/H.jsonl

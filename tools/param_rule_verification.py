@@ -142,10 +142,21 @@ def ocr_ratio(contract: str, page: int, quote: str) -> float:
     return round(best, 3)
 
 
+def snapshot_path(path: str):
+    """A reader's document path, re-rooted on the pinned snapshot of THIS checkout (re-audit qualification 1: the
+    readings recorded absolute paths of the original checkout)."""
+    import snapshot
+    marker = "invoice-auditing-level-2/"
+    if marker in path:
+        return Path(snapshot.DEFAULT_SNAPSHOT) / path.split(marker, 1)[1]
+    p = Path(path)
+    return p if p.is_absolute() else None
+
+
 def document_match(path: str, quote: str) -> float:
     """A quote from a text document (guidelines, README) must be in it verbatim (whitespace/markup normalised)."""
-    p = Path(path)
-    if not p.is_absolute() or not p.exists():
+    p = snapshot_path(path)
+    if p is None or not p.exists():
         return 0.0
     return 1.0 if norm(quote.replace("*", "")) in norm(p.read_text().replace("*", "")) else 0.0
 

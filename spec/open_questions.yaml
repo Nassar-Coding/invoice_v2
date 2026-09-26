@@ -37,7 +37,10 @@ questions:
       - {id: B, reading: "Line stays in its application's measured value; P23 deducts it from the next valuation (with retention released on it)"}
     rules: [CW-R05, DDS-R05]
     scope_ref: [Q3_CW]
-    status: open
+    status: decided
+    decided_at: G3
+    decision: "A (Cl.46 'not payable in any valuation until that record has been delivered'; DDS Cl.37; P23 governs recovery of an item already paid, a G4 event)"
+    decision_ref: spec/g3_decisions.yaml#Q3
     blocks: G3
   - id: Q4
     title: DDS hourly quantity - first hour of each "period in the hole", daily 6-hour minimum, DD-120 vs RM-530 hour scope
@@ -47,10 +50,13 @@ questions:
       - {id: B, reading: "Apply the minimum to hours run, then deduct one hour"}
       - {id: C, reading: "Period = BHA run (one deduction per run, on its first day) rather than per day"}
     observation: "No DD-120 line is billed at 6 hours or fewer, so the minimum/deduction order changes nothing billed at or below 6; period definition still matters."
+    g3_disposition: "Kept open at G3 (no clause decides 'period in the hole' or the order). The G3 engine computes every reading on every hourly line; where they differ (verification/g3/decision_scopes.json Q4) the line carries all alternatives and no single amount. Ownership of those final amounts moves to G5."
+    decision_ref: spec/g3_decisions.yaml#Q4
     rules: [DDS-R07]
     scope_ref: [Q4_DDS]
     status: open
-    blocks: G3
+    blocks: G5
+    originally_blocks: G3
   - id: Q5
     title: Schedule 8 conflicts, service by service (DD-102 coordinator vs tool-in-hole row; HC-630 per BHA run vs clean-out runs; DD-120/RM-530 'circulating or back-reaming')
     sources: ["Sch 8 (pp27-28)", "Cl.2 (p3)", "Cl.26, Cl.30 (p7)", "App G (p36)", "Sch 4 (p23)"]
@@ -60,7 +66,10 @@ questions:
       - {id: C, reading: "HC-630: per BHA run (Sch 8) vs per clean-out run recorded (Cl.30); RM-530/DD-120: whether back-reaming hours count for DD-120"}
     rules: [DDS-R06, DDS-R07, DDS-R15]
     scope_ref: [Q5_DDS]
-    status: open
+    status: decided
+    decided_at: G3
+    decision: "DD-102 A (per coordinator recorded; B is unestablishable: no tool term exists for DD-102); HC-630 per clean-out run recorded (Cl.30); DD-120 circulating hours only (Cl.21), back-reaming is RM-530"
+    decision_ref: spec/g3_decisions.yaml#Q5
     blocks: G3
   - id: Q6
     title: Civil state basis - which quantity advances bands (measured vs claimed vs payable), cap/duplicate allocation, exclusion day counting
@@ -93,7 +102,10 @@ questions:
       - {id: B, reading: "Treat every charge depending on an unsupplied document as unresolved"}
     rules: [CW-R13, CW-R18, CW-R19, CW-R23, DDS-R01, DDS-R15, DDS-R18, DDS-R19]
     scope_ref: [Q8]
-    status: open
+    status: decided
+    decided_at: G3
+    decision: "A with disclosed proxies: CW rest-day alone (P11); DDS class from the invoice header (proxy for the call-off); section/status from the report; every PD-210 amount stays conditional on the unsupplied call-off nomination (DDS-R19 stays open)"
+    decision_ref: spec/g3_decisions.yaml#Q8
     blocks: G3
   - id: Q9
     title: Reporting semantics - binary flag for payment-only or procedural defects; unknown-total encoding; confidence meaning; undefined severity
@@ -125,7 +137,10 @@ questions:
     observation: "Records-based bound (correction round; replaces a bound taken from billed PD-210 metres, which cannot bound reading B): the sum of the daily physical depth increments (Part A depth end - depth start) on any well over ALL supplied dates is at most 6,026 m (NGP-BD-027), and drilled + logged + reamed metres at most 10,002 m per well - far below the 40,000 m band edge, so neither accumulator reading can change a band on the pinned data (scope_ref Q11_DDS)."
     rules: [DDS-R07, DDS-R08, DDS-R12]
     scope_ref: [Q11_DDS]
-    status: open
+    status: decided in part
+    decided_at: G3
+    decision: "Accumulator: no effect on the pinned data (records bound). Tolerance: 25A per charge against the metres the report supports for its interval. Wrong-unit remedy (Cl.35 states none): kept open with alternatives A/B above; 0 DDS lines are billed in another unit (verification/g3/decision_scopes.json Q11), so it decides no line. DDS-R08 stays open."
+    decision_ref: spec/g3_decisions.yaml#Q11
     blocks: G3
   - id: Q12
     title: "NEW (Phase 3). CW Contract Year for the Sch 4 Part 3 bands: does the count reset on 5 January 2026?"
@@ -146,10 +161,13 @@ questions:
       - {id: A, reading: "Part E 'Circulating hours accumulated on the well' as recorded governs: it is the Schedule 5 record of the loss"}
       - {id: B, reading: "The hours are the circulating hours accumulated on the well through the day of loss, i.e. the sum of Part A daily circulating hours on that well (P12; Cl.31 'accumulated on the well'); Part E is corroborated against it"}
       - {id: C, reading: "Where Part E and the daily history disagree the depreciation cannot be fixed from the records: the LH line is a query valued only within the A/B bounds"}
-    observation: "G2 (verification/g2/conflicts.json, part_E_hours_vs_well_daily_sum): Part E differs from the whole-well daily sum in 27 of 54 losses; it equals the run-only sum in 12 of them and matches neither reading in 15 (spec/carried_items.yaml CI-01)."
+    observation: "G2 at 8745f9c compared Part E with the whole-well daily sum and found 27 of 54 losses differing (CI-01). G3 corrected the corroboration to P12's own words, 'the tool accumulated on the well': Part E equals the LOST TOOL's own daily circulating hours on the well through the day of loss in 54 of 54 losses (spec/question_scopes.json Q13_DDS part_e_equals_tool_daily_sum); the whole-well sum still differs in 27, which is why reading B is rejected."
     rules: [DDS-R17]
     scope_ref: [Q13_DDS]
-    status: open
+    status: decided
+    decided_at: G3
+    decision: "A (Cl.31 'as stated on the Lost in Hole Report'), corroborated by P12 on every loss; CI-01 resolved"
+    decision_ref: spec/g3_decisions.yaml#Q13
     blocks: G3
 
 decisions:

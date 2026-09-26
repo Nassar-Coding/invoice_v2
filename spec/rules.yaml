@@ -67,7 +67,7 @@ rules:
     tables: [CW.T16_RECORDS]
     overrides: [OV-CW-08]
     questions: [Q3]
-    status: open
+    status: settled
     pricing: true
     validation: ["blank ref on Sch 5 item", "ref with no file", "ref of wrong series", "underscore placeholder signature", "non-Sch 5 item with blank ref is not a breach"]
   - id: CW-R06
@@ -385,7 +385,7 @@ rules:
     sources: ["App G (p36)", "19A (p35)", "Cl.22, Cl.28 (pp6-7)", "P6, P7 (p11)", "Sch 8 (pp27-28)"]
     tables: [DDS.T20_GLOSSARY, DDS.T23_SCH8]
     questions: [Q5]
-    status: open
+    status: settled
     pricing: true
     validation: ["'night man' -> DD-102", "'gamma tool' -> LW-410 or LH-714 in a loss context", "'float sub' -> HC-640", "crew-change day counted once"]
   - id: DDS-R07
@@ -527,7 +527,7 @@ rules:
     parameters: [DDS.P.lih_depreciation]
     overrides: [OV-DDS-04]
     questions: [Q13]
-    status: open
+    status: settled
     pricing: true
     validation: ["412 h -> 16%", "24 h -> 0%, 25 h -> 1%", "1,250 h -> 50% cap", "month-of-loss FX at a half cent"]
   - id: DDS-R18

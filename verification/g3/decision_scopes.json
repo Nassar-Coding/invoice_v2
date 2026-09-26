@@ -1,0 +1,257 @@
+{
+ "Q3": {
+  "decided": "A",
+  "cw_lines": [
+   "PA-00111-12",
+   "PA-00111-13",
+   "PA-00170-04",
+   "PA-00609-01",
+   "PA-00613-01",
+   "PA-00631-10",
+   "PA-00672-04",
+   "PA-00678-06",
+   "PA-00766-12"
+  ],
+  "dds_lines": [
+   "MDS-00876-062",
+   "MDS-00901-029",
+   "MDS-00954-021",
+   "MDS-01393-036"
+  ],
+  "under_A": "not payable in this valuation/invoice (amount 0.00)",
+  "under_B": {
+   "cw": {
+    "PA-00111-12": {
+     "unit_rate": "478.00"
+    },
+    "PA-00111-13": {
+     "unit_rate": "83.78"
+    },
+    "PA-00170-04": {
+     "unit_rate": "152.88"
+    },
+    "PA-00609-01": {
+     "unit_rate": "44.31"
+    },
+    "PA-00613-01": {
+     "unit_rate": "74.48"
+    },
+    "PA-00631-10": {
+     "unit_rate": "478.00"
+    },
+    "PA-00672-04": {
+     "unit_rate": "312.00"
+    },
+    "PA-00678-06": {
+     "unit_rate": "246.00"
+    },
+    "PA-00766-12": {
+     "unit_rate": "1524.00"
+    }
+   },
+   "dds": {
+    "MDS-00876-062": {
+     "unit_rate": "2746.55"
+    },
+    "MDS-00901-029": {
+     "unit_rate": "38.45"
+    },
+    "MDS-00954-021": {
+     "unit_rate": "2446.15"
+    },
+    "MDS-01393-036": {
+     "unit_rate": "2746.55"
+    }
+   },
+   "note": "the line keeps its value in its own application/invoice; CW P23 deducts it from the next valuation (G4 event)"
+  }
+ },
+ "Q4": {
+  "status": "open",
+  "hourly_lines": 5549,
+  "lines_where_readings_differ": {
+   "MDS-00856-039": {
+    "Q4:A": {
+     "allowed_quantity": "6",
+     "amount": "1587.30"
+    },
+    "Q4:B": {
+     "allowed_quantity": "6",
+     "amount": "1587.30"
+    },
+    "Q4:C": {
+     "allowed_quantity": "7",
+     "amount": "1851.85"
+    },
+    "Q4:counts": {
+     "allowed_quantity": "7",
+     "amount": "1851.85"
+    }
+   },
+   "MDS-01338-026": {
+    "Q4:A": {
+     "allowed_quantity": "4",
+     "amount": "1058.20"
+    },
+    "Q4:B": {
+     "allowed_quantity": "4",
+     "amount": "1058.20"
+    },
+    "Q4:C": {
+     "allowed_quantity": "5",
+     "amount": "1322.75"
+    },
+    "Q4:counts": {
+     "allowed_quantity": "5",
+     "amount": "1322.75"
+    }
+   },
+   "MDS-01604-055": {
+    "Q4:A": {
+     "allowed_quantity": "15",
+     "amount": "6818.70"
+    },
+    "Q4:B": {
+     "allowed_quantity": "15",
+     "amount": "6818.70"
+    },
+    "Q4:C": {
+     "allowed_quantity": "16",
+     "amount": "7273.28"
+    }
+   },
+   "MDS-01651-025": {
+    "Q4:A": {
+     "allowed_quantity": "9",
+     "amount": "3290.40"
+    },
+    "Q4:B": {
+     "allowed_quantity": "9",
+     "amount": "3290.40"
+    },
+    "Q4:C": {
+     "allowed_quantity": "10",
+     "amount": "3656.00"
+    }
+   },
+   "MDS-01670-038": {
+    "Q4:A": {
+     "allowed_quantity": "21",
+     "amount": "8124.48"
+    },
+    "Q4:B": {
+     "allowed_quantity": "21",
+     "amount": "8124.48"
+    },
+    "Q4:C": {
+     "allowed_quantity": "22",
+     "amount": "8511.36"
+    }
+   },
+   "MDS-01877-046": {
+    "Q4:A": {
+     "allowed_quantity": "19",
+     "amount": "6946.40"
+    },
+    "Q4:B": {
+     "allowed_quantity": "19",
+     "amount": "6946.40"
+    },
+    "Q4:C": {
+     "allowed_quantity": "20",
+     "amount": "7312.00"
+    }
+   },
+   "MDS-01900-016": {
+    "Q4:A": {
+     "allowed_quantity": "19",
+     "amount": "6946.40"
+    },
+    "Q4:B": {
+     "allowed_quantity": "19",
+     "amount": "6946.40"
+    },
+    "Q4:C": {
+     "allowed_quantity": "20",
+     "amount": "7312.00"
+    }
+   }
+  },
+  "lines_where_all_readings_agree": 5542
+ },
+ "Q5": {
+  "decided": {
+   "DD-102": "A (per coordinator recorded, Sch 8 intro p27, App G 'night man')",
+   "HC-630": "counted as recorded (Cl.30)",
+   "DD-120": "circulating hours only (Cl.21)"
+  },
+  "DD-102": {
+   "lines": 8151,
+   "under_A_payable": 8151,
+   "under_A_quantity": {
+    "1": 8151
+   },
+   "under_B": "no tool term exists for DD-102: tool-in-hole unestablishable on all lines (0 chargeable)"
+  },
+  "HC-630": {
+   "lines": 428,
+   "recorded_clean_out_runs_not_1": 0,
+   "under_per_BHA_run": "one per run on a run day (run lifecycle is G4 state)"
+  },
+  "DD-120_back_reaming_days": {
+   "lines": 428,
+   "note": "lines whose day records back-reaming hours; including them in DD-120 would raise the chargeable hours on these days"
+  }
+ },
+ "Q8": {
+  "decided": "A (explicit defaults and disclosed proxies)",
+  "class_factor_from_invoice_header": {
+   "lines": 24217,
+   "non_standard": 10266
+  },
+  "pd210_nomination_not_supplied": {
+   "lines": 2390,
+   "conditional": 2390,
+   "not_performance_section": 0
+  },
+  "cw_night_and_rest_day_rest_alone": {
+   "lines": 0,
+   "line_refs": []
+  }
+ },
+ "Q11": {
+  "accumulator": "no effect on the pinned data: records bound 10,002 m < 40,000 m per well (spec/question_scopes.json)",
+  "tolerance": "25A applied per charge against the metres the report supports for its interval",
+  "wrong_unit_remedy": {
+   "status": "open",
+   "dds_lines_billed_in_another_unit": []
+  },
+  "pd210_quantity_above_report": 0
+ },
+ "Q13": {
+  "decided": "A (Part E hours, Cl.31 'as stated on the Lost in Hole Report'; corroborated by P12 tool history)",
+  "lh_lines": 54,
+  "part_e_equals_tool_history": 54,
+  "losses": 54
+ },
+ "G3-D1": {
+  "CW": {
+   "lines": 29,
+   "payable_under_D1": 28,
+   "value_under_D1": "377167.84",
+   "under_alternative": "not payable now: value 0.00 on these lines"
+  },
+  "DDS": {
+   "lines": 244,
+   "payable_under_D1": 241,
+   "value_under_D1": "509246.11",
+   "under_alternative": "not payable now: value 0.00 on these lines"
+  }
+ },
+ "G3-D2": {
+  "lines": 33,
+  "schedule5_not_payable": 1,
+  "others_payable_under_D2": 32,
+  "under_alternative": "every line on an unsigned report not payable"
+ }
+}

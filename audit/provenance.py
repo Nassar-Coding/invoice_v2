@@ -4,7 +4,7 @@ Plan §4 requires each derived fact to carry its source span and the version of 
 Source spans live on the facts (Source, spans). The version is this run context: a hash over
   * the implementation: every module of the audit package and the spec loader it uses (tools/spec_lib.py,
     tools/snapshot.py);
-  * the reviewed inputs it reads: the evidence specifications and the verified terms files (Appendix G,
+  * the reviewed inputs it reads: the evidence specifications, the verified terms files and instruments (Appendix G,
     Schedules 5 and 8, work areas, ground classes, record series ...);
   * the evidence it reads: the pinned snapshot commit and the G0 manifest that certifies its files.
 Every derived fact (claim row, record, report, run, well span, link, unresolved entry, conflict) carries the
@@ -22,7 +22,8 @@ from .common import ROOT, snapshot
 
 CODE_GLOBS = ["audit/*.py"]
 CODE_FILES = ["tools/spec_lib.py", "tools/snapshot.py"]
-REVIEWED_INPUTS = ["spec/evidence_cw.yaml", "spec/evidence_dds.yaml", "spec/terms_cw.yaml", "spec/terms_dds.yaml"]
+REVIEWED_INPUTS = ["spec/evidence_cw.yaml", "spec/evidence_dds.yaml", "spec/terms_cw.yaml", "spec/terms_dds.yaml",
+                   "spec/instruments.yaml"]
 EVIDENCE_IDENTITY = ["source/manifest.tsv"]
 
 

@@ -203,3 +203,27 @@ def test_section_classification_edit_after_reading_fails(sandbox, capsys):
     edit(sandbox / "sections_dds.yaml", f)
     rc, out = run(capsys)
     assert rc == 1 and "('DDS', 'Part V Technical T1-T16'): classification changed since its second reading" in out
+
+
+def test_recorder_document_quotes_resolve_in_another_checkout(tmp_path, monkeypatch):
+    """Re-audit qualification 1: document quotes recorded with the original absolute path still match when the snapshot
+    lives elsewhere (paths are re-rooted on the pinned snapshot of this checkout)."""
+    import json
+    import snapshot
+    import param_rule_verification as prv
+    moved = tmp_path / "elsewhere" / "invoice-auditing-level-2"
+    quotes = []
+    for f in sorted((sl.VERIF / "param_rule_readings").glob("*.jsonl")):
+        for ln in f.read_text().splitlines():
+            for q in json.loads(ln).get("quotes", []):
+                if q.get("document"):
+                    quotes.append(q)
+    assert quotes
+    for q in quotes:
+        rel = q["document"].split("invoice-auditing-level-2/", 1)[1]
+        (moved / rel).parent.mkdir(parents=True, exist_ok=True)
+        (moved / rel).write_text((snapshot.DEFAULT_SNAPSHOT / rel).read_text())
+    monkeypatch.setattr(snapshot, "DEFAULT_SNAPSHOT", moved)
+    assert all(prv.document_match(q["document"], q["text"]) == 1.0 for q in quotes)
+    monkeypatch.setattr(snapshot, "DEFAULT_SNAPSHOT", tmp_path / "missing")
+    assert all(prv.document_match(q["document"], q["text"]) == 0.0 for q in quotes)      # control: no snapshot -> no match

@@ -98,10 +98,10 @@ def coverage(w: World) -> dict:
         "runs": len(w.runs), "runs_all_days_reported": sum(r.all_days_reported for r in w.runs.values()),
         "runs_with_source_days": sum(bool(r.source_days) for r in w.runs.values()),
         "losses": sum(len(r.losses) for r in w.runs.values()),
-        "loss_hours_readings": dict(Counter(
-            ("well" if l["hours_on_well"] == l["well_daily_hours_through_loss_day"] else "") +
-            ("+run" if l["hours_on_well"] == l["run_daily_hours_through_loss_day"] else "") or "neither"
-            for r in w.runs.values() for l in r.losses)),
+        "loss_hours_readings": dict(sorted(Counter(
+            "+".join(k for k, f in (("tool", "tool_daily_hours_through_loss_day"), ("well", "well_daily_hours_through_loss_day"),
+                                    ("run", "run_daily_hours_through_loss_day")) if l["hours_on_well"] == l[f]) or "none"
+            for r in w.runs.values() for l in r.losses).items())),
         "observations": {
             "source_carried_reports": sum(d.parts["B"].get("Radioactive source carried") is True for d in ddrs),
             # Keyed by Appendix G service code, never by the rig word: 'resistivity tool' is LW-411 (LWD density and

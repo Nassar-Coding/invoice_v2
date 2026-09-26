@@ -32,7 +32,7 @@ def test_every_row_and_file_accounted_for(world):
 def test_queue_empty_on_corpus_but_contradictions_visible(world):
     assert world.queue.items == []
     checks = {c.check for c in world.queue.conflicts}
-    assert checks == {"gyro_surveys_without_part_C", "part_E_hours_vs_well_daily_sum"}
+    assert checks == {"gyro_surveys_without_part_C"}      # loss hours agree with each lost tool's own history (G3 correction)
 
 
 def test_civil_bad_input_is_queued_not_defaulted():
@@ -153,11 +153,12 @@ def test_repeated_run_metadata_is_one_fact(world):
 
 
 def test_run_metadata_disagreement_and_loss_hours_are_conflicts():
-    def mk(rid, date, run_hours, a_hours, loss=None):
+    def mk(rid, date, run_hours, a_hours, loss=None, tools=("mud motor",)):
         d = records_dds.Ddr(file=rid + ".txt", path="x", report=rid, well="W-1", date=date)
         d.parts = {"A": {"Circulating hours": a_hours, "Depth start (m MD)": 0, "Depth end (m MD)": 10},
                    "B": {"Run": 1, "Run first day": dt.date(2025, 1, 1), "Run last day": dt.date(2025, 1, 2), "Tools in run": ["mud motor"],
                          "Run circulating hours": run_hours, "Metres logged": 0, "Metres reamed": 0, "Radioactive source carried": False}}
+        d.tools_in_hole = {t: None for t in tools}
         if loss is not None:
             d.parts["E"] = {"Circulating hours accumulated on the well": loss}
             d.lost_tool_term, d.lost_tool_code = "mud motor", "LH-711"
@@ -167,9 +168,15 @@ def test_run_metadata_disagreement_and_loss_hours_are_conflicts():
     runs, _ = events.identify(ddrs, q)
     checks = {c.check for c in q.conflicts}
     assert "part_B_Run circulating hours_differs" in checks
-    assert "part_E_hours_vs_well_daily_sum" in checks
+    assert "part_E_hours_vs_tool_daily_sum" in checks             # 15 stated, the tool accumulated 20
     loss = runs[("W-1", 1)].losses[0]
-    assert (loss["well_daily_hours_through_loss_day"], loss["run_daily_hours_through_loss_day"]) == (20, 20)
+    assert (loss["well_daily_hours_through_loss_day"], loss["run_daily_hours_through_loss_day"], loss["tool_daily_hours_through_loss_day"]) == (20, 20, 20)
+    # the tool's own history, not the well's: tool only in the hole on the loss day -> 10 h corroborates Part E = 10
+    q = Queue()
+    ddrs = {"R1": mk("R1", dt.date(2025, 1, 1), 20, 10, tools=("gamma tool",)), "R2": mk("R2", dt.date(2025, 1, 2), 20, 10, loss=10)}
+    runs, _ = events.identify(ddrs, q)
+    assert not any(c.check == "part_E_hours_vs_tool_daily_sum" for c in q.conflicts)
+    assert runs[("W-1", 1)].losses[0]["well_daily_hours_through_loss_day"] == 20
 
 
 def test_blind_comparator_detects_planted_errors(world, tmp_path, monkeypatch):
@@ -200,11 +207,28 @@ def test_fixture_coverage_check_detects_a_missing_branch(world):
     assert "ddr.conflict:gyro_surveys_without_part_C" in corpus - covered
 
 
+G3_MODULES = {"terms.py", "g3_core.py", "g3_cw.py", "g3_dds.py", "g3_run.py"}   # the pricing layer G3 adds on top
+
+
 def test_boundary_no_pricing_or_outcomes():
-    """G2 stops at evidence: the audit package defines no valuation, flag, total or submission output."""
-    text = " ".join(p.read_text() for p in (ROOT / "audit").glob("*.py")).lower()
+    """G2 stops at evidence: its modules define no valuation, flag, total or submission output, and never import the
+    G3 pricing layer (which may price; its own boundary is tests/test_g3_gate.py). The G3 set is named, not globbed,
+    so pricing added to an evidence module is still caught."""
+    g2 = [p for p in (ROOT / "audit").glob("*.py") if p.name not in G3_MODULES]
+    assert {p.name for p in g2} >= {"build.py", "claims.py", "events.py", "links.py", "records_cw.py", "records_dds.py"}
+    text = " ".join(p.read_text() for p in g2).lower()
     for word in ("submission.csv", "expected_total", "flagged", "load_instruments", "rate_version", "def price"):
         assert word not in text, word
+    import ast
+    g3 = {m[:-3] for m in G3_MODULES}
+    for p in g2:
+        for node in ast.walk(ast.parse(p.read_text())):
+            names = []
+            if isinstance(node, ast.ImportFrom):
+                names = [node.module or ""] + [a.name for a in node.names]
+            elif isinstance(node, ast.Import):
+                names = [a.name for a in node.names]
+            assert not {n.split(".")[-1] for n in names} & g3, (p.name, names)
 
 
 def test_dd121_standby_charge_is_evidenced_by_the_rotary_steerable(world):
