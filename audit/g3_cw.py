@@ -226,7 +226,11 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
     if code in T.ground_items:
         claimed = (line.get("ground_class") or "").split(" ")[0] or None
         applies, why = record_applies(record, line, code) if record is not None else (False, "no record referenced")
-        recorded = bool(applies and evidence_ok and record.ground)
+        # the classification is the Engineer's (Cl.5; App A 'Ground classification'; 27A 'whatever the Engineer recorded on
+        # the day'; App A 'Engineer' includes the representative): a record without the representative's countersignature
+        # is the Subcontractor's own statement, not that classification (round 2)
+        engineers = bool(record is not None and record.engineer_signed)
+        recorded = bool(applies and evidence_ok and record.ground and engineers)
         if wd > T.g2_after:
             ground_opts = [(None, "G2")]
             r.readings.append("ground G2: 27A, work after 27 Sep 2025 taken as G2")
@@ -239,6 +243,10 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
             if record is not None and record.ground and not applies:
                 r.readings.append(f"ground not evidenced: the referenced record {line.get('record_ref')} states {record.ground} but "
                                   f"does not apply to this work ({why}), so it is not the classification of this excavation (S4, Cl.5)")
+            elif record is not None and record.ground and not engineers:
+                r.readings.append(f"ground not evidenced: the record {line.get('record_ref')} for this work states {record.ground} but "
+                                  f"is not countersigned by the Engineer's representative, so it is not the Engineer's "
+                                  f"classification (Cl.5; App A; 27A)")
             r.readings.append(f"ground not evidenced: no supplied record for this work states the classification; the application "
                               f"states {claimed or 'none'} (the claim, not authority: S4, Cl.5); G2 if not recorded on the day (S4)")
             r.condition("ground", "G5", "S4 (p10) classification recorded at excavation, G2 if not recorded on the day; "

@@ -10,7 +10,8 @@ import yaml
 
 import g3_case_compare as gcc
 import verify_g3 as vg
-from audit import build, g3_cw, g3_dds
+from audit import build, g3_cw, g3_dds, terms
+from audit.common import Queue
 
 ROOT = Path(__file__).resolve().parents[1]
 FAMILIES = yaml.safe_load((ROOT / "spec/g3_code_families.yaml").read_text())
@@ -99,6 +100,48 @@ def test_b1_engine_and_x2_predicate_agree_on_every_record(world):
     assert n > 1000
 
 
+
+def _unsigned_s64():
+    c = copy.deepcopy(gcc.load_cases()["CW-S64"])
+    c["record"] = c["record"].replace("Countersigned (Engineer's representative): <signature>",
+                                      "Countersigned (Engineer's representative): ____________________")
+    return c
+
+
+def _x2_on_case(c, r):
+    """X2's admissible-value check on a synthetic case, with its record standing in for the world's."""
+    import types
+    from audit import records_cw
+    rec = records_cw.parse_file(f"civilwork/records/{c['line']['record_ref']}.txt", c["record"], Queue())
+    line = {**c["line"], "work_date": dt.date.fromisoformat(c["line"]["work_date"])}
+    return vg.admissible_errors("CW", r, line, terms.cw(), types.SimpleNamespace(cw={c["line"]["record_ref"]: rec}))
+
+
+def test_b1_record_without_the_engineers_countersignature_does_not_settle_the_class():
+    """Found in round 2's own falsification: a record of this work signed by the foreman only settled the class of an
+    item that needs no Schedule 5 record. The classification is the Engineer's (Cl.5; App A 'Ground classification ...
+    assigned under Clause 5', 'Engineer ... or that person's representative'; 27A 'whatever the Engineer recorded on the
+    day'); the foreman's own record is the Subcontractor's statement."""
+    c = _unsigned_s64()
+    r = gcc.engine_result(c)
+    assert r.amount is None and vg._dim_values(r, "ground") == {"G1", "G2", "G3", "G4", "G5"}
+    assert any("not countersigned by the Engineer's representative" in x for x in r.readings)
+    assert _x2_on_case(c, r) == []
+
+
+def test_b1_control_x2_rejects_a_foreman_only_record_as_authority(monkeypatch):
+    c = _unsigned_s64()
+    real = g3_cw.evaluate
+
+    def foreman_record_engine(line, app, rec, exists, **kw):          # the engine before this fix
+        if rec is not None:
+            rec = dataclasses.replace(rec, engineer_signed=True)
+        return real(line, app, rec, exists, **kw)
+    monkeypatch.setattr(g3_cw, "evaluate", foreman_record_engine)
+    r = gcc.engine_result(c)
+    assert r.amount_status == "determined" and str(r.unit_rate) == "38.98"
+    assert any("without every ground class" in e for e in _x2_on_case(c, r))
+
 def _any_record(monkeypatch):
     """The defect: any referenced record with a ground class taken as the classification of this work."""
     monkeypatch.setattr(g3_cw, "record_applies", lambda rec, line, code: (True, ""))
@@ -149,7 +192,6 @@ from decimal import Decimal  # noqa: E402
 import itertools  # noqa: E402
 import random  # noqa: E402
 
-from audit import terms  # noqa: E402
 
 DT = terms.dds()
 
@@ -339,7 +381,6 @@ def test_b2_four_bands_checked_by_x3_independent_count():
 
 
 from audit import records_dds  # noqa: E402
-from audit.common import Queue  # noqa: E402
 
 MEASURED_PROBES = [   # (charge from, to, quantity, report start, end): the report measures less than the charged interval
     ("1450", "1550", "99", "1451", "1550"), ("1450", "1550", "97", "1451", "1550"), ("1400", "1610", "202", "1400", "1600"),

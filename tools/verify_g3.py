@@ -357,7 +357,9 @@ def admissible_errors(contract: str, r, line: dict, T, w) -> list[str]:
                      "invoice header is not the call-off")
     if contract == "CW" and r.code in T.ground_items and line["work_date"] <= T.g2_after:
         rec = w.cw.get(line.get("record_ref") or "")
-        if not (rec is not None and rec.ground and _applies_to_work(rec, line)):
+        # authority: a record of this work, stating a class, countersigned by the Engineer's representative (Cl.5; App A;
+        # 27A: the classification is the Engineer's) - read from the record, not from the engine
+        if not (rec is not None and rec.ground and _applies_to_work(rec, line) and rec.engineer_signed):
             if _dim_values(r, "ground") != set(T.ground):
                 e.append(f"ground item with no recorded classification without every ground class (has "
                          f"{sorted(_dim_values(r, 'ground'))}): the application's class is not authority")
