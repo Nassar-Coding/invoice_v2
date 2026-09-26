@@ -73,15 +73,15 @@ decisions:
     carried_items: [CI-01]
   - id: G3-D1
     status: decided
-    reading: "a procedural breach (late or early submission, work outside the stated period, identity variant) is recorded but does not remove the line's contract value"
+    reading: "a procedural breach (late or early submission, work outside the stated period, a contract-reference or party variant, a line for another well on a well's invoice) is recorded as a finding but does not remove the line's contract value"
     basis:
-      - "CW Cl.41 (p8), DDS Cl.32-33 (p8): the rules state no consequence"
-      - "CW Cl.48 / DDS Cl.42 (p8): they time payment of a correct submission; the contract states a condition of payment expressly where it means one (CW Cl.46, DDS Cl.37)"
-      - "plan §8 and the G1 consequence table (C-PROC): record the breach, derive the supported value independently, no blanket zero without a clause"
+      - "CW Cl.41 (p8), DDS Cl.32-33 (p8): the period, window and one-well-per-invoice rules state no consequence"
+      - "CW Agreement particulars (p1) and DDS particulars (p1) state the reference and the parties; CW Cl.42 (p8) lists an application's content without the reference; no clause makes a variant a condition of payment"
+      - "CW Cl.48 / DDS Cl.42 (p8): they time payment of a correct submission; the contract states a payment bar expressly where it means one (CW Cl.43 'returned unpaid', Cl.46; DDS Cl.37)"
     alternatives: {not_payable_now: "the line is not payable on the non-compliant submission (value 0.00 there)"}
-    cases: [CW-S16, CW-S18, CW-S44, CW-S45, CW-S46, CW-S47, DDS-S06, DDS-S10, DDS-S44, DDS-S45, DDS-S46, DDS-S47]
+    cases: [CW-S16, CW-S18, CW-S44, CW-S45, CW-S46, CW-S47, CW-S56, CW-S57, DDS-S06, DDS-S10, DDS-S44, DDS-S45, DDS-S46, DDS-S47, DDS-S57, DDS-S58, DDS-S59, DDS-S60]
     scope_key: G3-D1
-    note: "The readers split on this (four read it as not payable, one kept the value); it decides more than 100 lines, so both alternatives' effect is reported."
+    note: "Consistent with plan §8 and the G1 consequence table (C-PROC: record the breach, derive the supported value independently, no blanket zero without a clause). The independent readers split (expected_*.jsonl): on window/period, three of the four readers who met such cases read them as not payable (civil synthetic 1 and 2, drilling synthetic 2) and one kept the value (drilling synthetic 1, DDS-S06/S10); on identity the civil reader read not payable, the drilling reader kept the value for reference/party variants and read a line for another well as not chargeable on that invoice. (The earlier note's 'four read it as not payable' counted the civil-real reader, whose CW-R18 is not payable for its unsigned record, not for lateness.) It decides more than 100 lines, so both alternatives' effect is computed (verification/g3/decision_scopes.json G3-D1)."
   - id: G3-D2
     status: decided
     reading: "an unsigned Daily Drilling Report makes its Schedule 5 services not payable (Cl.37); on other services the signature breach is recorded and the value kept"

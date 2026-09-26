@@ -23,6 +23,8 @@ from . import build, g3_cw, g3_dds
 from .common import ROOT
 
 OUT = ROOT / "verification" / "g3"
+# G3-D1 scope: breaches of the submission rules (window, period, identity, one well per invoice) that the contract states
+# no consequence for; spec/g3_decisions.yaml G3-D1.
 PROCEDURAL = {"submitted_late", "submitted_early", "outside_period", "contract_ref_variant", "subcontractor_mismatch",
               "contractor_mismatch", "line_well_differs_from_invoice"}
 CW_Q3 = {"record_missing", "record_wrong_series", "record_unsigned", "record_date_mismatch", "record_area_mismatch",
@@ -128,7 +130,7 @@ def decision_scopes(w, res) -> dict:
                  "lh_lines": len(lh), "part_e_equals_tool_history": sum(1 for l in losses.values() if l["hours_on_well"] == l["tool_daily_hours_through_loss_day"]),
                  "losses": len(losses)}
     for c, rs in res.items():
-        proc = [r for r in rs.values() if set(r.findings) & {"submitted_late", "submitted_early", "outside_period"}]
+        proc = [r for r in rs.values() if set(r.findings) & PROCEDURAL]
         det = [r for r in proc if r.payable and r.amount is not None]
         bounded = [r for r in proc if r.payable and r.amount is None]
         amts = lambda r: [v["amount"] for v in r.alternatives.values() if v.get("amount") is not None]  # noqa: E731
@@ -144,7 +146,102 @@ def decision_scopes(w, res) -> dict:
     sc["G3-D2"] = {"lines": len(uns), "schedule5_not_payable": sum(1 for r in uns if r.code in g3_dds.terms.dds().sch5),
                    "others_payable_under_D2": sum(1 for r in uns if r.payable),
                    "under_alternative": "every line on an unsigned report not payable"}
+    _effects(w, res, sc, locals())
     return sc
+
+
+def _tot(rs) -> str:
+    return str(sum((r.amount for r in rs if r.amount is not None), Decimal(0)))
+
+
+def _effects(w, res, sc, v) -> None:
+    """Uniform block per decision (checked by tools/verify_g3.py X4): lines_decided and, for the adopted reading and
+    every recorded alternative, the lines affected and their value. Values are computed from the contract (engine
+    results and the contract formula under the alternative), never taken from billed amounts; the billed QUANTITY
+    enters only where the contract makes it the cap ('payable as charged' up to the supported quantity)."""
+    cw, dds = res["CW"], res["DDS"]
+    cl = {r.ident: r.values for r in w.claims.rows["cw_lines"]}
+    dl = {r.ident: r.values for r in w.claims.rows["dds_lines"]}
+    T = g3_dds.terms.dds()
+    # Q3 ---------------------------------------------------------------------------------------------------------
+    q3 = v["q3cw"] + v["q3dds"]
+    qty = lambda r: (cl if r.contract == "CW" else dl)[r.line_ref]["quantity"]  # noqa: E731
+    single = [r for r in q3 if r.unit_rate is not None]
+    sc["Q3"].update(lines_decided=len(q3), effect_by_reading={
+        "adopted": {"reading": "A", "lines": len(q3), "payable": sum(1 for r in q3 if r.payable), "value": _tot(q3)},
+        "B": {"lines": len(q3), "value_kept_on_single_rate_lines": str(sum((qty(r) * r.unit_rate for r in single), Decimal(0))),
+              "lines_without_single_rate": len(q3) - len(single),
+              "note": "no record caps the quantity, so the billed quantity at the contract rate; CW P23 would deduct it from the next valuation"}})
+    # Q4 ---------------------------------------------------------------------------------------------------------
+    q4 = [r for r in dds.values() if any(k.startswith("Q4:") for k in r.alternatives)]
+    eff = {}
+    for r in q4:
+        for k, a in r.alternatives.items():
+            if k.startswith("Q4:"):
+                e = eff.setdefault(k.split(":")[1], {"lines": 0, "value": Decimal(0)})
+                e["lines"] += 1
+                e["value"] += a["amount"]
+    sc["Q4"].update(lines_decided=len(q4), effect_by_reading={k: {"lines": e["lines"], "value": str(e["value"])} for k, e in sorted(eff.items())})
+    # Q5 ---------------------------------------------------------------------------------------------------------
+    dd102, hc630, br = v["dd102"], v["hc630"], v["dd120_br"]
+    hc_diff = [r for r in hc630 if w.ddr[dl[r.line_ref]["report_ref"]].parts["A"].get("Clean-out runs") != 1]
+    br_up = []
+    for r in br:
+        billed = dl[r.line_ref]["quantity"]
+        if r.allowed_quantity is not None and r.unit_rate is not None and billed > r.allowed_quantity:
+            extra = Decimal(w.ddr[dl[r.line_ref]["report_ref"]].parts["A"].get("Back-reaming hours") or 0)
+            br_up.append(min(billed - r.allowed_quantity, extra) * r.unit_rate)
+    sc["Q5"].update(lines_decided=len(dd102) + len(hc630) + len(br), effect_by_reading={
+        "adopted": {"reading": "DD-102 A; HC-630 counts (Cl.30); DD-120 circulating only", "lines": len(dd102) + len(hc630) + len(br),
+                    "value": str(sum((Decimal(x) for x in (_tot(dd102), _tot(hc630), _tot(br))), Decimal(0))),
+                    "DD-102": {"lines": len(dd102), "value": _tot(dd102)}, "HC-630": {"lines": len(hc630), "value": _tot(hc630)},
+                    "DD-120 on back-reaming days": {"lines": len(br), "value": _tot(br)}},
+        "B_DD102": {"lines": len(dd102), "chargeable": 0, "value": "0.00",
+                    "note": "the Sch 8 row's 'tool in the hole' has no tool for DD-102: not establishable on any line"},
+        "HC630_per_run": {"lines": len(hc630), "lines_that_could_differ": len(hc_diff),
+                          "note": "one charge per BHA run needs the run lifecycle (G4); lines recording other than one clean-out run could differ"},
+        "DD120_back_reaming": {"lines": len(br), "lines_whose_allowed_hours_would_rise": len(br_up),
+                               "value_increase_at_most": str(sum(br_up, Decimal(0)))}})
+    # Q8 ---------------------------------------------------------------------------------------------------------
+    cls, pd210 = v["cls"], v["pd210"]
+    sc["Q8"].update(lines_decided=len(cls) + len(pd210), effect_by_reading={
+        "adopted": {"reading": "A", "lines": len(cls) + len(pd210), "class_proxy_lines": len(cls), "value_class_proxy_lines": _tot(cls),
+                    "pd210_conditional_lines": sum(1 for r in pd210 if r.amount_status == "conditional"),
+                    "value_pd210_if_nominated": _tot([r for r in pd210 if r.amount_status == "conditional"])},
+        "B": {"lines": len(cls) + len(pd210), "value": None,
+              "note": "every amount depending on the unsupplied call-off (class, nomination) unresolved: no value on these lines"}})
+    # Q11 --------------------------------------------------------------------------------------------------------
+    wu = v["wu"]
+    sc["Q11"].update(lines_decided=len(wu), effect_by_reading={
+        "adopted": {"reading": "accumulator and tolerance decided; wrong-unit remedy open", "lines": len(wu), "value": _tot(wu)},
+        "wrong_unit_A": {"lines": len(wu), "note": "value per supported quantity"},
+        "wrong_unit_B": {"lines": len(wu), "value": "0.00"}})
+    # Q13 --------------------------------------------------------------------------------------------------------
+    losses = {l["report"]: l for run in w.runs.values() for l in run.losses}
+    lh = [r for r in v["lh"] if r.payable]
+    b_val, b_diff = Decimal(0), 0
+    for r in lh:
+        ln = dl[r.line_ref]
+        loss = losses[ln["report_ref"]]
+        amt = r.allowed_quantity * g3_dds.loss_value(r.code, ln["service_date"], Decimal(loss["well_daily_hours_through_loss_day"]), T,
+                                                      g3_dds.Trace(), "whole-well daily sum", "Q13 reading B")
+        b_val += amt
+        b_diff += amt != r.amount
+    sc["Q13"].update(lines_decided=len(v["lh"]), effect_by_reading={
+        "adopted": {"reading": "A", "lines": len(v["lh"]), "payable": len(lh), "value": _tot(lh)},
+        "B": {"lines": len(lh), "lines_whose_amount_differs": b_diff, "value": str(b_val)},
+        "C": {"lines": len(lh), "note": "a query bounded by A and B: no longer needed (Part E equals the tool history on every loss)"}})
+    # G3-D1, G3-D2 -----------------------------------------------------------------------------------------------
+    d1 = {c: [r for r in rs.values() if set(r.findings) & PROCEDURAL] for c, rs in res.items()}
+    n1 = sum(len(x) for x in d1.values())
+    sc["G3-D1"].update(lines_decided=n1, effect_by_reading={
+        "adopted": {"lines": n1, "payable": sum(1 for x in d1.values() for r in x if r.payable),
+                    "value_single_amount_lines": str(sum((Decimal(_tot(x)) for x in d1.values()), Decimal(0)))},
+        "not_payable_now": {"lines": n1, "value": "0.00"}})
+    uns = v["uns"]
+    sc["G3-D2"].update(lines_decided=len(uns), effect_by_reading={
+        "adopted": {"lines": len(uns), "not_payable": sum(1 for r in uns if not r.payable), "value": _tot(uns)},
+        "all_lines": {"lines": len(uns), "value": "0.00"}})
 
 
 def trace_sample(res) -> list[dict]:

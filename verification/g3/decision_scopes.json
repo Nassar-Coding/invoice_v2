@@ -64,6 +64,21 @@
     }
    },
    "note": "the line keeps its value in its own application/invoice; CW P23 deducts it from the next valuation (G4 event)"
+  },
+  "lines_decided": 13,
+  "effect_by_reading": {
+   "adopted": {
+    "reading": "A",
+    "lines": 13,
+    "payable": 0,
+    "value": "0.00"
+   },
+   "B": {
+    "lines": 13,
+    "value_kept_on_single_rate_lines": "259341.35",
+    "lines_without_single_rate": 1,
+    "note": "no record caps the quantity, so the billed quantity at the contract rate; CW P23 would deduct it from the next valuation"
+   }
   }
  },
  "Q4": {
@@ -177,7 +192,26 @@
     }
    }
   },
-  "lines_where_all_readings_agree": 5542
+  "lines_where_all_readings_agree": 5542,
+  "lines_decided": 7,
+  "effect_by_reading": {
+   "A": {
+    "lines": 7,
+    "value": "34771.88"
+   },
+   "B": {
+    "lines": 7,
+    "value": "34771.88"
+   },
+   "C": {
+    "lines": 7,
+    "value": "37239.24"
+   },
+   "counts": {
+    "lines": 2,
+    "value": "3174.60"
+   }
+  }
  },
  "Q5": {
   "decided": {
@@ -201,6 +235,42 @@
   "DD-120_back_reaming_days": {
    "lines": 428,
    "note": "lines whose day records back-reaming hours; including them in DD-120 would raise the chargeable hours on these days"
+  },
+  "lines_decided": 9007,
+  "effect_by_reading": {
+   "adopted": {
+    "reading": "DD-102 A; HC-630 counts (Cl.30); DD-120 circulating only",
+    "lines": 9007,
+    "value": "11331630.94",
+    "DD-102": {
+     "lines": 8151,
+     "value": "7732038.60"
+    },
+    "HC-630": {
+     "lines": 428,
+     "value": "1838623.80"
+    },
+    "DD-120 on back-reaming days": {
+     "lines": 428,
+     "value": "1760968.54"
+    }
+   },
+   "B_DD102": {
+    "lines": 8151,
+    "chargeable": 0,
+    "value": "0.00",
+    "note": "the Sch 8 row's 'tool in the hole' has no tool for DD-102: not establishable on any line"
+   },
+   "HC630_per_run": {
+    "lines": 428,
+    "lines_that_could_differ": 0,
+    "note": "one charge per BHA run needs the run lifecycle (G4); lines recording other than one clean-out run could differ"
+   },
+   "DD120_back_reaming": {
+    "lines": 428,
+    "lines_whose_allowed_hours_would_rise": 0,
+    "value_increase_at_most": "0"
+   }
   }
  },
  "Q8": {
@@ -217,6 +287,22 @@
   "cw_night_and_rest_day_rest_alone": {
    "lines": 0,
    "line_refs": []
+  },
+  "lines_decided": 26607,
+  "effect_by_reading": {
+   "adopted": {
+    "reading": "A",
+    "lines": 26607,
+    "class_proxy_lines": 24217,
+    "value_class_proxy_lines": "73300566.08",
+    "pd210_conditional_lines": 2390,
+    "value_pd210_if_nominated": "21356375.55"
+   },
+   "B": {
+    "lines": 26607,
+    "value": null,
+    "note": "every amount depending on the unsupplied call-off (class, nomination) unresolved: no value on these lines"
+   }
   }
  },
  "Q11": {
@@ -226,36 +312,70 @@
    "status": "open",
    "dds_lines_billed_in_another_unit": []
   },
-  "pd210_quantity_above_report": 0
+  "pd210_quantity_above_report": 0,
+  "lines_decided": 0,
+  "effect_by_reading": {
+   "adopted": {
+    "reading": "accumulator and tolerance decided; wrong-unit remedy open",
+    "lines": 0,
+    "value": "0"
+   },
+   "wrong_unit_A": {
+    "lines": 0,
+    "note": "value per supported quantity"
+   },
+   "wrong_unit_B": {
+    "lines": 0,
+    "value": "0.00"
+   }
+  }
  },
  "Q13": {
   "decided": "A (Part E hours, Cl.31 'as stated on the Lost in Hole Report'; corroborated by P12 tool history)",
   "lh_lines": 54,
   "part_e_equals_tool_history": 54,
-  "losses": 54
+  "losses": 54,
+  "lines_decided": 54,
+  "effect_by_reading": {
+   "adopted": {
+    "reading": "A",
+    "lines": 54,
+    "payable": 54,
+    "value": "31427958.99"
+   },
+   "B": {
+    "lines": 54,
+    "lines_whose_amount_differs": 27,
+    "value": "29241596.08"
+   },
+   "C": {
+    "lines": 54,
+    "note": "a query bounded by A and B: no longer needed (Part E equals the tool history on every loss)"
+   }
+  }
  },
  "G3-D1": {
   "CW": {
-   "lines": 29,
-   "payable_under_D1": 28,
+   "lines": 52,
+   "payable_under_D1": 51,
    "value_under_D1_single_amount_lines": {
-    "lines": 27,
-    "value": "369015.63"
+    "lines": 44,
+    "value": "785237.33"
    },
    "value_under_D1_lines_without_single_amount": {
-    "lines": 1,
-    "min": "7338.21",
-    "max": "8152.21",
+    "lines": 7,
+    "min": "153653.46",
+    "max": "165781.30",
     "note": "band-conditional (CW) or Q4 alternatives (DDS): bounded by the smallest and largest carried amount"
    },
    "under_alternative": "not payable now: value 0.00 on these lines"
   },
   "DDS": {
-   "lines": 244,
-   "payable_under_D1": 241,
+   "lines": 419,
+   "payable_under_D1": 416,
    "value_under_D1_single_amount_lines": {
-    "lines": 241,
-    "value": "509246.11"
+    "lines": 416,
+    "value": "913263.45"
    },
    "value_under_D1_lines_without_single_amount": {
     "lines": 0,
@@ -264,12 +384,36 @@
     "note": "band-conditional (CW) or Q4 alternatives (DDS): bounded by the smallest and largest carried amount"
    },
    "under_alternative": "not payable now: value 0.00 on these lines"
+  },
+  "lines_decided": 471,
+  "effect_by_reading": {
+   "adopted": {
+    "lines": 471,
+    "payable": 467,
+    "value_single_amount_lines": "1698500.78"
+   },
+   "not_payable_now": {
+    "lines": 471,
+    "value": "0.00"
+   }
   }
  },
  "G3-D2": {
   "lines": 33,
   "schedule5_not_payable": 1,
   "others_payable_under_D2": 32,
-  "under_alternative": "every line on an unsigned report not payable"
+  "under_alternative": "every line on an unsigned report not payable",
+  "lines_decided": 33,
+  "effect_by_reading": {
+   "adopted": {
+    "lines": 33,
+    "not_payable": 1,
+    "value": "55798.69"
+   },
+   "all_lines": {
+    "lines": 33,
+    "value": "0.00"
+   }
+  }
  }
 }

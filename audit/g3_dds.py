@@ -97,12 +97,12 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
     sch = T.sch1.get(code)
     if code == "DS-900":
         r.add("identification", "n/a", "DDS-R20", "Cl.38 (p8); P11 (p11)", detail="invoice-level discount charge; valued with the invoice total (G5)")
-        r.amount_status, r.payable = "deferred", None
+        r.amount_status, r.payable, r.family = "deferred", None, "DDS-DISCOUNT"
         r.reasons.append("DS-900 is recomputed from the invoice's corrected service subtotal at G5 (Cl.38, P11)")
         return r
     if sch is None:
         r.add("identification", "unresolved", "DDS-R06", "Sch 1 (pp15-16)", "code_not_in_schedule_1")
-        r.amount_status, r.payable = "unresolved", None
+        r.amount_status, r.payable, r.family = "unresolved", None, "DDS-UNSCHEDULED"
         return r
     sd = line["service_date"]
     payable, reasons = True, []
@@ -143,6 +143,7 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
         r.add("unit", "pass", "DDS-R08", "Cl.35 (p8)")
     # 5 report evidence ---------------------------------------------------------------------------------------
     part_needed = T.sch5.get(code)
+    r.family = _family(code)
     if ddr is None:
         r.add("evidence", "finding", "DDS-R05", "Cl.15 (p5); 19A (p35)", "report_missing", f"no report {line.get('report_ref')}")
         return _finish(r, tr, readings, False, reasons + ["no Daily Drilling Report evidences the day"], None, None)
@@ -299,6 +300,32 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
     return _finish(r, tr, readings, payable, reasons, allowed, rate, q_alts, line, ddr, T)
 
 
+def _family(code: str) -> str:
+    """The quantity route (Cl.21-31) the service is valued under; spec/g3_code_families.yaml derives the same from the
+    verified tables and Appendix G, and tools/verify_g3.py X2 compares the two on every line."""
+    if code in PERSONS:
+        return "DDS-PERSONS"
+    if code == COORDINATOR:
+        return "DDS-COORDINATOR"
+    if code in links.TOOL_DAY_SERVICES:
+        return "DDS-TOOL-DAY"
+    if code in HOURLY:
+        return "DDS-HOURLY"
+    if code in COUNTS:
+        return "DDS-COUNTS"
+    if code in METRE_TOOL:
+        return "DDS-METRES"
+    if code == "PD-210":
+        return "DDS-PERFORMANCE"
+    if code in RUN_EVENTS:
+        return "DDS-RUN-EVENT"
+    if code in WELL_EVENTS:
+        return "DDS-WELL-EVENT"
+    if code in LOSS:
+        return "DDS-LOSS"
+    return "DDS-NO-RULE"
+
+
 def _finish(r, tr, readings, payable, reasons, allowed, rate, q_alts=None, line=None, ddr=None, T=None):
     r.payable, r.reasons = payable, reasons
     if payable is None:
@@ -407,16 +434,21 @@ def _loss_value(code, sd, ddr, r, tr, T):
         r.add("identification", "finding", "DDS-R17", "Cl.31 (p7); App G (p36)", "lost_tool_mismatch", f"Part E tool {ddr.lost_tool_term} -> {ddr.lost_tool_code}")
         return None
     hours = Decimal(e.get("Circulating hours accumulated on the well"))
+    loss_value(code, sd, hours, T, tr, "as stated on the Lost in Hole Report", "Q13 reading A")
+    r.readings.append("Q13:A (Part E hours; corroborated by the tool's own daily history)")
+    return tr.value
+
+
+def loss_value(code, sd, hours: Decimal, T, tr: Trace, basis: str, reading: str) -> Decimal:
+    """Cl.31/31A: Sch 2D SAR value / FX of the month of loss, half-even; less 1% per complete 25 h, max 50%."""
     month = f"{sd:%Y-%m}"
     tr.start(f"replacement value SAR ({code})", T.sar[code], f"DDS.T06_SAR_VALUES (Sch 2D p19); 31A (p35); OV-DDS-04")
     tr.div(f"/ SAR per USD for {month} (halalas per USD / 100)", T.fx[month] / 100, f"DDS.T07_FX {month} (Sch 2D p19); 31A")
     _half(tr, "converted value, half to even", "31A (p35)")
     steps = min((hours // T.lih_step_hours) * T.lih_pct_per_step, T.lih_cap_pct)
-    tr.mul(f"less depreciation {steps}% ({hours} h as stated on the Lost in Hole Report; 1% per complete 25 h, max 50%)",
-           1 - steps / 100, "Cl.31 (p7); P12 (p11); Sch 5 Part E (p24); Q13 reading A")
-    _half(tr, "depreciated value, half to even", "Cl.31 (p7); Cl.17")
-    r.readings.append("Q13:A (Part E hours; corroborated by the tool's own daily history)")
-    return tr.value
+    tr.mul(f"less depreciation {steps}% ({hours} h {basis}; 1% per complete 25 h, max 50%)",
+           1 - steps / 100, f"Cl.31 (p7); P12 (p11); Sch 5 Part E (p24); {reading}")
+    return _half(tr, "depreciated value, half to even", "Cl.31 (p7); Cl.17")
 
 
 def inputs_from_world(w):

@@ -29,11 +29,11 @@ from audit.common import Queue  # noqa: E402
 DIR = ROOT / "verification" / "g3" / "cases"
 OUT = ROOT / "verification" / "g3" / "case_comparison.json"
 DISPOSITIONS = ROOT / "verification" / "g3" / "case_dispositions.yaml"
-VOCAB = {
-    "CW": {"out_of_term", "submitted_early", "submitted_late", "outside_period", "wrong_unit", "record_missing",
+VOCAB = {  # prompt v2 codes; v1 readers had no identity code, and none of their cases carries an identity variant
+    "CW": {"contract_ref_variant", "subcontractor_mismatch", "out_of_term", "submitted_early", "submitted_late", "outside_period", "wrong_unit", "record_missing",
            "record_wrong_series", "record_unsigned", "record_date_mismatch", "record_area_mismatch",
            "item_not_supported_by_record", "quantity_above_record", "week_not_measurable", "rate_differs", "amount_arithmetic"},
-    "DDS": {"out_of_term", "submitted_early", "submitted_late", "outside_period", "wrong_unit", "rate_differs",
+    "DDS": {"contract_ref_variant", "contractor_mismatch", "line_well_differs_from_invoice", "out_of_term", "submitted_early", "submitted_late", "outside_period", "wrong_unit", "rate_differs",
             "amount_arithmetic", "report_missing", "report_unsigned", "report_date_mismatch", "well_mismatch",
             "required_part_missing", "status_mismatch", "section_mismatch", "not_chargeable_on_standby",
             "not_chargeable_on_operating", "tool_not_in_hole", "quantity_above_report", "band_crossing_not_split"},

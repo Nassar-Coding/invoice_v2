@@ -91,7 +91,7 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
     if sch is None:
         r.add("identification", "unresolved", "CW-R23", "Cl.26 (p6); Sch 6-8 (pp28-31); P24 (p14)", "code_not_in_schedule_1",
               "no Schedule 1 rate; valued only by its own route (daywork/provisional/preliminaries) whose conditions are not evidenced")
-        r.amount_status, r.payable = "unresolved", None
+        r.amount_status, r.payable, r.family = "unresolved", None, "CW-UNSCHEDULED"
         r.reasons.append("code outside Schedule 1 (CW-R23)")
         return r
     payable, reasons = True, []
@@ -169,6 +169,8 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
     else:
         r.add("evidence", "n/a", "CW-R05", "Sch 5 (p27)", detail="no Schedule 5 record prescribed")
     # 6 quantity ----------------------------------------------------------------------------------------------
+    r.family = ("CW-HOUR" if series and code in T.hourly else "CW-WEEK" if series and code in T.weekly_record else
+                "CW-SURV" if series and code in T.surveyed else "CW-REC" if series else "CW-MEAS")
     billed = line["quantity"]
     allowed = billed
     if series and evidence_ok:

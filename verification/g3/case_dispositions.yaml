@@ -241,3 +241,102 @@ dispositions:
       5 lists, so no clause withholds DD-101. Schedule 5 services on an unsigned report are not payable (engine). The reader
       noted the same figure as the ''curable defect'' alternative.'
     settled_against: scan pages cited; reader note
+  CW-S56|payable:
+    reader: false
+    engine: true
+    disposition: 'Identity breach, not a bar to the line''s value (G3 decision G3-D1, extended in G3 to identity once the identity
+      cases existed): the Agreement (p1) states the contract reference and the Subcontractor, but no clause makes a variant
+      reference or party name a condition of payment or states any consequence; Cl.42 (p8) lists the content of an application
+      without the reference; Cl.48 (p8) times payment of ''a correctly submitted application''; where the contract means a payment
+      bar it says so (Cl.43 ''returned unpaid'', Cl.46 ''not payable in any valuation''). The work is evidenced and valued;
+      the breach is recorded as a finding. The reader chose the alternative (not payable on this application) and noted the
+      engine''s figure as the other reading. Scope: G3-D1 in verification/g3/decision_scopes.json (contract_ref_variant 23 CW
+      lines; subcontractor_mismatch 0).'
+    settled_against: scan CW p1, p8 / DDS p8 (read on the image); reader note
+  CW-S56|allowed_quantity:
+    reader: '0'
+    engine: '100'
+    disposition: 'Identity breach, not a bar to the line''s value (G3 decision G3-D1, extended in G3 to identity once the identity
+      cases existed): the Agreement (p1) states the contract reference and the Subcontractor, but no clause makes a variant
+      reference or party name a condition of payment or states any consequence; Cl.42 (p8) lists the content of an application
+      without the reference; Cl.48 (p8) times payment of ''a correctly submitted application''; where the contract means a payment
+      bar it says so (Cl.43 ''returned unpaid'', Cl.46 ''not payable in any valuation''). The work is evidenced and valued;
+      the breach is recorded as a finding. The reader chose the alternative (not payable on this application) and noted the
+      engine''s figure as the other reading. Scope: G3-D1 in verification/g3/decision_scopes.json (contract_ref_variant 23 CW
+      lines; subcontractor_mismatch 0).'
+    settled_against: scan CW p1, p8 / DDS p8 (read on the image); reader note
+  CW-S56|amount:
+    reader: '0.00'
+    engine: '21980.00'
+    disposition: 'Identity breach, not a bar to the line''s value (G3 decision G3-D1, extended in G3 to identity once the identity
+      cases existed): the Agreement (p1) states the contract reference and the Subcontractor, but no clause makes a variant
+      reference or party name a condition of payment or states any consequence; Cl.42 (p8) lists the content of an application
+      without the reference; Cl.48 (p8) times payment of ''a correctly submitted application''; where the contract means a payment
+      bar it says so (Cl.43 ''returned unpaid'', Cl.46 ''not payable in any valuation''). The work is evidenced and valued;
+      the breach is recorded as a finding. The reader chose the alternative (not payable on this application) and noted the
+      engine''s figure as the other reading. Scope: G3-D1 in verification/g3/decision_scopes.json (contract_ref_variant 23 CW
+      lines; subcontractor_mismatch 0).'
+    settled_against: scan CW p1, p8 / DDS p8 (read on the image); reader note
+  CW-S57|payable:
+    reader: false
+    engine: true
+    disposition: 'Identity breach, not a bar to the line''s value (G3 decision G3-D1, extended in G3 to identity once the identity
+      cases existed): the Agreement (p1) states the contract reference and the Subcontractor, but no clause makes a variant
+      reference or party name a condition of payment or states any consequence; Cl.42 (p8) lists the content of an application
+      without the reference; Cl.48 (p8) times payment of ''a correctly submitted application''; where the contract means a payment
+      bar it says so (Cl.43 ''returned unpaid'', Cl.46 ''not payable in any valuation''). The work is evidenced and valued;
+      the breach is recorded as a finding. The reader chose the alternative (not payable on this application) and noted the
+      engine''s figure as the other reading. Scope: G3-D1 in verification/g3/decision_scopes.json (contract_ref_variant 23 CW
+      lines; subcontractor_mismatch 0).'
+    settled_against: scan CW p1, p8 / DDS p8 (read on the image); reader note
+  CW-S57|allowed_quantity:
+    reader: '0'
+    engine: '100'
+    disposition: 'Identity breach, not a bar to the line''s value (G3 decision G3-D1, extended in G3 to identity once the identity
+      cases existed): the Agreement (p1) states the contract reference and the Subcontractor, but no clause makes a variant
+      reference or party name a condition of payment or states any consequence; Cl.42 (p8) lists the content of an application
+      without the reference; Cl.48 (p8) times payment of ''a correctly submitted application''; where the contract means a payment
+      bar it says so (Cl.43 ''returned unpaid'', Cl.46 ''not payable in any valuation''). The work is evidenced and valued;
+      the breach is recorded as a finding. The reader chose the alternative (not payable on this application) and noted the
+      engine''s figure as the other reading. Scope: G3-D1 in verification/g3/decision_scopes.json (contract_ref_variant 23 CW
+      lines; subcontractor_mismatch 0).'
+    settled_against: scan CW p1, p8 / DDS p8 (read on the image); reader note
+  CW-S57|amount:
+    reader: '0.00'
+    engine: '21980.00'
+    disposition: 'Identity breach, not a bar to the line''s value (G3 decision G3-D1, extended in G3 to identity once the identity
+      cases existed): the Agreement (p1) states the contract reference and the Subcontractor, but no clause makes a variant
+      reference or party name a condition of payment or states any consequence; Cl.42 (p8) lists the content of an application
+      without the reference; Cl.48 (p8) times payment of ''a correctly submitted application''; where the contract means a payment
+      bar it says so (Cl.43 ''returned unpaid'', Cl.46 ''not payable in any valuation''). The work is evidenced and valued;
+      the breach is recorded as a finding. The reader chose the alternative (not payable on this application) and noted the
+      engine''s figure as the other reading. Scope: G3-D1 in verification/g3/decision_scopes.json (contract_ref_variant 23 CW
+      lines; subcontractor_mismatch 0).'
+    settled_against: scan CW p1, p8 / DDS p8 (read on the image); reader note
+  DDS-S60|payable:
+    reader: false
+    engine: true
+    disposition: 'One-well-per-invoice breach, not a bar to the line''s value (G3 decision G3-D1): Cl.32 (p8) ''The Contractor
+      shall invoice each well separately'' states no consequence (like Cl.33''s window); Cl.42 (p8) times payment of ''a correct
+      invoice''; the payment bars the contract states are express (Cl.37). The service is evidenced by the report for the line''s
+      own well. The reader chose the alternative (not chargeable on this invoice) and noted the engine''s figure as the other
+      reading. Scope: G3-D1 (line_well_differs_from_invoice: 0 DDS lines).'
+    settled_against: scan CW p1, p8 / DDS p8 (read on the image); reader note
+  DDS-S60|allowed_quantity:
+    reader: '0'
+    engine: '2'
+    disposition: 'One-well-per-invoice breach, not a bar to the line''s value (G3 decision G3-D1): Cl.32 (p8) ''The Contractor
+      shall invoice each well separately'' states no consequence (like Cl.33''s window); Cl.42 (p8) times payment of ''a correct
+      invoice''; the payment bars the contract states are express (Cl.37). The service is evidenced by the report for the line''s
+      own well. The reader chose the alternative (not chargeable on this invoice) and noted the engine''s figure as the other
+      reading. Scope: G3-D1 (line_well_differs_from_invoice: 0 DDS lines).'
+    settled_against: scan CW p1, p8 / DDS p8 (read on the image); reader note
+  DDS-S60|amount:
+    reader: '0.00'
+    engine: '3694.70'
+    disposition: 'One-well-per-invoice breach, not a bar to the line''s value (G3 decision G3-D1): Cl.32 (p8) ''The Contractor
+      shall invoice each well separately'' states no consequence (like Cl.33''s window); Cl.42 (p8) times payment of ''a correct
+      invoice''; the payment bars the contract states are express (Cl.37). The service is evidenced by the report for the line''s
+      own well. The reader chose the alternative (not chargeable on this invoice) and noted the engine''s figure as the other
+      reading. Scope: G3-D1 (line_well_differs_from_invoice: 0 DDS lines).'
+    settled_against: scan CW p1, p8 / DDS p8 (read on the image); reader note

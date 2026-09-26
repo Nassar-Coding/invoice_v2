@@ -81,6 +81,7 @@ class LineResult:
     contract: str
     line_ref: str
     code: str
+    family: str | None = None             # the quantity route the engine valued it under (spec/g3_code_families.yaml)
     checks: list[Check] = field(default_factory=list)
     unit_rate: Decimal | None = None
     allowed_quantity: Decimal | None = None
@@ -103,7 +104,7 @@ class LineResult:
 
     def to_json(self) -> dict:
         s = lambda v: None if v is None else str(v)  # noqa: E731
-        return {"contract": self.contract, "line_ref": self.line_ref, "code": self.code, "unit_rate": s(self.unit_rate),
+        return {"contract": self.contract, "line_ref": self.line_ref, "code": self.code, "family": self.family, "unit_rate": s(self.unit_rate),
                 "allowed_quantity": s(self.allowed_quantity), "amount": s(self.amount), "payable": self.payable,
                 "amount_status": self.amount_status, "findings": self.findings, "reasons": self.reasons,
                 "alternatives": {k: {kk: s(vv) if isinstance(vv, Decimal) else vv for kk, vv in v.items()} for k, v in self.alternatives.items()},
