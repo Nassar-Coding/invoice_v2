@@ -1,6 +1,8 @@
 """Build the G3 reference-case packets (inputs only) for the independent expected-value readers.
 
-Synthetic cases come from verification/g3/cases/synthetic_{cw,dds}.yaml (hand-written boundaries and exceptions).
+Synthetic cases come from verification/g3/cases/synthetic_{cw,dds}.yaml (hand-written boundaries and exceptions) and
+identity_{cw,dds}.yaml (identity and report-evidence cases added in G3 when the first set was found to lack them; their
+packets are separate so the packets already read stay unchanged).
 Real cases are billed lines chosen by the fixed criteria below (first line_ref in sort order that matches), so the
 choice is reproducible and does not look at any expected value. Each packet item carries what a reader needs:
 the claim (line and header as CSV-like fields) and the evidence (record/report text, personal names masked), plus
@@ -43,8 +45,8 @@ def _fmt_dmy(iso: str) -> str:
 
 
 # ----------------------------------------------------------------------------- civil
-def cw_synthetic() -> list[dict]:
-    doc = yaml.safe_load((DIR / "synthetic_cw.yaml").read_text())
+def cw_synthetic(name: str = "synthetic_cw.yaml") -> list[dict]:
+    doc = yaml.safe_load((DIR / name).read_text())
     dfl = doc["defaults"]
     out = []
     for c in doc["cases"]:
@@ -90,8 +92,8 @@ def _cw_record_text(rec, line) -> str | None:
 
 
 # ----------------------------------------------------------------------------- drilling
-def dds_synthetic() -> list[dict]:
-    doc = yaml.safe_load((DIR / "synthetic_dds.yaml").read_text())
+def dds_synthetic(name: str = "synthetic_dds.yaml") -> list[dict]:
+    doc = yaml.safe_load((DIR / name).read_text())
     dfl = doc["defaults"]
     out = []
     for c in doc["cases"]:
@@ -110,23 +112,27 @@ def dds_synthetic() -> list[dict]:
                 rep.setdefault(k, {}).update(v)
             else:
                 rep[k] = v
-        report_no = f"DDR-SY1-{sd.replace('-', '')}"
+        report_no = f"DDR-SY1-{rep.get('date', sd).replace('-', '')}"
         line = {"line_ref": f"{inv['invoice_no']}-001", "invoice_no": inv["invoice_no"], "service_date": sd,
-                "well_name": inv["well_name"], "service_code": code, "description": sch[1], "unit": ln.get("unit", sch[2]),
+                "well_name": ln.get("well_name", inv["well_name"]), "service_code": code, "description": sch[1], "unit": ln.get("unit", sch[2]),
                 "hole_section": ln.get("hole_section", rep["A"]["Hole section"]), "day_status": ln.get("day_status", "Operating"),
                 "depth_from_m": ln.get("depth_from_m", ""), "depth_to_m": ln.get("depth_to_m", ""), "quantity": ln["quantity"],
                 "unit_rate": rate, "amount": ln.get("amount") or str(_d(ln["quantity"]) * _d(rate)), "report_ref": report_no}
         out.append({"id": c["id"], "kind": "synthetic", "contract": "DDS", "tests": c["tests"], "invoice": inv, "line": line,
-                    "report": _dds_report_text(rep, inv, report_no, sd), "state": dfl["state"],
+                    "report": None if rep.get("absent") else _dds_report_text(rep, inv, report_no, sd, dfl["invoice"]["contract_ref"]),
+                    "state": dfl["state"],
                     "question_readings": c.get("question_readings", {})})
     return out
 
 
-def _dds_report_text(rep, inv, report_no, sd) -> str:
+def _dds_report_text(rep, inv, report_no, sd, contract_ref=None) -> str:
+    """The report's own header: its contract is the contract's reference (an invoice's variant is not copied onto the
+    rig's record), its well and date are the invoice's unless the case gives the report its own."""
+    sd = rep.get("date", sd)
     d = dt.date.fromisoformat(sd)
     sub = {"<service date>": _fmt_dmy(sd), "<service date + 3>": _fmt_dmy((d + dt.timedelta(days=3)).isoformat())}
-    lines = ["DAILY DRILLING REPORT", f"Report: {report_no}", f"Contract: {inv['contract_ref']}", f"Well: {inv['well_name']}",
-             f"Rig: {inv['rig']}", f"Date: {_fmt_dmy(sd)}", ""]
+    lines = ["DAILY DRILLING REPORT", f"Report: {report_no}", f"Contract: {contract_ref or inv['contract_ref']}",
+             f"Well: {rep.get('well', inv['well_name'])}", f"Rig: {inv['rig']}", f"Date: {_fmt_dmy(sd)}", ""]
     titles = {"A": "PART A — OPERATIONS SUMMARY", "B": "PART B — BHA RUN RECORD", "C": "PART C — GYRO SURVEY RECORD",
               "D": "PART D — RADIOACTIVE SOURCE HANDLING", "E": "PART E — LOST IN HOLE"}
     for p in "ABCDE":
@@ -248,8 +254,9 @@ def dds_real() -> list[dict]:
 
 
 def main() -> int:
-    groups = {"cw_synthetic": cw_synthetic(), "dds_synthetic": dds_synthetic(), "cw_real": cw_real(), "dds_real": dds_real()}
-    split = {"cw_synthetic": 2, "dds_synthetic": 2, "cw_real": 1, "dds_real": 1}
+    groups = {"cw_synthetic": cw_synthetic(), "dds_synthetic": dds_synthetic(), "cw_real": cw_real(), "dds_real": dds_real(),
+              "cw_identity": cw_synthetic("identity_cw.yaml"), "dds_identity": dds_synthetic("identity_dds.yaml")}
+    split = {"cw_synthetic": 2, "dds_synthetic": 2, "cw_real": 1, "dds_real": 1, "cw_identity": 1, "dds_identity": 1}
     index = {}
     for g, cases in groups.items():
         n = split[g]

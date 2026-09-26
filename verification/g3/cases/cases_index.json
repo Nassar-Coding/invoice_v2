@@ -163,5 +163,19 @@
   "DDS-R20",
   "DDS-R21",
   "DDS-R22"
+ ],
+ "packet_cw_identity": [
+  "CW-S56",
+  "CW-S57",
+  "CW-S58"
+ ],
+ "packet_dds_identity": [
+  "DDS-S57",
+  "DDS-S58",
+  "DDS-S59",
+  "DDS-S60",
+  "DDS-S61",
+  "DDS-S62",
+  "DDS-S63"
  ]
 }

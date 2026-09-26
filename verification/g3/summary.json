@@ -1,10 +1,11 @@
 {
- "run_context": "c3fd81cd8632f588",
+ "run_context": "9cd7eb6cfe034b36",
  "contracts": {
   "CW": {
    "lines": 7746,
    "amount_status": {
-    "determined": 7731,
+    "conditional": 1025,
+    "determined": 6706,
     "not_payable": 15
    },
    "findings": {
@@ -14,7 +15,7 @@
     "out_of_term": 2,
     "outside_period": 2,
     "quantity_above_record": 2,
-    "rate_differs": 866,
+    "rate_differs": 36,
     "record_area_mismatch": 1,
     "record_date_mismatch": 1,
     "record_missing": 7,
@@ -39,7 +40,8 @@
      },
      "rate_agree": 148,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "A.11.020": {
      "lines": 141,
@@ -52,7 +54,8 @@
      "g4": {},
      "rate_agree": 141,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "A.11.030": {
      "lines": 130,
@@ -67,41 +70,44 @@
      "g4": {},
      "rate_agree": 130,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "A.12.010": {
      "lines": 144,
      "amount_status": {
-      "determined": 144
+      "conditional": 144
      },
      "findings": {
-      "rate_differs": 106,
-      "amount_arithmetic": 3
+      "amount_arithmetic": 3,
+      "rate_differs": 2
      },
      "g4": {
       "band_state": 144,
       "daily_limit": 144
      },
-     "rate_agree": 38,
-     "rate_differs": 106,
-     "rate_not_single": 0
+     "rate_agree": 0,
+     "rate_differs": 0,
+     "rate_not_single": 144,
+     "billed_rate_is_a_band_rate": 142
     },
     "A.12.020": {
      "lines": 100,
      "amount_status": {
-      "determined": 100
+      "conditional": 100
      },
      "findings": {
-      "rate_differs": 84,
       "amount_arithmetic": 4,
-      "contract_ref_variant": 1
+      "contract_ref_variant": 1,
+      "rate_differs": 1
      },
      "g4": {
       "band_state": 100
      },
-     "rate_agree": 16,
-     "rate_differs": 84,
-     "rate_not_single": 0
+     "rate_agree": 0,
+     "rate_differs": 0,
+     "rate_not_single": 100,
+     "billed_rate_is_a_band_rate": 99
     },
     "A.12.030": {
      "lines": 135,
@@ -118,7 +124,8 @@
      },
      "rate_agree": 134,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "A.12.040": {
      "lines": 132,
@@ -136,7 +143,8 @@
      },
      "rate_agree": 130,
      "rate_differs": 2,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "A.12.050": {
      "lines": 148,
@@ -150,7 +158,8 @@
      "g4": {},
      "rate_agree": 145,
      "rate_differs": 3,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "A.12.060": {
      "lines": 139,
@@ -164,24 +173,25 @@
      "g4": {},
      "rate_agree": 138,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "A.13.010": {
      "lines": 126,
      "amount_status": {
-      "determined": 126
+      "conditional": 126
      },
      "findings": {
-      "rate_differs": 79,
       "submitted_early": 1,
       "amount_arithmetic": 2
      },
      "g4": {
       "band_state": 126
      },
-     "rate_agree": 47,
-     "rate_differs": 79,
-     "rate_not_single": 0
+     "rate_agree": 0,
+     "rate_differs": 0,
+     "rate_not_single": 126,
+     "billed_rate_is_a_band_rate": 126
     },
     "A.13.020": {
      "lines": 128,
@@ -194,7 +204,8 @@
      "g4": {},
      "rate_agree": 128,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "A.13.030": {
      "lines": 141,
@@ -209,15 +220,16 @@
      },
      "rate_agree": 141,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "A.14.010": {
      "lines": 117,
      "amount_status": {
-      "determined": 117
+      "conditional": 117
      },
      "findings": {
-      "rate_differs": 93,
+      "rate_differs": 2,
       "amount_arithmetic": 4,
       "contract_ref_variant": 1
      },
@@ -225,9 +237,10 @@
       "band_state": 117,
       "a3_adjustment": 42
      },
-     "rate_agree": 24,
-     "rate_differs": 93,
-     "rate_not_single": 0
+     "rate_agree": 0,
+     "rate_differs": 0,
+     "rate_not_single": 117,
+     "billed_rate_is_a_band_rate": 115
     },
     "A.14.020": {
      "lines": 125,
@@ -245,7 +258,8 @@
      },
      "rate_agree": 124,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "A.14.030": {
      "lines": 131,
@@ -260,7 +274,8 @@
      "g4": {},
      "rate_agree": 131,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "A.15.010": {
      "lines": 122,
@@ -276,7 +291,8 @@
      "g4": {},
      "rate_agree": 122,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "A.15.020": {
      "lines": 120,
@@ -289,7 +305,8 @@
      "g4": {},
      "rate_agree": 120,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "A.16.010": {
      "lines": 135,
@@ -305,7 +322,8 @@
      },
      "rate_agree": 135,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "B.21.010": {
      "lines": 107,
@@ -318,7 +336,8 @@
      "g4": {},
      "rate_agree": 107,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "B.21.020": {
      "lines": 106,
@@ -331,7 +350,8 @@
      },
      "rate_agree": 106,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "B.21.030": {
      "lines": 121,
@@ -342,7 +362,8 @@
      "g4": {},
      "rate_agree": 121,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "B.21.040": {
      "lines": 138,
@@ -356,7 +377,8 @@
      "g4": {},
      "rate_agree": 138,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "B.21.050": {
      "lines": 134,
@@ -367,23 +389,24 @@
      "g4": {},
      "rate_agree": 134,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "B.22.010": {
      "lines": 145,
      "amount_status": {
-      "determined": 145
+      "conditional": 145
      },
      "findings": {
-      "rate_differs": 137,
       "amount_arithmetic": 4
      },
      "g4": {
       "band_state": 145
      },
-     "rate_agree": 8,
-     "rate_differs": 137,
-     "rate_not_single": 0
+     "rate_agree": 0,
+     "rate_differs": 0,
+     "rate_not_single": 145,
+     "billed_rate_is_a_band_rate": 145
     },
     "B.22.020": {
      "lines": 125,
@@ -394,7 +417,8 @@
      "g4": {},
      "rate_agree": 125,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "B.22.030": {
      "lines": 128,
@@ -405,24 +429,26 @@
      "g4": {},
      "rate_agree": 128,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "B.23.010": {
      "lines": 129,
      "amount_status": {
-      "determined": 129
+      "conditional": 129
      },
      "findings": {
-      "rate_differs": 115,
       "amount_arithmetic": 4,
+      "rate_differs": 2,
       "contract_ref_variant": 1
      },
      "g4": {
       "band_state": 129
      },
-     "rate_agree": 14,
-     "rate_differs": 115,
-     "rate_not_single": 0
+     "rate_agree": 0,
+     "rate_differs": 0,
+     "rate_not_single": 129,
+     "billed_rate_is_a_band_rate": 127
     },
     "B.23.020": {
      "lines": 129,
@@ -442,7 +468,8 @@
      },
      "rate_agree": 128,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "B.24.010": {
      "lines": 127,
@@ -455,7 +482,8 @@
      "g4": {},
      "rate_agree": 126,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "B.25.010": {
      "lines": 126,
@@ -470,7 +498,8 @@
      "g4": {},
      "rate_agree": 124,
      "rate_differs": 2,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "B.26.010": {
      "lines": 128,
@@ -483,7 +512,8 @@
      "g4": {},
      "rate_agree": 127,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "B.27.010": {
      "lines": 133,
@@ -494,7 +524,8 @@
      "g4": {},
      "rate_agree": 133,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "C.31.010": {
      "lines": 140,
@@ -507,7 +538,8 @@
      "g4": {},
      "rate_agree": 136,
      "rate_differs": 4,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "C.31.020": {
      "lines": 135,
@@ -521,7 +553,8 @@
      "g4": {},
      "rate_agree": 134,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "C.31.030": {
      "lines": 133,
@@ -535,7 +568,8 @@
      "g4": {},
      "rate_agree": 132,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "C.31.040": {
      "lines": 131,
@@ -550,7 +584,8 @@
      "g4": {},
      "rate_agree": 131,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "C.32.010": {
      "lines": 129,
@@ -569,7 +604,8 @@
      },
      "rate_agree": 128,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "C.32.020": {
      "lines": 137,
@@ -582,7 +618,8 @@
      "g4": {},
      "rate_agree": 137,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "C.32.030": {
      "lines": 135,
@@ -599,7 +636,8 @@
      },
      "rate_agree": 133,
      "rate_differs": 2,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "C.32.040": {
      "lines": 135,
@@ -612,7 +650,8 @@
      "g4": {},
      "rate_agree": 135,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "C.33.010": {
      "lines": 115,
@@ -623,7 +662,8 @@
      "g4": {},
      "rate_agree": 115,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "C.34.010": {
      "lines": 119,
@@ -637,7 +677,8 @@
      "g4": {},
      "rate_agree": 119,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "C.35.010": {
      "lines": 120,
@@ -650,27 +691,29 @@
      "g4": {},
      "rate_agree": 120,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "D.41.010": {
      "lines": 139,
      "amount_status": {
-      "determined": 138,
+      "conditional": 138,
       "not_payable": 1
      },
      "findings": {
-      "rate_differs": 118,
       "amount_arithmetic": 4,
       "contract_ref_variant": 2,
-      "record_missing": 1
+      "record_missing": 1,
+      "rate_differs": 1
      },
      "g4": {
       "band_state": 139,
       "p23_link": 1
      },
-     "rate_agree": 21,
-     "rate_differs": 118,
-     "rate_not_single": 0
+     "rate_agree": 0,
+     "rate_differs": 0,
+     "rate_not_single": 139,
+     "billed_rate_is_a_band_rate": 138
     },
     "D.41.020": {
      "lines": 131,
@@ -684,7 +727,8 @@
      "g4": {},
      "rate_agree": 127,
      "rate_differs": 4,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "D.41.030": {
      "lines": 146,
@@ -700,24 +744,25 @@
      },
      "rate_agree": 145,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "D.41.040": {
      "lines": 126,
      "amount_status": {
-      "determined": 126
+      "conditional": 126
      },
      "findings": {
-      "rate_differs": 106,
       "amount_arithmetic": 4,
       "contract_ref_variant": 1
      },
      "g4": {
       "band_state": 126
      },
-     "rate_agree": 20,
-     "rate_differs": 106,
-     "rate_not_single": 0
+     "rate_agree": 0,
+     "rate_differs": 0,
+     "rate_not_single": 126,
+     "billed_rate_is_a_band_rate": 126
     },
     "D.41.050": {
      "lines": 140,
@@ -731,7 +776,8 @@
      "g4": {},
      "rate_agree": 140,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "D.42.010": {
      "lines": 119,
@@ -745,7 +791,8 @@
      "g4": {},
      "rate_agree": 119,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "D.42.020": {
      "lines": 119,
@@ -758,7 +805,8 @@
      "g4": {},
      "rate_agree": 119,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "D.42.030": {
      "lines": 125,
@@ -771,7 +819,8 @@
      "g4": {},
      "rate_agree": 125,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "D.43.010": {
      "lines": 122,
@@ -784,7 +833,8 @@
      "g4": {},
      "rate_agree": 121,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "D.43.020": {
      "lines": 120,
@@ -798,7 +848,8 @@
      "g4": {},
      "rate_agree": 120,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "D.44.010": {
      "lines": 135,
@@ -811,7 +862,8 @@
      "g4": {},
      "rate_agree": 135,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "E.51.010": {
      "lines": 143,
@@ -828,7 +880,8 @@
      },
      "rate_agree": 143,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "E.51.020": {
      "lines": 104,
@@ -844,7 +897,8 @@
      },
      "rate_agree": 104,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "E.51.030": {
      "lines": 144,
@@ -861,7 +915,8 @@
      },
      "rate_agree": 144,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "E.52.010": {
      "lines": 113,
@@ -878,7 +933,8 @@
      },
      "rate_agree": 113,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "E.53.010": {
      "lines": 130,
@@ -891,7 +947,8 @@
      },
      "rate_agree": 130,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "E.54.010": {
      "lines": 123,
@@ -904,10 +961,11 @@
      "g4": {},
      "rate_agree": 123,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     }
    },
-   "note": "rate_agree/rate_differs compare the billed rate with the contract rate as a diagnostic only; CW band-rated items are priced at band 1 (G4 supplies the band), so their differences are expected until G4."
+   "note": "rate_agree/rate_differs compare the billed rate with the contract rate as a diagnostic only (billing is never the truth criterion). CW band-rated items have no single rate before G4 supplies the band: they count as rate_not_single, and billed_rate_is_a_band_rate counts those billed at one band's rate."
   },
   "DDS": {
    "lines": 91244,
@@ -956,7 +1014,8 @@
      },
      "rate_agree": 8149,
      "rate_differs": 2,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "DD-102": {
      "lines": 8151,
@@ -974,7 +1033,8 @@
      },
      "rate_agree": 8151,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "DD-110": {
      "lines": 3304,
@@ -993,7 +1053,8 @@
      },
      "rate_agree": 3302,
      "rate_differs": 2,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "DD-111": {
      "lines": 654,
@@ -1010,7 +1071,8 @@
      },
      "rate_agree": 654,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "DD-120": {
      "lines": 4606,
@@ -1032,7 +1094,8 @@
      },
      "rate_agree": 4605,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "DD-121": {
      "lines": 245,
@@ -1049,7 +1112,8 @@
      },
      "rate_agree": 240,
      "rate_differs": 5,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "DD-130": {
      "lines": 480,
@@ -1068,7 +1132,8 @@
      },
      "rate_agree": 480,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "DD-140": {
      "lines": 214,
@@ -1083,7 +1148,8 @@
      },
      "rate_agree": 214,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "DS-900": {
      "lines": 63,
@@ -1094,7 +1160,8 @@
      "g4": {},
      "rate_agree": 0,
      "rate_differs": 0,
-     "rate_not_single": 63
+     "rate_not_single": 63,
+     "billed_rate_is_a_band_rate": 0
     },
     "HC-601": {
      "lines": 1767,
@@ -1111,7 +1178,8 @@
      },
      "rate_agree": 1767,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "HC-610": {
      "lines": 943,
@@ -1127,7 +1195,8 @@
      },
      "rate_agree": 943,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "HC-620": {
      "lines": 8151,
@@ -1146,7 +1215,8 @@
      },
      "rate_agree": 8149,
      "rate_differs": 2,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "HC-630": {
      "lines": 428,
@@ -1159,7 +1229,8 @@
      "g4": {},
      "rate_agree": 428,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "HC-640": {
      "lines": 2146,
@@ -1177,7 +1248,8 @@
      },
      "rate_agree": 2146,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "LH-711": {
      "lines": 10,
@@ -1190,7 +1262,8 @@
      "g4": {},
      "rate_agree": 9,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "LH-712": {
      "lines": 17,
@@ -1203,7 +1276,8 @@
      "g4": {},
      "rate_agree": 14,
      "rate_differs": 3,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "LH-713": {
      "lines": 19,
@@ -1216,7 +1290,8 @@
      "g4": {},
      "rate_agree": 16,
      "rate_differs": 3,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "LH-714": {
      "lines": 8,
@@ -1229,7 +1304,8 @@
      "g4": {},
      "rate_agree": 7,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "LW-401": {
      "lines": 3432,
@@ -1247,7 +1323,8 @@
      },
      "rate_agree": 3429,
      "rate_differs": 3,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "LW-410": {
      "lines": 2964,
@@ -1263,7 +1340,8 @@
      "g4": {},
      "rate_agree": 2963,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "LW-411": {
      "lines": 2250,
@@ -1280,7 +1358,8 @@
      "g4": {},
      "rate_agree": 2250,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "LW-412": {
      "lines": 955,
@@ -1294,7 +1373,8 @@
      "g4": {},
      "rate_agree": 954,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "LW-413": {
      "lines": 445,
@@ -1310,7 +1390,8 @@
      },
      "rate_agree": 445,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "LW-420": {
      "lines": 369,
@@ -1326,7 +1407,8 @@
      },
      "rate_agree": 369,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "LW-430": {
      "lines": 214,
@@ -1339,7 +1421,8 @@
      },
      "rate_agree": 214,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "MB-701": {
      "lines": 217,
@@ -1355,7 +1438,8 @@
      },
      "rate_agree": 215,
      "rate_differs": 2,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "MB-702": {
      "lines": 214,
@@ -1368,7 +1452,8 @@
      },
      "rate_agree": 214,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "MW-301": {
      "lines": 8152,
@@ -1392,7 +1477,8 @@
      },
      "rate_agree": 8147,
      "rate_differs": 5,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "MW-310": {
      "lines": 8151,
@@ -1415,7 +1501,8 @@
      },
      "rate_agree": 8134,
      "rate_differs": 16,
-     "rate_not_single": 1
+     "rate_not_single": 1,
+     "billed_rate_is_a_band_rate": 0
     },
     "MW-320": {
      "lines": 4847,
@@ -1438,7 +1525,8 @@
      },
      "rate_agree": 4846,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "MW-330": {
      "lines": 8151,
@@ -1457,7 +1545,8 @@
      },
      "rate_agree": 8151,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "PD-201": {
      "lines": 2561,
@@ -1478,7 +1567,8 @@
      },
      "rate_agree": 2561,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "PD-210": {
      "lines": 2390,
@@ -1495,7 +1585,8 @@
      "g4": {},
      "rate_agree": 2383,
      "rate_differs": 7,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "PD-220": {
      "lines": 1190,
@@ -1511,7 +1602,8 @@
      },
      "rate_agree": 1190,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "PD-230": {
      "lines": 1190,
@@ -1527,7 +1619,8 @@
      },
      "rate_agree": 1190,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "RM-510": {
      "lines": 679,
@@ -1543,7 +1636,8 @@
      "g4": {},
      "rate_agree": 679,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "RM-511": {
      "lines": 806,
@@ -1563,7 +1657,8 @@
      },
      "rate_agree": 805,
      "rate_differs": 1,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "RM-520": {
      "lines": 1767,
@@ -1580,7 +1675,8 @@
      },
      "rate_agree": 1767,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     },
     "RM-530": {
      "lines": 943,
@@ -1597,10 +1693,11 @@
      },
      "rate_agree": 943,
      "rate_differs": 0,
-     "rate_not_single": 0
+     "rate_not_single": 0,
+     "billed_rate_is_a_band_rate": 0
     }
    },
-   "note": "rate_agree/rate_differs compare the billed rate with the contract rate as a diagnostic only; CW band-rated items are priced at band 1 (G4 supplies the band), so their differences are expected until G4."
+   "note": "rate_agree/rate_differs compare the billed rate with the contract rate as a diagnostic only (billing is never the truth criterion). CW band-rated items have no single rate before G4 supplies the band: they count as rate_not_single, and billed_rate_is_a_band_rate counts those billed at one band's rate."
   }
  }
 }

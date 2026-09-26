@@ -1,10 +1,21 @@
 {
- "cases": 153,
+ "cases": 163,
  "expected": 153,
- "comparisons": 738,
+ "comparisons": 748,
  "agree": 711,
  "disposed": 27,
- "failures": [],
+ "failures": [
+  "CW-S56 annotation: reader None engine 'present'",
+  "CW-S57 annotation: reader None engine 'present'",
+  "CW-S58 annotation: reader None engine 'present'",
+  "DDS-S57 annotation: reader None engine 'present'",
+  "DDS-S58 annotation: reader None engine 'present'",
+  "DDS-S59 annotation: reader None engine 'present'",
+  "DDS-S60 annotation: reader None engine 'present'",
+  "DDS-S61 annotation: reader None engine 'present'",
+  "DDS-S62 annotation: reader None engine 'present'",
+  "DDS-S63 annotation: reader None engine 'present'"
+ ],
  "categories": [
   "A.16.010 dewatering week",
   "A1 row effective 2025-10-01 (not the instrument date 2025-09-28)",
@@ -98,6 +109,8 @@
   "Series E: no zone factor; Sch 1 rate before A1 row",
   "USD item",
   "USD item converted at the work month's halalas per USD / 100",
+  "application names a subcontractor other than the contract's",
+  "application quotes contract reference CW-2024-0417-CIV (one digit group differs)",
   "billed amount not equal to quantity x billed rate",
   "billed rate above the contract rate",
   "billed rate below the contract rate",
@@ -118,15 +131,20 @@
   "indexed C.31.010",
   "indexed D.41.030 at night",
   "indexed item, work month index; ground item with no class recorded",
+  "invoice names a contractor other than the contract's",
+  "invoice quotes contract reference DDS-2025-181 (digits transposed)",
+  "invoice quotes contract reference DSS-2025-118 (letters transposed)",
   "item on both night and rest-day lists, worked at night on a Friday, no written instruction supplied",
   "item outside Schedule 5 with no record reference",
   "last day of the 5% regime",
   "last day of the term as extended",
+  "line is for well NGP-SY-002 on an invoice for well NGP-SY-001; the report is for NGP-SY-002",
   "line states Operating, report records Standby",
   "line states a 17-1/2 inch section, report records 12-1/4 (section-rated service)",
   "night item at night in a zone with factor above 1.1 (Wednesday)",
   "night item at night in a zone with factor not above 1.1 (Wednesday)",
   "night item in Z3/Z4",
+  "no report exists with the quoted number",
   "non-surveyed record item billed above the record",
   "non-surveyed record item billed below the record",
   "placeholder countersignature",
@@ -134,6 +152,7 @@
   "record countersignature is an underscore placeholder",
   "record dated a different day from the line",
   "record evidences a different trench item than the one billed",
+  "record is for another work area than the line's site",
   "record uses 'cube'; invoice unit is the scheduled m3",
   "reference to a record of another series",
   "rest item on a rest day",
@@ -149,6 +168,8 @@
   "submitted before the period end",
   "surveyed item: measured 102.00% of the survey",
   "surveyed item: measured 103% of the survey",
+  "the quoted report is for another well (NGP-SY-002)",
+  "the quoted report is for the previous day",
   "weekly item: record shows five days worked",
   "weekly item: record shows four days worked",
   "work date outside the stated period",
@@ -156,6 +177,27 @@
   "wrong-series reference"
  ],
  "rows": [
+  {
+   "id": "CW-S56",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "CW-S57",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "CW-S58",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
   {
    "id": "CW-R01",
    "field": "payable",
@@ -2915,6 +2957,55 @@
     "record_date_mismatch"
    ],
    "agree": true
+  },
+  {
+   "id": "DDS-S57",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "DDS-S58",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "DDS-S59",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "DDS-S60",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "DDS-S61",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "DDS-S62",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
+  },
+  {
+   "id": "DDS-S63",
+   "field": "annotation",
+   "reader": null,
+   "engine": "present",
+   "agree": false
   },
   {
    "id": "DDS-R01",

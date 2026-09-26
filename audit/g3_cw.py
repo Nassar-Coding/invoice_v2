@@ -7,9 +7,11 @@ quantities (6A first hour, 47A five-day week, 33A 2% survey tolerance, record ca
 USD conversion (26A) and indexation (29A) half-even, build-up zone -> ground -> night -> rest-day -> band -> S2/A2
 discount (Cl.27, 27A, P11), rounded once half-up (Cl.28), and line arithmetic.
 
-Not decided here (G4): annual quantity-band state (an explicit input, default band 1 = 100%), daily limits,
-exclusions, duplicates, the posting of the A3 retrospective adjustment and P23 recovery. They are listed on each
-result as g4_dependencies.
+Not decided here (G4): annual quantity-band state, daily limits, exclusions, duplicates, the posting of the A3
+retrospective adjustment and P23 recovery. They are listed on each result as g4_dependencies. The band is an input:
+a reference case states it; on the population it is unknown (band_pct=None), so a band-rated line is priced under
+every band, its rate is checked against all of them, and its amount is 'conditional' with one traced amount per band
+(a quantity crossing a band edge is divided at the edge, Sch 4 Part 3, so the amount lies between those bounds).
 """
 from __future__ import annotations
 
@@ -79,8 +81,9 @@ def price(code: str, work_date: dt.date, submitted: dt.date | None, zone: str | 
     return rate, tr, readings
 
 
-def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decimal = Decimal("100"), T=None) -> LineResult:
-    """line/app: typed claim fields; record: G2 CwRecord or None (record_exists: a file with that ticket exists)."""
+def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decimal | None = None, T=None) -> LineResult:
+    """line/app: typed claim fields; record: G2 CwRecord or None (record_exists: a file with that ticket exists).
+    band_pct: the annual quantity-band percentage when known (a case input); None = G4 state not known here."""
     T = T or terms.cw()
     code, wd = line["item_code"], line["work_date"]
     r = LineResult("CW", line["line_ref"], code)
@@ -218,15 +221,32 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
         r.readings.append(f"ground {ground}: {gsrc}")
     else:
         ground = None
+    band_unknown = code in T.banded and band_pct is None
     try:
-        rate, tr, readings = price(code, wd, app["application_date"], zone, ground, line.get("night_work") == "Y", band_pct, T)
+        args = (code, wd, app["application_date"], zone, ground, line.get("night_work") == "Y")
+        if band_unknown:
+            by_band = {f"band {i}": price(*args, pct, T) for i, pct in enumerate(T.band_pcts[code], 1)}
+            rate, tr, readings = by_band["band 1"]
+            readings = [x for x in readings if not x.startswith("band_pct=")] + ["band state unknown at G3: every band priced (G4, CW-R14)"]
+        else:
+            by_band = {}
+            rate, tr, readings = price(*args, band_pct if band_pct is not None else Decimal("100"), T)
     except KeyError as e:
-        rate, tr, readings = None, Trace(), []
+        rate, tr, readings, by_band = None, Trace(), [], {}
         tr.note(f"not priced: no published index/FX for {e} (outside the tables)", "Sch 2A, 2B (pp21-22)")
     r.readings += readings
-    r.unit_rate = rate
+    r.unit_rate = None if by_band else rate
     if rate is None:
         r.add("rate", "n/a", "CW-R10", "Sch 2A/2B", detail="no published index/FX month")
+    elif by_band:
+        match = [k for k, (rt, _t, _r) in by_band.items() if rt == line["rate_applied"]]
+        rates = ", ".join(f"{k} {rt}" for k, (rt, _t, _r) in by_band.items())
+        if match:
+            r.add("rate", "unresolved", "CW-R14", "Sch 4 Part 3 (pp24-25); Cl.27 (p6)",
+                  detail=f"billed {line['rate_applied']} is the {match[0]} rate ({rates}); which band applies is G4 state")
+        else:
+            r.add("rate", "finding", "CW-R10", "Cl.27, Cl.28 (p6); Sch 4 Part 3 (pp24-25)", "rate_differs",
+                  f"billed {line['rate_applied']} is the rate of no band ({rates})")
     elif line["rate_applied"] != rate:
         r.add("rate", "finding", "CW-R10", "Cl.27, Cl.28 (p6); instruments pp38-43", "rate_differs", f"billed {line['rate_applied']}, contract {rate}")
     else:
@@ -244,7 +264,16 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
             c.detail for c in r.checks if c.check == "quantity" and c.detail) + ")")
     r.payable = payable
     r.reasons = reasons
-    if payable:
+    if payable and by_band:
+        r.allowed_quantity, r.amount_status = allowed, "conditional"
+        reasons.append("rate depends on the annual quantity band (G4 state, CW-R14; Q6, Q12): the amount under each band "
+                       "is carried; a quantity crossing a band edge is divided at the edge, between these bounds")
+        for k, (rt, trk, _r) in by_band.items():
+            amt = trk.amount(allowed, rt, "Cl.28 (p6): quantity x rounded rate")
+            r.alternatives[k] = {"condition": "whole allowed quantity in this band (G4 state)", "unit_rate": rt,
+                                 "allowed_quantity": allowed, "amount": amt, "trace": trk.steps}
+        tr.note("conditional on the G4 band state: one full trace per band in alternatives", "Sch 4 Part 3 (pp24-25)")
+    elif payable:
         r.allowed_quantity = allowed
         r.amount = tr.amount(allowed, rate, "Cl.28 (p6): quantity x rounded rate")
     else:
@@ -254,7 +283,8 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
     r.trace = tr.steps
     # G4 dependencies (never applied here) --------------------------------------------------------------------
     if code in T.banded:
-        r.g4_dependencies.append("band_state (CW-R14): band 1 assumed as an input")
+        r.g4_dependencies.append("band_state (CW-R14): " + ("every band priced; G4 selects or divides" if band_pct is None
+                                                            else f"band {band_pct}% given as an input"))
     if code in T.limited:
         r.g4_dependencies.append("daily_limit (CW-R15)")
     if code in T.excluded:

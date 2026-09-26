@@ -45,7 +45,7 @@ def summary(w, res) -> dict:
     out = {"run_context": w.run_context["id"], "contracts": {}}
     for c, rs in res.items():
         codes = defaultdict(lambda: {"lines": 0, "amount_status": Counter(), "findings": Counter(), "g4": Counter(),
-                                     "rate_agree": 0, "rate_differs": 0, "rate_not_single": 0})
+                                     "rate_agree": 0, "rate_differs": 0, "rate_not_single": 0, "billed_rate_is_a_band_rate": 0})
         for ref, r in rs.items():
             e = codes[r.code]
             e["lines"] += 1
@@ -54,6 +54,8 @@ def summary(w, res) -> dict:
             e["g4"].update(x.split(" ")[0] for x in r.g4_dependencies)
             if r.unit_rate is None:
                 e["rate_not_single"] += 1
+                if any(c.check == "rate" and c.status == "unresolved" and "band" in c.detail for c in r.checks):
+                    e["billed_rate_is_a_band_rate"] += 1
             elif r.unit_rate == lines[c][ref][rate_key[c]]:
                 e["rate_agree"] += 1
             else:
@@ -65,8 +67,9 @@ def summary(w, res) -> dict:
             "always_g4": (g3_cw if c == "CW" else g3_dds).ALWAYS_G4,
             "codes": {k: {**v, "amount_status": dict(v["amount_status"]), "findings": dict(v["findings"]), "g4": dict(v["g4"])}
                       for k, v in sorted(codes.items())},
-            "note": "rate_agree/rate_differs compare the billed rate with the contract rate as a diagnostic only; CW band-rated "
-                    "items are priced at band 1 (G4 supplies the band), so their differences are expected until G4.",
+            "note": "rate_agree/rate_differs compare the billed rate with the contract rate as a diagnostic only (billing is "
+                    "never the truth criterion). CW band-rated items have no single rate before G4 supplies the band: they "
+                    "count as rate_not_single, and billed_rate_is_a_band_rate counts those billed at one band's rate.",
         }
     return out
 
@@ -126,9 +129,17 @@ def decision_scopes(w, res) -> dict:
                  "losses": len(losses)}
     for c, rs in res.items():
         proc = [r for r in rs.values() if set(r.findings) & {"submitted_late", "submitted_early", "outside_period"}]
-        sc.setdefault("G3-D1", {})[c] = {"lines": len(proc), "payable_under_D1": sum(1 for r in proc if r.payable),
-                                         "value_under_D1": str(sum((r.amount or Decimal(0)) for r in proc if r.payable)),
-                                         "under_alternative": "not payable now: value 0.00 on these lines"}
+        det = [r for r in proc if r.payable and r.amount is not None]
+        bounded = [r for r in proc if r.payable and r.amount is None]
+        amts = lambda r: [v["amount"] for v in r.alternatives.values() if v.get("amount") is not None]  # noqa: E731
+        sc.setdefault("G3-D1", {})[c] = {
+            "lines": len(proc), "payable_under_D1": len(det) + len(bounded),
+            "value_under_D1_single_amount_lines": {"lines": len(det), "value": str(sum((r.amount for r in det), Decimal(0)))},
+            "value_under_D1_lines_without_single_amount": {
+                "lines": len(bounded), "min": str(sum((min(amts(r)) for r in bounded), Decimal(0))),
+                "max": str(sum((max(amts(r)) for r in bounded), Decimal(0))),
+                "note": "band-conditional (CW) or Q4 alternatives (DDS): bounded by the smallest and largest carried amount"},
+            "under_alternative": "not payable now: value 0.00 on these lines"}
     uns = [r for r in dds.values() if "report_unsigned" in r.findings]
     sc["G3-D2"] = {"lines": len(uns), "schedule5_not_payable": sum(1 for r in uns if r.code in g3_dds.terms.dds().sch5),
                    "others_payable_under_D2": sum(1 for r in uns if r.payable),

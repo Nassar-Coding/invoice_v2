@@ -31,7 +31,7 @@
      "unit_rate": "152.88"
     },
     "PA-00609-01": {
-     "unit_rate": "44.31"
+     "unit_rate": null
     },
     "PA-00613-01": {
      "unit_rate": "74.48"
@@ -238,13 +238,31 @@
   "CW": {
    "lines": 29,
    "payable_under_D1": 28,
-   "value_under_D1": "377167.84",
+   "value_under_D1_single_amount_lines": {
+    "lines": 27,
+    "value": "369015.63"
+   },
+   "value_under_D1_lines_without_single_amount": {
+    "lines": 1,
+    "min": "7338.21",
+    "max": "8152.21",
+    "note": "band-conditional (CW) or Q4 alternatives (DDS): bounded by the smallest and largest carried amount"
+   },
    "under_alternative": "not payable now: value 0.00 on these lines"
   },
   "DDS": {
    "lines": 244,
    "payable_under_D1": 241,
-   "value_under_D1": "509246.11",
+   "value_under_D1_single_amount_lines": {
+    "lines": 241,
+    "value": "509246.11"
+   },
+   "value_under_D1_lines_without_single_amount": {
+    "lines": 0,
+    "min": "0",
+    "max": "0",
+    "note": "band-conditional (CW) or Q4 alternatives (DDS): bounded by the smallest and largest carried amount"
+   },
    "under_alternative": "not payable now: value 0.00 on these lines"
   }
  },
