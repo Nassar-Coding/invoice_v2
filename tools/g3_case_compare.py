@@ -8,7 +8,8 @@ give one on a payable line. Where the engine carries open-question alternatives,
 of them. A disagreement passes only with a recorded disposition (verification/g3/case_dispositions.yaml) that names
 both values and the clause that settles it.
 
-Usage::  python tools/g3_case_compare.py      (prints the summary; writes verification/g3/case_comparison.json)
+Usage::  python tools/g3_case_compare.py [--check]   (prints the summary; writes verification/g3/case_comparison.json,
+                                                     or with --check only compares with it)
 """
 from __future__ import annotations
 
@@ -154,7 +155,14 @@ def run(dispositions: dict | None = None) -> dict:
 
 def main() -> int:
     res = run()
-    OUT.write_text(json.dumps({k: v for k, v in res.items()}, indent=1, default=str) + "\n")
+    text = json.dumps({k: v for k, v in res.items()}, indent=1, default=str) + "\n"
+    if "--check" in sys.argv:                  # read-only: compare with the committed file
+        same = OUT.exists() and OUT.read_text() == text
+        print("case comparison " + ("reproduces" if same else "DOES NOT reproduce") + " the committed file")
+        if not same:
+            return 1
+    else:
+        OUT.write_text(text)
     print(f"cases {res['cases']}, expected {res['expected']}, comparisons {res['comparisons']}, agree {res['agree']}, "
           f"disposed {res['disposed']}, failing {len(res['failures'])}")
     for f in res["failures"]:

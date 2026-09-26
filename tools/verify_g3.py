@@ -529,19 +529,19 @@ def x5_text(paths=None) -> list[str]:
     return errs
 
 
-def evaluate_all(w, order=1, cw_eval=None, dds_eval=None, mutate=None) -> dict:
-    """Evaluate every line one by one (order=-1: reverse), optionally mutating the claim inputs first."""
+def evaluate_all(w, order=1, cw_eval=None, dds_eval=None, mutate=None, only=None) -> dict:
+    """Evaluate every line one by one (order=-1: reverse), optionally mutating the claim inputs first; `only` limits
+    the run to those line refs (tests)."""
     cw_eval, dds_eval = cw_eval or g3_cw.evaluate, dds_eval or g3_dds.evaluate
     out = {"CW": {}, "DDS": {}}
-    cw_in = list(g3_cw.inputs_from_world(w))[::order]
-    for line, app, rec, exists in cw_in:
-        line = mutate("CW", line) if mutate else line
-        r = cw_eval(line, app, rec, exists)
-        out["CW"][r.line_ref] = r
+    for line, app, rec, exists in list(g3_cw.inputs_from_world(w))[::order]:
+        if only is None or line["line_ref"] in only:
+            r = cw_eval(mutate("CW", line) if mutate else line, app, rec, exists)
+            out["CW"][r.line_ref] = r
     for line, inv, ddr in list(g3_dds.inputs_from_world(w))[::order]:
-        line = mutate("DDS", line) if mutate else line
-        r = dds_eval(line, inv, ddr)
-        out["DDS"][r.line_ref] = r
+        if only is None or line["line_ref"] in only:
+            r = dds_eval(mutate("DDS", line) if mutate else line, inv, ddr)
+            out["DDS"][r.line_ref] = r
     return out
 
 
@@ -551,7 +551,7 @@ def _value(r) -> dict:
 
 
 def x5_order(w, forward: dict, **kw) -> list[str]:
-    rev = evaluate_all(w, order=-1, **kw)
+    rev = evaluate_all(w, order=-1, only=kw.pop("only", None), **kw)
     errs = []
     for c in forward:
         for ref, r in forward[c].items():
@@ -572,7 +572,7 @@ def _perturb(contract: str, line: dict) -> dict:
 
 
 def x6(w, forward: dict, **kw) -> list[str]:
-    pert = evaluate_all(w, mutate=_perturb, **kw)
+    pert = evaluate_all(w, mutate=_perturb, only=kw.pop("only", None), **kw)
     errs = []
     for c in forward:
         for ref, r in forward[c].items():
