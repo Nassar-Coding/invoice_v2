@@ -81,10 +81,10 @@ Closure evidence required (audit §8): F1/F2 supported authority or explicit con
 cannot silently set value; F3 split and non-split counterexamples without doing G4 early; F4 PD-210 reconciled with
 the two reproduced failures rejected; Q5 residual reconciled or kept with scope and owner; regenerated outputs with
 D1's value/payment distinction, Q13 and currency separation preserved.
-- [ ] R1 F1 well class: class-rated services priced under every class (Cl.4; P2, P3); header disclosed, owner G5; PD-210 nomination stays conditional; MDS-00001-008 counterexample; controls (X2 completeness, X6 claim perturbation).
-- [ ] R2 F2 ground class: record / 27A / every class with S4's G2 disclosed; PA-00031-06 counterexample; exposure 650/521; controls.
-- [ ] R3 F3 band arithmetic: Cl.28 division at contract band rates -> unresolved, else finding; PA-00076-08 and counterparts; prompt v3.
-- [ ] R4 F4 PD-210: allowed metres = parts = amount under 25A; crossing ambiguity exposed; X3 part rates/depths/quantities; controls 999.00 and quantity mismatch.
-- [ ] R5 Q5 residual: DD-120/RM-530 hours and HC-630 computed under every reading; Cl.2 list gap recorded (D8); owners G5/G4.
-- [ ] R6 X6 perturbs claim classifications; D1 value/payment; SAR/USD separated; Q11 blocks G5; G3-D3 zone/night disclosed.
-- [ ] R7 Independent v3 readers (new cases + 24 re-reads), scan check, all checks and tests, report Phase3_G3_corrections.md, fresh clone, gate3-r1 text.
+- [x] R1 F1 well class: class-rated services priced under every class (Cl.4; P2, P3); header disclosed, owner G5; PD-210 nomination stays conditional; MDS-00001-008 counterexample; controls (X2 completeness, X6 claim perturbation). — MDS-00001-008 identical under any header; 24,217 class-rated lines conditional (owner G5); controls X2/X6.
+- [x] R2 F2 ground class: record / 27A / every class with S4's G2 disclosed; PA-00031-06 counterexample; exposure 650/521; controls. — PA-00031-06 identical under any claimed class; 650 lines (649 conditional); controls X2/X6.
+- [x] R3 F3 band arithmetic: Cl.28 division at contract band rates -> unresolved, else finding; PA-00076-08 and counterparts; prompt v3. — PA-00076-08 unresolved (207 x 34.56 + 51 x 32.83); 29 unresolved / 3 findings; CW-S62/S63/R22; control.
+- [x] R4 F4 PD-210: allowed metres = parts = amount under 25A; crossing ambiguity exposed; X3 part rates/depths/quantities; controls 999.00 and quantity mismatch. — 101 m -> 5,873.15 with parts = allowed; controls 999.00 and 100-vs-101 rejected; crossing charge exposed.
+- [x] R5 Q5 residual: DD-120/RM-530 hours and HC-630 computed under every reading; Cl.2 list gap recorded (D8); owners G5/G4. — 3 lines carry alternatives; HC-630 once-per-run G4 dependency on 428 lines; D8 registered.
+- [x] R6 X6 perturbs claim classifications; D1 value/payment; SAR/USD separated; Q11 blocks G5; G3-D3 zone/night disclosed. — X6b passes on 98,990 lines; scopes SAR/USD; Q11 blocks G5; G3-D1 value_vs_payment; G3-D3 scoped.
+- [x] R7 Independent v3 readers (new cases + 24 re-reads), scan check, all checks and tests, report Phase3_G3_corrections.md, fresh clone, gate3-r1 text. — 4 v3 readers: 180 cases, 837 comparisons, 801 agree, 36 disposed (unchanged), 0 failing; check_g3.sh OK; report Phase3_G3_corrections.md; fresh clone and gate3-r1 text in the conversation.

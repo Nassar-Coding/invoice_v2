@@ -32,4 +32,5 @@ Rebuild G3 outputs: `python -m audit.g3_run` (writes `verification/g3/`; `--dump
 | `spec/g3_decisions.yaml`, `spec/g3_code_families.yaml` | G3 decisions (Q3–Q13, G3-D1/D2) with basis, alternatives and cases; code-family coverage |
 | `verification/g3/` | reference cases (inputs, independent readers' expected values, dispositions, comparison), summary, decision scopes, trace sample, scan spot checks |
 
-Reports: `Phase3_G0_G1.md`, `Phase3_G2.md`, `Phase3_G1_G2_corrections.md` (supersedes the G1/G2 reports where they differ), `Phase3_G3.md`. Task list: `Phase3_TASKS.md`.
+Reports: `Phase3_G0_G1.md`, `Phase3_G2.md`, `Phase3_G1_G2_corrections.md` (supersedes the G1/G2 reports where they differ), `Phase3_G3.md`,
+`Phase3_G3_corrections.md` (supersedes `Phase3_G3.md` where they differ). Task list: `Phase3_TASKS.md`.

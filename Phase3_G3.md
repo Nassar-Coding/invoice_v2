@@ -1,5 +1,9 @@
 # Phase 3 — Gate G3: local entitlement and pricing
 
+> **Superseded where they differ by `Phase3_G3_corrections.md`** (G3 correction round after the independent audit
+> `Phase3_G3_audit_Agent2.md` found G3 NOT PASS at `c7abc4b`: well-class and ground-class authority, band-split arithmetic,
+> PD-210 tolerance, the Q5 residual). Figures below are those of `c7abc4b`.
+
 **Governing plan:** `artifacts/phase_inputs/Phase2_plan.md` §2 (G3 row), §5, §8, §10.2. **Branch:** `main`.
 **Built on:** gate1-r1 / gate2-r1 @ `8745f9c`, re-audit `Phase3_G1_G2_reaudit_Agent2.md` (its carry-forward safeguards bind G3).
 **Source:** `majedzahrani3/invoice-auditing-level-2` @ `aef4924dc32506b4587de8b788b5a947e6beffec`, unchanged.
