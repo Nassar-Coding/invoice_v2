@@ -29,7 +29,10 @@
    "B": {
     "lines": 13,
     "value": {
-     "SAR": "213426.16",
+     "SAR": {
+      "min": "258170.41",
+      "max": "282470.38"
+     },
      "USD": "12707.05"
     },
     "note": "no record caps the quantity: the billed quantity at the contract rate (every admissible rate where the rate is conditional); CW P23 would deduct it from the next valuation (G4 event)"

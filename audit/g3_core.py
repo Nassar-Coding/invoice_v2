@@ -7,6 +7,7 @@ dependency on the result, never applied.
 """
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
 
@@ -85,11 +86,28 @@ class Inputs:
     doc_gaps: frozenset = frozenset()       # fields of that document in G2's unresolved queue ("Date", "A.Status", ...)
     unindexed_reports: bool = False         # some report file has no indexable Report number (G2 queue)
     doc_repeated: frozenset = frozenset()   # of those, fields written twice: G2 keeps a value, but which is right is open
+    report_copies: tuple = ()               # other delivered files carrying the cited Report number (G2 indexes one)
 
 
 def empty(v) -> bool:
     """A value G2 left empty: None (typed fields, unparsed evidence) or a blank string (untyped claim fields)."""
     return v is None or (isinstance(v, str) and not v.strip())
+
+
+def result_keys(rows) -> list[str]:
+    """The key of each claim line's result in a batch (and of its Inputs): its line_ref; a line with no line_ref, or with
+    one another line repeats, by its source position (file:line) - so no line's result or provenance ever replaces
+    another's (round 3; which of two lines sharing a reference is a duplicate charge is G4's, never decided here)."""
+    n = Counter(r.values.get("line_ref") or None for r in rows)
+    keys, seen = [], set()
+    for r in rows:
+        ref = r.values.get("line_ref") or None
+        k = ref if ref is not None and n[ref] == 1 else f"{r.source.path}:{r.source.line}"
+        if k in seen:
+            k = f"{k}#{len(keys) + 1}"
+        seen.add(k)
+        keys.append(k)
+    return keys
 
 
 @dataclass
@@ -110,6 +128,8 @@ class LineResult:
     family: str | None = None             # the quantity route the engine valued it under (spec/g3_code_families.yaml)
     checks: list[Check] = field(default_factory=list)
     unit_rate: Decimal | None = None
+    rates: dict = field(default_factory=dict)   # label -> contract rate under each admissible alternative the rate check
+    #                                             formed, whatever the line's payability ("" when single; empty: none formed)
     allowed_quantity: Decimal | None = None
     amount: Decimal | None = None
     payable: bool | None = None
@@ -145,6 +165,7 @@ class LineResult:
     def to_json(self) -> dict:
         s = lambda v: None if v is None else str(v)  # noqa: E731
         return {"contract": self.contract, "line_ref": self.line_ref, "code": self.code, "family": self.family, "unit_rate": s(self.unit_rate),
+                "rates": {k: s(v) for k, v in self.rates.items()},
                 "allowed_quantity": s(self.allowed_quantity), "amount": s(self.amount), "payable": self.payable,
                 "amount_status": self.amount_status, "findings": self.findings, "unresolved": self.unresolved,
                 "reasons": self.reasons, "conditions": self.conditions,

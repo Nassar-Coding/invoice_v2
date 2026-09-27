@@ -21,10 +21,11 @@ from __future__ import annotations
 
 import datetime as dt
 import itertools
+from collections import defaultdict
 from decimal import Decimal
 
 from . import links, records_dds, terms
-from .g3_core import Inputs, LineResult, Trace, empty
+from .g3_core import Inputs, LineResult, Trace, empty, result_keys
 from .g3_core import q as to_cents
 
 CONTRACT_REF = "DDS-2025-118"
@@ -124,13 +125,6 @@ def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict 
             r.input_gap(f, "finding", "claim_field_missing", "Cl.34 (p8)" + ("; Cl.19 (p6)" if f in ("hole_section", "day_status") else ""),
                         f"the charge states no {what}", L)
     sch = T.sch1.get(code) if not empty(code) else None
-    if empty(code):
-        r.family = "DDS-UNSCHEDULED"
-        return _unresolved(r, tr, [], ["service_code: the service cannot be identified without its code (Cl.34)"])
-    if sch is None:
-        r.add("identification", "unresolved", "DDS-R06", "Sch 1 (pp15-16)", "code_not_in_schedule_1")
-        r.amount_status, r.payable, r.family = "unresolved", None, "DDS-UNSCHEDULED"
-        return r
     sd = line.get("service_date")
     payable, reasons = True, []
     if inv is None:
@@ -195,6 +189,15 @@ def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict 
         r.add("period", "finding", "DDS-R02", "Cl.32 (p8)", "outside_period", f"{sd} outside {ps}..{pe}")
     else:
         r.add("period", "pass", "DDS-R02", "Cl.32 (p8)")
+    if sch is None:                    # the service cannot be valued
+        r.family = "DDS-UNSCHEDULED"
+        if empty(code):                # it may be the invoice-level DS-900, which no finding on the day decides (Cl.38)
+            return _unresolved(r, tr, reasons, unresolved + ["service_code: the service cannot be identified without its code (Cl.34)"])
+        if not payable:                # a code outside Schedule 1 (not DS-900): an established consequence above decides it
+            return _finish(r, tr, False, reasons)
+        r.add("identification", "unresolved", "DDS-R06", "Sch 1 (pp15-16)", "code_not_in_schedule_1")
+        r.amount_status, r.payable = "unresolved", None
+        return r
     # 4 unit (Cl.35; remedy Q11) ------------------------------------------------------------------------------
     unit = line.get("unit")
     wrong_unit = not empty(unit) and unit != sch["unit"]
@@ -208,16 +211,28 @@ def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict 
     # 5 report evidence ---------------------------------------------------------------------------------------
     part_needed = T.sch5.get(code)
     r.family = _family(code)
-    if ddr is None:
+    if ddr is None or inputs.report_copies:
         ref = line.get("report_ref")
-        if inputs.unindexed_reports:
+        if inputs.report_copies:
+            # G2 indexes reports by their Report number and keeps the first file carrying it: which delivered file is the
+            # report for this charge is not established, and no fact is taken from either (identity is never inferred)
+            r.input_gap("report_ref", "unresolved", "input_unresolved", "Cl.15 (p5); 19A (p35)",
+                        f"report {ref!r}: the Report number is also carried by {', '.join(inputs.report_copies)} (G2 indexes "
+                        f"only {ddr.file if ddr is not None else 'one'}): which file is the report for this charge is not "
+                        "established", L)
+            why = "report_ref: more than one delivered file carries the cited Report number"
+        elif inputs.unindexed_reports and not empty(ref):
             r.input_gap("report_ref", "unresolved", "input_unresolved", "Cl.15 (p5); 19A (p35)",
                         f"report {ref!r} is not among the indexed reports, and G2 could not index every report file "
                         "(a Report number unresolved): whether it exists is not established", L)
-            return _unresolved(r, tr, reasons, unresolved + ["report_ref: the report may be one G2 could not index"])
-        r.add("evidence", "finding", "DDS-R05", "Cl.15 (p5); 19A (p35)", "report_missing",
-              "report_ref blank: the charge cites no Daily Drilling Report" if empty(ref) else f"no report {ref}")
-        return _finish(r, tr, False, reasons + ["no Daily Drilling Report evidences the day"])
+            why = "report_ref: the report may be one G2 could not index"
+        else:
+            r.add("evidence", "finding", "DDS-R05", "Cl.15 (p5); 19A (p35)", "report_missing",
+                  "report_ref blank: the charge cites no Daily Drilling Report" if empty(ref) else f"no report {ref}")
+            return _finish(r, tr, False, reasons + ["no Daily Drilling Report evidences the day"])
+        if not payable:                # an established consequence above decides the charge whatever its report
+            return _finish(r, tr, False, reasons)
+        return _unresolved(r, tr, reasons, unresolved + [why])
     gaps, twice = inputs.doc_gaps, inputs.doc_repeated
     # a key the report writes twice is unresolved in G2 (it keeps the last): no fact of the report is taken from it
     a = {k: v for k, v in ddr.parts.get("A", {}).items() if f"A.{k}" not in twice}
@@ -503,8 +518,11 @@ def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict 
     if code == "PD-210":
         single = [ps for ps in (part_sets or {}).values()]
         rate = single[0][0][4] if len(single) == 1 and len(single[0]) == 1 else None
+        if part_sets:
+            r.rates = {f"band:{b}": pr for ps in part_sets.values() for b, _f, _t, _q, pr in ps}
     else:
         rate = next(iter(rates.values()))[0] if len(rates) == 1 else None
+        r.rates = {k or "": rt for k, (rt, _t) in rates.items()}
     r.unit_rate = rate
     ur = line.get("unit_rate")
     if empty(ur):
@@ -763,6 +781,7 @@ def _pd210_depths_missing(line, a, r, T, f, t, inputs):
     start, end = Decimal(s_raw), Decimal(e_raw)
     day = max(end - start, Decimal("0"))
     bands = pd210_parts(start, end, T)
+    r.rates = {f"band:{b}": rt for b, _pa, _pb, rt in bands}        # the rates of any interval inside the day's drilling
     r.readings.append(f"known without the charge's depths: the report measures {start}-{end} m, {day} m drilled on the day, in "
                       + ", ".join(f"band {b} ({pa}-{pb} m) at {rt}" for b, pa, pb, rt in bands))
     if billed is not None and billed > day * (1 + T.metre_tolerance / 100):
@@ -965,7 +984,8 @@ def inputs_from_world(w):
 
 
 def input_context(w) -> dict[str, Inputs]:
-    """Per line ident: provenance of the line, its invoice and its report, and the report's fields in G2's queue."""
+    """Per line (keyed as the batch keys its result, g3_core.result_keys): provenance of the line, its invoice and its
+    report, and the report's fields in G2's queue."""
     invs = {h.ident: h for h in w.claims.rows["dds_headers"]}
     gaps, repeated = {}, {}
     for u in w.queue.items:
@@ -973,16 +993,21 @@ def input_context(w) -> dict[str, Inputs]:
             gaps.setdefault(u.ident, set()).add(u.field)
             if u.reason == "key repeated":
                 repeated.setdefault(u.ident, set()).add(u.field)
-    unindexed = any(u.kind == "ddr" and u.field == "Report" for u in w.queue.items)
+    files = defaultdict(list)          # Report number -> the delivered files carrying it (G2's by-file index)
+    for f, d in sorted(w.ddr_by_file.items()):
+        if d.report is not None:
+            files[d.report].append(f)
+    unindexed = any(d.report is None for d in w.ddr_by_file.values())
     out = {}
-    for row in w.claims.rows["dds_lines"]:
+    for key, row in zip(result_keys(w.claims.rows["dds_lines"]), w.claims.rows["dds_lines"]):
         v = row.values
         h = invs.get(v.get("invoice_no"))
         ddr = w.ddr.get(v["report_ref"]) if v.get("report_ref") else None
-        out[row.ident] = Inputs(f"{row.source.path}:{row.source.line}", f"{h.source.path}:{h.source.line}" if h else None,
-                                ddr.path if ddr is not None else None,
-                                frozenset(gaps.get(ddr.file, ())) if ddr is not None else frozenset(), unindexed,
-                                frozenset(repeated.get(ddr.file, ())) if ddr is not None else frozenset())
+        copies = tuple(f for f in files.get(v.get("report_ref") or "", ()) if ddr is None or f != ddr.file)
+        out[key] = Inputs(f"{row.source.path}:{row.source.line}", f"{h.source.path}:{h.source.line}" if h else None,
+                          ddr.path if ddr is not None else None,
+                          frozenset(gaps.get(ddr.file, ())) if ddr is not None else frozenset(), unindexed,
+                          frozenset(repeated.get(ddr.file, ())) if ddr is not None else frozenset(), copies)
     return out
 
 
@@ -999,11 +1024,12 @@ def engine_error(line: dict, ident: str, e: Exception) -> LineResult:
 def run(w, T=None) -> dict[str, LineResult]:
     out = {}
     ctx = input_context(w)
-    for row, (line, inv, ddr) in zip(w.claims.rows["dds_lines"], inputs_from_world(w)):
+    rows = w.claims.rows["dds_lines"]
+    for key, (line, inv, ddr) in zip(result_keys(rows), inputs_from_world(w)):
         try:
-            res = evaluate(line, inv, ddr, T=T, inputs=ctx[row.ident])
+            res = evaluate(line, inv, ddr, T=T, inputs=ctx[key])
         except Exception as e:  # noqa: BLE001 - recorded on the line, never swallowed: X3 fails on engine_error
-            res = engine_error(line, row.ident, e)
+            res = engine_error(line, key, e)
         res.ctx = w.run_context["id"] if w.run_context else None
-        out[res.line_ref or row.ident] = res
+        out[key] = res
     return out

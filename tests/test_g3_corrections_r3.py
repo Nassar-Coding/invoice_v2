@@ -4,6 +4,7 @@ path, the typed G2 handoff (the real claims loader on a CSV with the cells blank
 the unguarded engine of gate3-r2 (3c308ab) fails the same controls."""
 import copy
 import csv
+import datetime as dt
 import io
 import subprocess
 import types
@@ -23,12 +24,13 @@ LINES = "drilling_services/invoices/invoice_lines.csv"
 PROBES = {"MDS-00018-023": ("depth_from_m",), "MDS-00018-039": ("depth_to_m",), "MDS-00018-054": ("depth_from_m", "depth_to_m")}
 
 
-def old_module(name: str):
-    """The module as committed at gate3-r2, executed inside the audit package (its relative imports resolve)."""
-    src = subprocess.run(["git", "show", f"{OLD}:audit/{name}.py"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+def old_module(name: str, rev: str = OLD):
+    """The module as committed at `rev` (default gate3-r2), executed inside the audit package (its relative imports
+    resolve)."""
+    src = subprocess.run(["git", "show", f"{rev}:audit/{name}.py"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     mod = types.ModuleType(f"audit._old_{name}")
     mod.__package__ = "audit"
-    exec(compile(src, f"{OLD}:audit/{name}.py", "exec"), mod.__dict__)
+    exec(compile(src, f"{rev}:audit/{name}.py", "exec"), mod.__dict__)
     return mod
 
 
@@ -206,7 +208,8 @@ def test_batch_contains_an_engine_error_and_carries_on(base, monkeypatch):
 import yaml  # noqa: E402
 
 import null_sweep as ns  # noqa: E402
-from audit import g3_cw  # noqa: E402
+from audit import g3_cw, g3_run  # noqa: E402
+from audit.g3_core import Inputs, result_keys  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -246,10 +249,9 @@ def _cw_variant(evaluate, run=None):
     m = types.SimpleNamespace(evaluate=evaluate, input_context=g3_cw.input_context, inputs_from_world=g3_cw.inputs_from_world)
 
     def default_run(w):
-        ctx, out = g3_cw.input_context(w), {}
-        for row, (line, app, rec, ex) in zip(w.claims.rows["cw_lines"], g3_cw.inputs_from_world(w)):
-            r = evaluate(line, app, rec, ex, inputs=ctx[row.ident])
-            out[r.line_ref or row.ident] = r
+        ctx, out, rows = g3_cw.input_context(w), {}, w.claims.rows["cw_lines"]
+        for key, (line, app, rec, ex) in zip(result_keys(rows), g3_cw.inputs_from_world(w)):
+            out[key] = evaluate(line, app, rec, ex, inputs=ctx[key])
         return out
     m.run = run or default_run
     return m
@@ -292,18 +294,189 @@ def test_x8_control_an_overcautious_engine_loses_a_known_value(both):
 
 def test_x8_control_a_batch_that_drops_lines(both):
     def dropping_run(w):
-        return {k: r for k, r in g3_cw.run(w).items()
-                if next(x for x in w.claims.rows["cw_lines"] if x.ident == k).values.get("quantity") is not None}
+        rows = dict(zip(result_keys(w.claims.rows["cw_lines"]), w.claims.rows["cw_lines"]))
+        return {k: r for k, r in g3_cw.run(w).items() if rows[k].values.get("quantity") is not None}
     errs = _x8_with(both, _cw_variant(g3_cw.evaluate, dropping_run))
     assert any("CW batch with line quantity empty" in e and "results for" in e for e in errs)
 
 
 def test_x8_control_a_batch_that_is_not_the_direct_evaluation(both):
     def provenance_lost_run(w):
-        out = {}
-        for row, (line, app, rec, ex) in zip(w.claims.rows["cw_lines"], g3_cw.inputs_from_world(w)):
-            r = g3_cw.evaluate(line, app, rec, ex)                               # G2's provenance dropped on the way
-            out[r.line_ref or row.ident] = r
-        return out
+        rows = w.claims.rows["cw_lines"]
+        return {key: g3_cw.evaluate(line, app, rec, ex)                          # G2's provenance dropped on the way
+                for key, (line, app, rec, ex) in zip(result_keys(rows), g3_cw.inputs_from_world(w))}
     errs = _x8_with(both, _cw_variant(g3_cw.evaluate, provenance_lost_run))
     assert any("differs from its direct evaluation" in e for e in errs)
+
+
+# ---------------------------------------------------------------------------------------------------- falsification of fix 2
+# Found after fix 2 by trying to break it (Phase3_G3_corrections_r3.md section 4): the output stage crashed on an empty
+# quantity; a line with no value at G3 was valued as 0 or left out silently; a repeated or blank line reference let one
+# line's result replace another's; a report number carried by two files was resolved by G2's first-file default; a
+# missing countersignature was hidden by a twice-written foreman line; an empty civil code hid an established out-of-term.
+def _one_blank(w, lk, ref, field):
+    row = next(x for x in w.claims.rows[lk] if x.ident == ref)
+    r2 = copy.copy(row)
+    r2.values = {**row.values, field: None}
+    sub = copy.copy(w)
+    sub.claims = copy.copy(w.claims)
+    sub.claims.rows = {**w.claims.rows, lk: [r2 if x is row else x for x in w.claims.rows[lk]]}
+    return sub
+
+
+def test_output_stage_on_an_empty_quantity(both):
+    """The falsification probe: a Q3 line (no record; a single contract rate) with its quantity empty. The output stage
+    completes, keeps the line's adopted value (not payable: no record, whatever the quantity) and lists it as not valued
+    under reading B (no billed quantity to price) instead of crashing."""
+    w, res0 = both
+    ref = next(k for k in g3_run.decision_scopes(w, res0)["Q3"]["lines"] if k in res0["CW"] and res0["CW"][k].unit_rate is not None)
+    sub = _one_blank(w, "cw_lines", ref, "quantity")
+    res = {"CW": g3_cw.run(sub), "DDS": res0["DDS"]}
+    assert res["CW"][ref].amount_status == "not_payable"
+    sc = g3_run.decision_scopes(sub, res)
+    assert sc["Q3"]["effect_by_reading"]["B"]["lines_not_valued"] == {"SAR": [ref]}
+    g3_run.summary(sub, res), g3_run.trace_sample(res)
+    with pytest.raises(TypeError):
+        old_module("g3_run").decision_scopes(sub, res)                        # the gate3-r2 output stage
+
+
+def test_q3_reading_b_values_every_line(both):
+    """Reading B prices each Q3 line at its billed quantity and every admissible contract rate its rate check formed -
+    the three civil lines whose rate is conditional (ground or band) were silently left out before."""
+    w, res = both
+    sc = g3_run.decision_scopes(w, res)["Q3"]
+    assert "lines_not_valued" not in sc["effect_by_reading"]["B"] and "lines_not_valued" not in sc
+    lines = g3_run.claim_lines(w)["CW"]
+    old = old_module("g3_run")
+    for ref in ("PA-00111-13", "PA-00609-01", "PA-00613-01"):
+        r, q = res["CW"][ref], lines[ref]["quantity"]
+        assert r.unit_rate is None and len(set(r.rates.values())) > 1
+        assert g3_run.evaluate_as_payable(w, r, q) == (q * min(r.rates.values()), q * max(r.rates.values()))
+        assert old.evaluate_as_payable(w, r, q) is None                        # the omission (control)
+
+
+def test_a_line_with_no_value_is_never_counted(both):
+    """_money never gives a line without a value at G3 a value (0 or otherwise); the scope lists it by status."""
+    w, res = both
+    ds900 = next(r for r in res["DDS"].values() if r.code == "DS-900")
+    assert ds900.payable is None and g3_run._money([ds900]) == {}
+    assert g3_run._not_valued([ds900], lambda r: r.line_ref) == {"deferred": [ds900.line_ref]}
+    assert old_module("g3_run")._money([ds900]) == {"USD": "0"}                # the old stage valued it as 0 (control)
+    s = g3_run.summary(w, res)["contracts"]["DDS"]["codes"]["DS-900"]
+    assert s["value_not_formed"] == s["lines"] and s["rate_not_single"] == 0
+
+
+def test_batch_never_lets_one_line_replace_another(both):
+    """Two lines sharing a reference, and a line with none (G2 then identifies it by its source position): every line
+    has its own result and its own provenance; the gate3-r2 batch loses one."""
+    w, _ = both
+    rows = w.claims.rows["cw_lines"][:4]
+    twin, blank = copy.copy(rows[1]), copy.copy(rows[2])
+    twin.values, twin.ident = {**rows[1].values, "line_ref": rows[0].values["line_ref"]}, rows[0].values["line_ref"]
+    blank.values = {**rows[2].values, "line_ref": ""}
+    blank.ident = f"{rows[2].source.path}:{rows[2].source.line}"
+    sub = copy.copy(w)
+    sub.claims = copy.copy(w.claims)
+    sub.claims.rows = {**w.claims.rows, "cw_lines": [rows[0], twin, blank, rows[3]]}
+    keys = result_keys(sub.claims.rows["cw_lines"])
+    assert keys == [f"{rows[0].source.path}:{rows[0].source.line}", f"{rows[1].source.path}:{rows[1].source.line}",
+                    blank.ident, rows[3].values["line_ref"]]
+    out = g3_cw.run(sub)
+    assert list(out) == keys
+    ctx = g3_cw.input_context(sub)
+    assert [ctx[k].line_src for k in keys] == [f"{x.source.path}:{x.source.line}" for x in (rows[0], twin, blank, rows[3])]
+    assert len(old_module("g3_cw").run(sub)) == 3                              # control: one line lost
+    g3_run.summary(sub, {"CW": out, "DDS": {}}), g3_run.trace_sample({"CW": out, "DDS": {}})
+
+
+def _with_copy(w, ref, date_shift=1):
+    """The world with a second delivered file carrying report `ref`'s number (a report of another day), as G2 loads it:
+    indexed only the first, the second queued."""
+    d = w.ddr[ref]
+    text = ns.doc_text(d)
+    other = ns.reparse("DDS", d, ns._swap_value(text, "Date", f"{d.date + dt.timedelta(days=date_shift):%d-%b-%Y}"))[0]
+    sub = copy.copy(w)
+    sub.ddr_by_file = {**w.ddr_by_file, f"COPY-{d.file}": other}
+    return sub
+
+
+def test_report_number_repeated_is_not_resolved_by_g2s_first_file(both):
+    """G2 indexes a report by its Report number and keeps the first file carrying it: which file is the report for a
+    charge is then open, and no fact is taken from either (identity is never inferred from content)."""
+    w, res = both
+    ref = "MDS-00018-023"
+    line = next(x for x in w.claims.rows["dds_lines"] if x.ident == ref).values
+    sub = _with_copy(w, line["report_ref"])
+    r = g3_dds.run(sub)[ref]
+    assert res["DDS"][ref].payable is True and r.amount_status == "unresolved" and r.payable is None
+    gap = [c for c in r.checks if c.check == "input" and c.detail.startswith("report_ref:")]
+    assert gap and "COPY-" in gap[0].detail and "Report number" in gap[0].detail
+    assert any(c["dimension"] == "input" and c["owner"] == "G5" for c in r.conditions)
+    assert old_module("g3_dds").run(sub)[ref].payable is True                  # control: the first file silently used
+
+
+def test_established_consequences_dominate_an_open_identity(both):
+    """Outside the term, a charge is not payable whatever its report or code: an open report identity or an empty
+    civil item code does not turn that into 'unresolved'. An empty drilling code stays unresolved: it may be the
+    invoice-level DS-900, which no finding on the day decides (Cl.38)."""
+    w, _ = both
+    T = g3_dds.terms.dds()
+    ref = "MDS-00018-023"
+    row = next(x for x in w.claims.rows["dds_lines"] if x.ident == ref)
+    late = T.expiry + dt.timedelta(days=1)
+    inv = {h.ident: h.values for h in w.claims.rows["dds_headers"]}[row.values["invoice_no"]]
+    ddr = w.ddr[row.values["report_ref"]]
+    r = g3_dds.evaluate({**row.values, "service_date": late}, inv, ddr, inputs=Inputs(report_copies=("COPY",)))
+    assert r.amount_status == "not_payable" and "out_of_term" in r.findings
+    r = g3_dds.evaluate({**row.values, "service_date": late, "service_code": "ZZ-999"}, inv, ddr, inputs=Inputs())
+    assert r.amount_status == "not_payable" and "out_of_term" in r.findings
+    r = g3_dds.evaluate({**row.values, "service_date": late, "service_code": None}, inv, ddr, inputs=Inputs())
+    assert r.amount_status == "unresolved" and "out_of_term" in r.findings
+    cw = next(x for x in w.claims.rows["cw_lines"] if x.ident == "PA-00375-07")          # out of term in the population
+    app = {h.ident: h.values for h in w.claims.rows["cw_headers"]}[cw.values["application_no"]]
+    rec = w.cw.get(cw.values.get("record_ref") or "")
+    r = g3_cw.evaluate({**cw.values, "item_code": None}, app, rec, rec is not None, inputs=Inputs())
+    assert r.amount_status == "not_payable" and "out_of_term" in r.findings
+    assert old_module("g3_cw", "1e62a6a").evaluate({**cw.values, "item_code": None}, app, rec, rec is not None,
+                                                   inputs=Inputs()).amount_status == "unresolved"   # control
+
+
+def test_a_twice_written_foreman_line_does_not_hide_a_missing_countersignature(both):
+    """PA-00613-01's record DX-00089 has no Engineer's countersignature: unsigned (Cl.47) whatever its foreman line says."""
+    w, res = both
+    row = next(x for x in w.claims.rows["cw_lines"] if x.ident == "PA-00613-01")
+    app = {h.ident: h.values for h in w.claims.rows["cw_headers"]}[row.values["application_no"]]
+    rec = w.cw[row.values["record_ref"]]
+    twice = Inputs(doc_repeated=frozenset({"Signed (foreman)"}))
+    r = g3_cw.evaluate(row.values, app, rec, True, inputs=twice)
+    assert r.amount_status == "not_payable" and "record_unsigned" in r.findings
+    assert "Countersigned (Engineer's representative) missing" in next(c.detail for c in r.checks if c.finding == "record_unsigned")
+    assert old_module("g3_cw", "1e62a6a").evaluate(row.values, app, rec, True, inputs=twice).amount_status == "unresolved"
+
+
+def test_x8_output_stage_control_the_gate3_r2_output_stage(both):
+    w, res = both
+    errs, _ = ns.batch(w, res, ns.Engines(g3_cw, g3_dds, old_module("g3_run")), fields={"quantity", "line_ref", "service_date"})
+    assert any(e.startswith("CW outputs with line quantity empty: exception TypeError") for e in errs)
+    assert any(e.startswith("CW outputs with line line_ref empty: exception KeyError") for e in errs)
+    assert any("the summary compares or values" in e for e in errs)
+
+
+def test_x8_output_stage_control_a_scope_that_hides_unvalued_lines(both, monkeypatch):
+    w, res = both
+    monkeypatch.setattr(g3_run, "_not_valued", lambda rs, key: {})
+    errs, _ = ns.batch(w, res, ns.Engines(g3_cw, g3_dds), fields={"service_date"})
+    assert any("reaches" in e and "lists 0 as not valued" in e for e in errs)
+
+
+def test_x8_control_an_engine_that_ignores_a_repeated_report_number(old_x8):
+    """X8 carries the repeated-number state: the gate3-r2 drilling engine, which takes G2's first file silently, fails."""
+    errs, _ = old_x8
+    assert any("doc Report='repeated'" in e for e in errs)
+
+
+def test_x8_coverage_control():
+    """X8 fails when a claim field is never emptied on a family's line (here: a family seen, no field emptied on it)."""
+    errs = ns.coverage({"CW family CW-MEAS": 1, "CW cell CW-MEAS|line|quantity": 2})
+    assert "X8 coverage: CW line quantity never emptied on families ['CW-MEAS']" not in errs
+    assert "X8 coverage: CW line unit never emptied on families ['CW-MEAS']" in errs

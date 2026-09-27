@@ -11,8 +11,9 @@ G2 does not have.
 
 Sample: in every civil and drilling code family of spec/g3_code_families.yaml, the first line of every billed code
 (line_ref order), plus the first line showing each input-sensitive feature (night work, each zone, rest day, a
-protected submission, a record, each status and hole section, a protected invoice); a family with no billed line (codes
-outside Schedule 1) gets a line built from a real one with its code replaced. For each (line, input, empty value):
+protected submission, a record, each status and hole section, a protected invoice) and each thing the output stage's
+decision scopes select on (each finding, alternative dimension, question reading and amount status); a family with no
+billed line (codes outside Schedule 1) gets a line built from a real one with its code replaced. For each (line, input, empty value):
   1. an explicit result - no exception and never an engine_error;
   2. no silent default - where the input matters to this line's value (an admissible other value of it changes the
      value: the relevance probe; for an unrecognised list entry, each recognised entry), the result names the input and
@@ -21,7 +22,13 @@ outside Schedule 1) gets a line built from a real one with its code replaced. Fo
   3. nothing lost - where the input does not matter to the value, the value is unchanged;
   4. the batch - the production run() over a sub-world holding every sample line, with the input emptied on all of
      them (claim field, header field or document), completes, gives every line a result, no engine_error, and each
-     result equals the direct evaluation of the same inputs.
+     result equals the direct evaluation of the same inputs; the line reference is also emptied (G2 then identifies
+     the line by its source position) and repeated between lines (no line's result may replace another's);
+  5. the output stage - audit.g3_run's summary, decision scopes and trace sample over each batch's results, with the
+     other contract's sample lines alongside, completes; the summary counts every line once by status and compares no
+     rate for a line with no value at G3; and a decision scope that reaches such a line lists it as not valued rather
+     than counting it (its line count falls when those lines are removed, so it must list at least as many);
+  6. coverage - every claim field (line and header) is emptied on at least one line of every code family.
 """
 from __future__ import annotations
 
@@ -29,8 +36,9 @@ import copy
 import csv
 import datetime as dt
 import inspect
+import json
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
@@ -38,9 +46,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from audit import claims, records_cw, records_dds  # noqa: E402
+from audit import claims, g3_run, records_cw, records_dds  # noqa: E402
 from audit.common import SNAPSHOT, Queue, Unresolved  # noqa: E402
-from audit.g3_core import Inputs  # noqa: E402
+from audit.g3_core import Inputs, result_keys  # noqa: E402
 
 # the contract's own rule for an absent input (anything else that matters must stay unresolved or carry every value)
 REGISTERED = {
@@ -55,6 +63,12 @@ REGISTERED = {
     ("DDS", "part", "D"): {"required_part_missing"},
     ("DDS", "part", "E"): {"required_part_missing"},
 }
+# the keys by which G2 joins a line to its header or a report to the lines citing it (G2 joins by nothing else: plan §4;
+# records_dds.load indexes by the Report line). Emptied or repeated, the joined document is no longer attributed to the
+# line, and G3 never attributes it by its content: the result must still be explicit (named; unresolved, or the
+# contract's rule for an absent document), but 'nothing lost' does not apply - every probe is a state in which G2 does
+# attribute a document to the line, a state the empty key is not.
+JOIN_KEYS = {("CW", "line", "application_no"), ("DDS", "line", "invoice_no"), ("DDS", "doc", "Report")}
 KINDS = {"CW": ("cw_lines", "cw_headers"), "DDS": ("dds_lines", "dds_headers")}
 HKEY = {"CW": "application_no", "DDS": "invoice_no"}
 REF = {"CW": "record_ref", "DDS": "report_ref"}
@@ -72,10 +86,23 @@ def empties(kind: str, field: str) -> list:
 
 
 def value_of(r) -> tuple:
-    """The value of a result: status, payability, rate, quantity, amount and each alternative's - not its wording or trace."""
+    """The value of a result: status, payability, rate, quantity, amount and each alternative's - not its wording or trace.
+    A line not payable is worth 0.00 whatever rate its rate check found or quantity route it would take: neither is part
+    of its value."""
+    if r.amount_status == "not_payable":
+        return (r.amount_status, r.payable, str(r.amount))
     alts = tuple(sorted((str(k), str(a.get("unit_rate")), str(a.get("allowed_quantity")), str(a.get("amount")))
                         for k, a in r.alternatives.items()))
     return (r.amount_status, r.payable, str(r.unit_rate), str(r.allowed_quantity), str(r.amount), alts, r.family)
+
+
+def doc_dates(contract: str, doc) -> list:
+    """The days the line's own record or report is for: an admissible value of the line's work or service date."""
+    if doc is None:
+        return []
+    if contract == "CW" and doc.week_beginning:
+        return [doc.week_beginning + dt.timedelta(days=k) for k in range(7)]
+    return [doc.date] if doc.date else []
 
 
 def names(r) -> str:
@@ -100,10 +127,11 @@ def covers(m, others) -> bool:
 
 # ----------------------------------------------------------------------------------------------- engine adapters
 class Engines:
-    """The engines under test (the current modules, or an earlier version for the negative control)."""
+    """The engines and output stage under test (the current modules, or an earlier version for the negative control)."""
 
-    def __init__(self, cw, dds):
+    def __init__(self, cw, dds, outputs=None):
         self.mod = {"CW": cw, "DDS": dds}
+        self.outputs = outputs or g3_run
         self.takes_inputs = {c: "inputs" in inspect.signature(m.evaluate).parameters for c, m in self.mod.items()}
 
     def evaluate(self, contract, line, header, doc, exists, inputs):
@@ -138,6 +166,11 @@ def sample(w, res) -> tuple[dict[str, list[str]], dict[str, list]]:
             else:
                 keys = [("status", (v.get("day_status"), r.family)), ("section", v.get("hole_section")),
                         ("36A", any("36A protection" in x for x in r.readings))]
+            # what the output stage's decision scopes select on: each finding, alternative dimension, reading, status
+            keys += [("finding", f) for f in r.findings] + [("unresolved", f) for f in r.unresolved]
+            keys += [("dim", x.split(":", 1)[0]) for k in r.alternatives for x in (k or "").split("|") if x]
+            keys += [("reading", x.split(" ")[0]) for x in r.readings if x.startswith(("Q3:", "P11", "night work as", "zone "))]
+            keys += [("amount_status", r.amount_status)]
             for k in keys:
                 feats.setdefault(k, ref)
         picks |= set(feats.values())
@@ -265,7 +298,13 @@ def left_empty(contract: str, d, gaps: frozenset, where: str, field: str) -> boo
 class Pools:
     """Other admissible values of each input, as the population itself shows them (no invented values)."""
 
-    def __init__(self, w):
+    def __init__(self, w, res=None):
+        # a code: one per code family and billed unit (a code needing a record and one that does not route the line
+        # differently; a code in another unit only meets the unit rule)
+        lines = {c: {r.ident: r.values for r in w.claims.rows[kind]} for c, (kind, _hk) in KINDS.items()}
+        self.codes = {kind: sorted({(r.family, lines[c].get(k, {}).get("unit")): r.code for k, r in (res or {}).get(c, {}).items()
+                                    if r.code and r.family}.values())
+                      for c, (kind, _hk) in KINDS.items()}
         self.claim = defaultdict(list)
         for kind, rows in w.claims.rows.items():
             for row in rows[:4000]:
@@ -291,6 +330,8 @@ class Pools:
                         self.doc["CW " + k].append(v.strip())
 
     def claim_values(self, kind, field, current):
+        if field in ("item_code", "service_code") and self.codes.get(kind):
+            return [v for v in self.codes[kind] if v != current]
         vals = [v for v in self.claim[(kind, field)] if v != current][:3]
         if isinstance(current, dt.date):
             vals += [current + dt.timedelta(days=d) for d in (1, 35, -200, -400, 400)]
@@ -321,7 +362,7 @@ def _swap_value(text: str, key: str, value: str) -> str:
 # ----------------------------------------------------------------------------------------------- the sweep
 def sweep(w, res, eng: Engines) -> tuple[list[str], dict]:
     """Direct evaluation of every (sample line, input, empty value), with G2's provenance for the line."""
-    pools = Pools(w)
+    pools = Pools(w, res)
     errs, stats = [], defaultdict(int)
     picks, extra = sample(w, res)
     for c, (lk, hk) in KINDS.items():
@@ -341,6 +382,7 @@ def sweep(w, res, eng: Engines) -> tuple[list[str], dict]:
 
             def judge(where, field, empty_val, mutated_fn, probes):
                 stats["mutations"] += 1
+                stats[f"{c} cell {family}|{where}|{field}"] += 1
                 tag = f"{c} {ref} ({family}) {where} {field}={empty_val!r}"
                 try:
                     m = mutated_fn()
@@ -362,7 +404,7 @@ def sweep(w, res, eng: Engines) -> tuple[list[str], dict]:
                 token = field.split(".", 1)[-1] if where == "doc" else field
                 said = token in names(m) or (where in ("part", "heading") and (f"Part {field}" in names(m) or "part heading" in names(m)))
                 registered = m.amount_status == "not_payable" and bool(set(m.findings) & REGISTERED.get((c, where, field), set()))
-                informative = [o for o in others if o is not None] and not (len(probes) == 1 and where == "line" and field == hkey)
+                informative = [o for o in others if o is not None] and (c, where, field) not in JOIN_KEYS
                 if changed and not relevant and informative and not registered:
                     # no admissible value of the input changes the value, yet emptying it did: a known value lost
                     errs.append(f"{tag}: no admissible value of it changes the value, but the empty input changed it "
@@ -394,8 +436,11 @@ def sweep(w, res, eng: Engines) -> tuple[list[str], dict]:
                     for ev in empties(kind, field):
                         if where == "line":
                             fn = lambda ev=ev, field=field: eng.evaluate(c, {**line, field: ev}, header, doc, doc is not None, inputs)  # noqa: E731
+                            vals = pools.claim_values(kind, field, cur.get(field))
+                            if field in ("work_date", "service_date"):
+                                vals += [d for d in doc_dates(c, doc) if d != cur.get(field) and d not in vals]
                             probes = [lambda v=v, field=field: eng.evaluate(c, {**line, field: v}, header, doc, doc is not None, inputs)
-                                      for v in pools.claim_values(kind, field, cur.get(field))]
+                                      for v in vals]
                         else:
                             fn = lambda ev=ev, field=field: eng.evaluate(c, line, {**header, field: ev}, doc, doc is not None, inputs)  # noqa: E731
                             probes = [lambda v=v, field=field: eng.evaluate(c, line, {**header, field: v}, doc, doc is not None, inputs)
@@ -428,24 +473,36 @@ def sweep(w, res, eng: Engines) -> tuple[list[str], dict]:
                             probe_texts.append(_swap_value(text, key, f"{doc.date:%d-%b-%Y}"))
                         if c == "CW" and field == "Days on" and doc.days_on:
                             probe_texts.append(_swap_value(text, key, ", ".join(f"{DAYS[d.weekday()]} {d:%d/%m}" for d in doc.days_on[:2])))
+                        ld = line.get("service_date" if c == "DDS" else "work_date")
+                        if key in ("Date", "Week beginning") and ld is not None:     # the document for the line's own day
+                            probe_texts.append(_swap_value(text, key, f"{ld:%d-%b-%Y}" if c == "DDS" else f"{ld:%d/%m/%Y}"))
                 judge(where, field, variant, lambda new=new: run_text(new), [lambda t=t: run_text(t) for t in probe_texts])
+            if c == "DDS" and doc.date:
+                # another delivered file carries the same Report number (G2 indexes only the first and queues the other);
+                # probe: that file is a report of another day under the same number
+                other = reparse(c, doc, _swap_value(text, "Date", f"{doc.date + dt.timedelta(days=1):%d-%b-%Y}"))[0]
+                copies = replace(inputs or Inputs(), report_copies=(f"COPY-{doc.file}",)) if eng.takes_inputs[c] else None
+                judge("doc", "Report", "repeated", lambda _c=copies: eng.evaluate(c, line, header, doc, True, _c),
+                      [lambda _o=other: eng.evaluate(c, line, header, _o, True, inputs)])
     return errs, dict(stats)
 
 
 # ----------------------------------------------------------------------------------------------- the batch
-def _sub_world(w, c, rows, docs=None, queue_items=(), unindex=()):
-    """A copy of the world whose claim lines are `rows` (every other line of that contract left out), with documents
-    replaced by `docs` and G2 queue entries added, as G2 would hand them over."""
+def _sub_world(w, c, rows, docs=None, queue_items=(), unindex=(), others=None, files=None):
+    """A copy of the world whose claim lines are `rows` (every other line of that contract left out; `others`: the other
+    contract's lines, likewise), with documents replaced by `docs` (and G2's by-file report index by `files`) and G2
+    queue entries added, as G2 would hand them over."""
     lk = KINDS[c][0]
     sub = copy.copy(w)
     sub.claims = copy.copy(w.claims)
-    sub.claims.rows = {**w.claims.rows, lk: rows}
+    sub.claims.rows = {**w.claims.rows, **{KINDS[o][0]: r for o, r in (others or {}).items()}, lk: rows}
     sub.queue = copy.copy(w.queue)
     sub.queue.items = list(w.queue.items) + list(queue_items)
     if c == "CW":
         sub.cw = {**w.cw, **(docs or {})}
     else:
         sub.ddr = {k: v for k, v in {**w.ddr, **(docs or {})}.items() if k not in unindex}
+        sub.ddr_by_file = {**w.ddr_by_file, **(files or {})}
     return sub
 
 
@@ -466,49 +523,119 @@ def _batch_once(eng: Engines, c, sub, label: str, errs: list) -> None:
         return
     ctx = eng.context(c, sub)
     hdrs = {h.ident: h.values for h in sub.claims.rows[hk]}
-    for row in rows:
+    for key, row in zip(result_keys(rows), rows):
         v = row.values
         ref = v.get(REF[c])
         doc = (sub.cw if c == "CW" else sub.ddr).get(ref) if ref else None
-        direct = eng.evaluate(c, v, hdrs.get(v.get(HKEY[c])), doc, doc is not None, ctx.get(row.ident) if eng.takes_inputs[c] else None)
-        got = out.get(v.get("line_ref") or row.ident)
+        direct = eng.evaluate(c, v, hdrs.get(v.get(HKEY[c])), doc, doc is not None, ctx.get(key) if eng.takes_inputs[c] else None)
+        got = out.get(key)
         a = {k: x for k, x in direct.to_json().items() if k != "ctx"}
         b = {k: x for k, x in got.to_json().items() if k != "ctx"} if got is not None else None
         if a != b:
-            errs.append(f"{c} batch {label}: {row.ident} differs from its direct evaluation")
+            errs.append(f"{c} batch {label}: {key} " + ("has no result" if got is None else "differs from its direct evaluation"))
             return
+    _outputs_once(eng, c, sub, out, label, errs)
 
 
-def batch(w, res, eng: Engines) -> tuple[list[str], int]:
+def _flat(x) -> set:
+    if isinstance(x, dict):
+        return set().union(*(_flat(v) for v in x.values()))
+    return set(x) if isinstance(x, list) else set()
+
+
+def _without(sub, res, gone):
+    """The sub-world and results with the lines in `gone` (per contract, by result key) removed; the remaining lines
+    re-keyed as the batch would key them."""
+    s2 = copy.copy(sub)
+    s2.claims = copy.copy(sub.claims)
+    s2.claims.rows = dict(sub.claims.rows)
+    res2 = {}
+    for cc, (lk, _hk) in KINDS.items():
+        rows = sub.claims.rows[lk]
+        keep = [(k, row) for k, row in zip(result_keys(rows), rows) if k not in gone[cc]]
+        s2.claims.rows[lk] = [row for _k, row in keep]
+        res2[cc] = dict(zip(result_keys(s2.claims.rows[lk]), (res[cc][k] for k, _row in keep)))
+    return s2, res2
+
+
+def _outputs_once(eng: Engines, c, sub, out, label: str, errs: list) -> None:
+    """The output stage (audit.g3_run) over the batch's results and the other contract's sample lines."""
+    o = "DDS" if c == "CW" else "CW"
+    try:
+        both = {c: out, o: eng.mod[o].run(sub)}
+        res = {k: both[k] for k in KINDS}
+        s = eng.outputs.summary(sub, res)
+        d = eng.outputs.decision_scopes(sub, res)
+        json.dumps([s, d, eng.outputs.trace_sample(res)], default=str)
+    except Exception as e:  # noqa: BLE001
+        errs.append(f"{c} outputs {label}: exception {type(e).__name__}: {e}")
+        return
+    gone = {cc: {k for k, r in rs.items() if r.payable is None} for cc, rs in res.items()}
+    for cc, rs in res.items():
+        got = s["contracts"].get(cc, {})
+        if got.get("lines") != len(sub.claims.rows[KINDS[cc][0]]) or \
+                got.get("amount_status") != dict(sorted(Counter(r.amount_status for r in rs.values()).items())):
+            errs.append(f"{c} outputs {label}: the summary does not count every {cc} line once by status")
+        if sum(e.get("value_not_formed", 0) for e in got.get("codes", {}).values()) != len(gone[cc]):
+            errs.append(f"{c} outputs {label}: the summary compares or values {cc} lines that have no value at G3")
+    if not any(gone.values()):
+        return
+    try:
+        d2 = eng.outputs.decision_scopes(*_without(sub, res, gone))
+    except Exception as e:  # noqa: BLE001
+        errs.append(f"{c} outputs {label}: exception without the unvalued lines {type(e).__name__}: {e}")
+        return
+    for k, sc in d.items():
+        fell = (sc.get("lines_decided") or 0) - ((d2.get(k) or {}).get("lines_decided") or 0)
+        listed = _flat(sc.get("lines_not_valued"))
+        if fell > len(listed):
+            errs.append(f"{c} outputs {label}: scope {k} reaches {fell} line(s) with no value at G3 and lists "
+                        f"{len(listed)} as not valued")
+
+
+def batch(w, res, eng: Engines, fields=None) -> tuple[list[str], int]:
     """The production run() over a sub-world of the sample lines, once per input: each claim field and header field
-    emptied on every sample line, the header missing, and each document mutation applied to every sample document it
-    fits. Returns (errors, number of batch runs)."""
+    emptied on every sample line, the header missing, the line reference emptied and repeated, and each document
+    mutation applied to every sample document it fits; each run's results also through the output stage. `fields`
+    limits the runs to those claim line fields (a test's shortcut). Returns (errors, number of batch runs)."""
     errs, runs = [], 0
     picks, extra = sample(w, res)
-    pools = Pools(w)
+    pools = Pools(w, res)
+    bases = {c: [r for r in w.claims.rows[lk] if r.ident in set(picks[c])] + extra[c] for c, (lk, _hk) in KINDS.items()}
     for c, (lk, hk) in KINDS.items():
-        keep = set(picks[c])
-        base_rows = [r for r in w.claims.rows[lk] if r.ident in keep] + extra[c]
+        base_rows = bases[c]
+        others = {o: r for o, r in bases.items() if o != c}
         hkey = HKEY[c]
-        # claim line fields, the join key, and a header G2 does not have
-        for field in claim_fields(lk) + ["<header missing>"]:
+        # claim line fields, the join key, a header G2 does not have, and a line reference two lines share
+        for field in claim_fields(lk) + ["<header missing>", "<line_ref repeated>"]:
+            if fields is not None and field not in fields:
+                continue
             rows = []
-            for row in base_rows:
+            for i, row in enumerate(base_rows):
                 r2 = copy.copy(row)
                 r2.values = dict(row.values)
                 if field == "<header missing>":
                     r2.values[hkey] = f"NO-SUCH-{r2.values[hkey]}"
-                elif field != "line_ref":
+                elif field == "<line_ref repeated>":
+                    if i % 2:                  # G2 keeps both rows, each identified by the shared reference
+                        r2.values["line_ref"] = r2.ident = rows[-1].values["line_ref"]
+                elif field == "line_ref":
+                    r2.values["line_ref"] = empties(lk, field)[-1]
+                    r2.ident = f"{row.source.path}:{row.source.line}"   # as G2 identifies a row with no reference
+                else:
                     r2.values[field] = empties(lk, field)[-1]
                 rows.append(r2)
-            _batch_once(eng, c, _sub_world(w, c, rows), f"with line {field} empty", errs)
+            label = f"with line {field}" if field.startswith("<") else f"with line {field} empty"
+            _batch_once(eng, c, _sub_world(w, c, rows, others=others), label, errs)
             runs += 1
+        if fields is not None:
+            continue
         # header fields: emptied on the headers of the sample lines
         hids = {r.values[hkey] for r in base_rows}
         for field in claim_fields(hk):
             if field == hkey:
                 continue
-            sub = _sub_world(w, c, base_rows)
+            sub = _sub_world(w, c, base_rows, others=others)
             hrows = []
             for h in w.claims.rows[hk]:
                 if h.ident in hids:
@@ -535,18 +662,37 @@ def batch(w, res, eng: Engines) -> tuple[list[str], int]:
                 d2, gaps, _rr, unidx, q = reparse(c, doc, new)
                 if left_empty(c, d2, gaps, where, field):
                     by_key[(where, field, variant)].setdefault(ref, (d2, q.items, unidx))
+        if c == "DDS":
+            copies = {f"COPY-{d.file}": d for d in docs.values()}
+            items = [Unresolved("ddr", f, "Report", f"duplicate report number {d.report} (also {d.file})") for f, d in copies.items()]
+            _batch_once(eng, c, _sub_world(w, c, base_rows, None, items, (), others, copies), "with doc Report repeated", errs)
+            runs += 1
         for (where, field, variant), changed in sorted(by_key.items(), key=lambda kv: str(kv[0])):
             new_docs = {ref: d2 for ref, (d2, _q, unidx) in changed.items() if not unidx}
             unindex = {ref for ref, (_d, _q, unidx) in changed.items() if unidx}
             items = [u for _r, (_d, q, _u) in changed.items() for u in q]
             items += [Unresolved("ddr", store[ref].file, "Report", "no report number; not indexable") for ref in unindex]
-            _batch_once(eng, c, _sub_world(w, c, base_rows, new_docs, items, unindex), f"with {where} {field} {variant}", errs)
+            files = {store[ref].file: d2 for ref, (d2, _q, _u) in changed.items()} if c == "DDS" else None
+            _batch_once(eng, c, _sub_world(w, c, base_rows, new_docs, items, unindex, others, files), f"with {where} {field} {variant}", errs)
             runs += 1
     return errs, runs
+
+
+def coverage(stats: dict) -> list[str]:
+    """Every claim field (line and header) emptied on at least one line of every code family the sample reaches."""
+    errs = []
+    for c, (lk, hk) in KINDS.items():
+        fams = sorted(k.split(" family ", 1)[1] for k in stats if k.startswith(f"{c} family "))
+        for where, kind in (("line", lk), ("header", hk)):
+            for field in claim_fields(kind):
+                gone = [f for f in fams if not stats.get(f"{c} cell {f}|{where}|{field}")]
+                if gone:
+                    errs.append(f"X8 coverage: {c} {where} {field} never emptied on families {gone}")
+    return errs
 
 
 def x8(w, res, eng: Engines) -> tuple[list[str], dict]:
     errs, stats = sweep(w, res, eng)
     b, runs = batch(w, res, eng)
     stats["batch_runs"] = runs
-    return errs + b, stats
+    return errs + coverage(stats) + b, stats

@@ -978,12 +978,13 @@ def x7(w, res: dict, committed: dict | None = None) -> list[str]:
 
 
 # ============================================================================== X8 inputs G2 can leave empty
-def x8(w, res: dict, cw=None, dds=None, stats: dict | None = None) -> list[str]:
+def x8(w, res: dict, cw=None, dds=None, stats: dict | None = None, outputs=None) -> list[str]:
     """Every field G2 can leave None or unresolved (claims, records, reports; G2's own inventory) x every code family,
-    through the engines and the batch: an explicit result - no exception, no silent default, no lost value
-    (tools/null_sweep.py). cw/dds: the engine modules under test (an earlier version for the negative control)."""
+    through the engines, the batch and the output stage: an explicit result - no exception, no silent default, no lost
+    value (tools/null_sweep.py). cw/dds/outputs: the engine and output modules under test (an earlier version for the
+    negative control)."""
     import null_sweep
-    errs, st = null_sweep.x8(w, res, null_sweep.Engines(cw or g3_cw, dds or g3_dds))
+    errs, st = null_sweep.x8(w, res, null_sweep.Engines(cw or g3_cw, dds or g3_dds, outputs))
     if stats is not None:
         stats.update(st)
     return errs
@@ -1019,7 +1020,7 @@ def main() -> int:
          lambda: x6(w, res) + x6(w, res, mutate=perturb_claim_classes)),
         ("X7 committed G3 outputs reproduce; every result carries the current run context", lambda: x7(w, res)),
         ("X8 every input G2 can leave empty or unresolved, in every code family, gives an explicit result through the "
-         "engines and the batch: no exception, no silent default, no lost value", lambda: x8(w, res, stats=x8_stats)),
+         "engines, the batch and the output stage: no exception, no silent default, no lost value", lambda: x8(w, res, stats=x8_stats)),
     ]
     x8_stats = {}
     ok = True

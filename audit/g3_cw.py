@@ -28,7 +28,7 @@ import itertools
 from decimal import Decimal
 
 from . import terms
-from .g3_core import Inputs, LineResult, Trace, empty
+from .g3_core import Inputs, LineResult, Trace, empty, result_keys
 
 CONTRACT_REF = "CW-2025-0417-CIV"
 SUBCONTRACTOR = "RIDGEWAY CIVIL ENGINEERING LLC"      # agreement particulars (p1)
@@ -179,8 +179,10 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
         r.add("period", "finding", "CW-R02", "Cl.41 (p8)", "outside_period", f"{wd} outside {pfrom}..{pto}")
     else:
         r.add("period", "pass", "CW-R02", "Cl.40, Cl.41 (p8)")
-    if sch is None:
+    if sch is None:                    # the item cannot be valued; an established consequence above still decides it
         r.family = "CW-UNSCHEDULED"
+        if not payable:
+            return _not_payable(r, Trace(), reasons)
         if empty(code):
             return _unresolved(r, Trace(), reasons, blocked)
         r.amount_status, r.payable = "unresolved", None
@@ -216,12 +218,12 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
             if not ref.startswith(series + "-"):
                 ev.append(("record_wrong_series", f"{ref} is not a {series} record"))
             sig_twice = [k for k in ("Signed (foreman)", "Countersigned (Engineer's representative)") if k in inputs.doc_repeated]
-            if sig_twice:
+            unsigned = [k for k, ok in (("Signed (foreman)", record.foreman_signed),
+                                        ("Countersigned (Engineer's representative)", record.engineer_signed)) if not ok and k not in sig_twice]
+            if unsigned:                # a signature missing on its own line: unsigned whatever a twice-written other line holds
+                ev.append(("record_unsigned", "; ".join(f"{k} missing or a placeholder" for k in unsigned)))
+            elif sig_twice:
                 unknown.append((sig_twice[0], "signature line written twice: whether the record is signed is not established"))
-            elif not (record.foreman_signed and record.engineer_signed):
-                ev.append(("record_unsigned", "; ".join(
-                    f"{k} missing or a placeholder" for k, ok in (("Signed (foreman)", record.foreman_signed),
-                                                                   ("Countersigned (Engineer's representative)", record.engineer_signed)) if not ok)))
             weekly = record.family == "DW" or record.week_beginning
             if record.family is None:
                 unknown.append(("title", "the record's type (its title) is not established"))
@@ -411,6 +413,7 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
         r.input_gap("night_work", "unresolved" if any(b.startswith("night_work") for b in blocked) else "n/a", "input_unresolved"
                     if any(b.startswith("night_work") for b in blocked) else None, "Cl.7 (p3); Sch 4 (p24)",
                     "the line does not say whether the work was at night", L)
+    r.rates = {k: rt for k, (rt, _t, _r) in priced.items()}
     if priced:
         first = next(iter(priced))
         rate, tr, readings = priced[first]
@@ -479,12 +482,19 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
         r.allowed_quantity = allowed
         r.amount = tr.amount(allowed, rate, "Cl.28 (p6): quantity x rounded rate")
     else:
-        r.allowed_quantity, r.amount = Decimal("0"), Decimal("0.00")
-        tr.note("not payable: " + "; ".join(reasons), "; ".join(sorted({c.clause for c in r.checks if c.status == 'finding'})))
-        r.amount_status = "not_payable"
-        r.conditions = []              # 0.00 whatever the band or ground: nothing is conditional
+        _not_payable(r, tr, reasons)
     r.trace = tr.steps
     _g4(r, code, band_pct, T)
+    return r
+
+
+def _not_payable(r, tr, reasons) -> LineResult:
+    r.payable, r.reasons = False, reasons
+    r.allowed_quantity, r.amount = Decimal("0"), Decimal("0.00")
+    tr.note("not payable: " + "; ".join(reasons), "; ".join(sorted({c.clause for c in r.checks if c.status == 'finding'})))
+    r.amount_status = "not_payable"
+    r.conditions = []              # 0.00 whatever the band or ground: nothing is conditional
+    r.trace = tr.steps
     return r
 
 
@@ -575,7 +585,8 @@ def inputs_from_world(w):
 
 
 def input_context(w) -> dict[str, Inputs]:
-    """Per line ident: provenance of the line, its application and its record, and the record's fields in G2's queue."""
+    """Per line (keyed as the batch keys its result, g3_core.result_keys): provenance of the line, its application and
+    its record, and the record's fields in G2's queue."""
     apps = {h.ident: h for h in w.claims.rows["cw_headers"]}
     gaps, repeated = {}, {}
     for u in w.queue.items:
@@ -584,11 +595,11 @@ def input_context(w) -> dict[str, Inputs]:
             if u.reason == "key repeated":
                 repeated.setdefault(u.ident, set()).add(u.field)
     out = {}
-    for row in w.claims.rows["cw_lines"]:
+    for key, row in zip(result_keys(w.claims.rows["cw_lines"]), w.claims.rows["cw_lines"]):
         v = row.values
         h = apps.get(v.get("application_no"))
         rec = w.cw.get(v["record_ref"]) if v.get("record_ref") else None
-        out[row.ident] = Inputs(f"{row.source.path}:{row.source.line}", f"{h.source.path}:{h.source.line}" if h else None,
+        out[key] = Inputs(f"{row.source.path}:{row.source.line}", f"{h.source.path}:{h.source.line}" if h else None,
                                 rec.path if rec is not None else None,
                                 frozenset(gaps.get(rec.ticket, ())) if rec is not None else frozenset(), False,
                                 frozenset(repeated.get(rec.ticket, ())) if rec is not None else frozenset())
@@ -608,11 +619,12 @@ def engine_error(line: dict, ident: str, e: Exception) -> LineResult:
 def run(w, T=None) -> dict[str, LineResult]:
     out = {}
     ctx = input_context(w)
-    for row, (line, app, rec, exists) in zip(w.claims.rows["cw_lines"], inputs_from_world(w)):
+    rows = w.claims.rows["cw_lines"]
+    for key, (line, app, rec, exists) in zip(result_keys(rows), inputs_from_world(w)):
         try:
-            res = evaluate(line, app, rec, exists, T=T, inputs=ctx[row.ident])
+            res = evaluate(line, app, rec, exists, T=T, inputs=ctx[key])
         except Exception as e:  # noqa: BLE001 - recorded on the line, never swallowed: X3 fails on engine_error
-            res = engine_error(line, row.ident, e)
+            res = engine_error(line, key, e)
         res.ctx = w.run_context["id"] if w.run_context else None
-        out[res.line_ref or row.ident] = res
+        out[key] = res
     return out

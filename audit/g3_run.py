@@ -21,6 +21,7 @@ from decimal import Decimal
 
 from . import build, g3_cw, g3_dds
 from .common import ROOT
+from .g3_core import result_keys
 
 OUT = ROOT / "verification" / "g3"
 # G3-D1 scope: breaches of the submission rules (window, period, identity, one well per invoice) that the contract states
@@ -40,28 +41,38 @@ def _s(x):
     return None if x is None else str(x)
 
 
+KINDS = {"CW": "cw_lines", "DDS": "dds_lines"}
+
+
+def claim_lines(w) -> dict:
+    """Per contract: the claim line under the key its result has in the batch (g3_core.result_keys)."""
+    return {c: {k: row.values for k, row in zip(result_keys(w.claims.rows[lk]), w.claims.rows[lk])} for c, lk in KINDS.items()}
+
+
 def summary(w, res) -> dict:
-    lines = {"CW": {r.ident: r.values for r in w.claims.rows["cw_lines"]},
-             "DDS": {r.ident: r.values for r in w.claims.rows["dds_lines"]}}
+    lines = claim_lines(w)
     rate_key = {"CW": "rate_applied", "DDS": "unit_rate"}
     out = {"run_context": w.run_context["id"], "contracts": {}}
     for c, rs in res.items():
         codes = defaultdict(lambda: {"lines": 0, "amount_status": Counter(), "findings": Counter(), "g4": Counter(),
-                                     "rate_agree": 0, "rate_differs": 0, "rate_not_single": 0, "billed_rate_is_an_admissible_alternative": 0})
+                                     "rate_agree": 0, "rate_differs": 0, "rate_not_single": 0, "billed_rate_is_an_admissible_alternative": 0,
+                                     "rate_not_formed": 0, "value_not_formed": 0})
         for ref, r in rs.items():
             e = codes[r.code]
             e["lines"] += 1
             e["amount_status"][r.amount_status] += 1
             e["findings"].update(r.findings)
             e["g4"].update(x.split(" ")[0] for x in r.g4_dependencies)
-            if r.unit_rate is None:
+            if r.payable is None:
+                e["value_not_formed"] += 1
+            elif r.unit_rate is not None:
+                e["rate_agree" if r.unit_rate == lines[c][ref].get(rate_key[c]) else "rate_differs"] += 1
+            elif len(set(r.rates.values()) | {a.get("unit_rate") for a in r.alternatives.values()} - {None}) > 1:
                 e["rate_not_single"] += 1
                 if "rate_differs" in r.unresolved:
                     e["billed_rate_is_an_admissible_alternative"] += 1
-            elif r.unit_rate == lines[c][ref][rate_key[c]]:
-                e["rate_agree"] += 1
             else:
-                e["rate_differs"] += 1
+                e["rate_not_formed"] += 1
         out["contracts"][c] = {
             "lines": len(rs),
             "amount_status": dict(sorted(Counter(r.amount_status for r in rs.values()).items())),
@@ -72,7 +83,10 @@ def summary(w, res) -> dict:
             "note": "rate_agree/rate_differs compare the billed rate with the contract rate as a diagnostic only (billing is "
                     "never the truth criterion). A line whose rate depends on the band (G4), the ground class or the well "
                     "class (not evidenced; G5) has no single rate: it counts as rate_not_single, and "
-                    "billed_rate_is_an_admissible_alternative counts those billed at one admissible alternative's rate.",
+                    "billed_rate_is_an_admissible_alternative counts those billed at one admissible alternative's rate. "
+                    "rate_not_formed: no contract rate was formed (a code outside the schedules, a month outside the "
+                    "published tables, or the line not payable before its rate was needed). value_not_formed: the line has "
+                    "no value at G3 (deferred to G4, or unresolved on an input G2 left empty): no rate is compared.",
         }
     return out
 
@@ -81,9 +95,12 @@ CUR = {"CW": "SAR", "DDS": "USD"}       # CW Agreement p1; DDS Agreement p1: nev
 
 
 def _money(rs, pick=None) -> dict:
-    """Value per currency: a single amount where the line has one, else the range over its (picked) alternatives."""
+    """Value per currency: a single amount where the line has one, else the range over its (picked) alternatives. A line
+    with no value at G3 (unresolved or deferred) is never counted, as 0 or otherwise: the scope lists it (_not_valued)."""
     lo, hi = {}, {}
     for r in rs:
+        if r.payable is None:
+            continue
         if not r.payable:
             vals = [Decimal(0)]
         elif r.amount is not None:
@@ -94,6 +111,16 @@ def _money(rs, pick=None) -> dict:
         lo[c] = lo.get(c, Decimal(0)) + min(vals)
         hi[c] = hi.get(c, Decimal(0)) + max(vals)
     return {c: (str(lo[c]) if lo[c] == hi[c] else {"min": str(lo[c]), "max": str(hi[c])}) for c in sorted(lo)}
+
+
+def _not_valued(rs, key) -> dict:
+    """The lines of a scope that have no value at G3 - unresolved (an input G2 left empty) or deferred (G4) - by status:
+    left out of every value of the scope, never counted as 0."""
+    out = {}
+    for r in rs:
+        if r.payable is None:
+            out.setdefault(r.amount_status, set()).add(key(r))
+    return {k: sorted(v) for k, v in sorted(out.items())}
 
 
 def _has(dim, value):
@@ -110,28 +137,36 @@ def decision_scopes(w, res) -> dict:
     Values are the engines' contract values, never billed amounts; billed quantities enter only as the contract's cap."""
     cw, dds = res["CW"], res["DDS"]
     allr = list(cw.values()) + list(dds.values())
-    cl = {r.ident: r.values for r in w.claims.rows["cw_lines"]}
-    dl = {r.ident: r.values for r in w.claims.rows["dds_lines"]}
+    keys = {id(r): k for rs in res.values() for k, r in rs.items()}
+    key = lambda r: keys[id(r)]  # noqa: E731 - the line's key in the batch (its line_ref, else its source position)
+    lines = claim_lines(w)
+    line = lambda r: lines[r.contract][key(r)]  # noqa: E731 - the claim line the result was evaluated from
     T = g3_dds.terms.dds()
     TC = g3_dds.terms.cw()
-    sc = {}
+    sc, reach = {}, {}                         # reach: the lines each scope's readings value (for _not_valued)
     # Q3 --------------------------------------------------------------------------------------------------------
     q3 = [r for r in cw.values() if set(r.findings) & CW_Q3] + [r for r in dds.values() if "Q3:A" in r.readings]
-    kept = {}
+    kept, unvalued = {}, {}
     for r in q3:                               # under B: the billed quantity (no record caps it) at the contract rate(s)
-        q = (cl if r.contract == "CW" else dl)[r.line_ref]["quantity"]
-        g = evaluate_as_payable(w, r, q)
-        kept.setdefault(CUR[r.contract], []).append(g)
-    sc["Q3"] = {"lines_decided": len(q3), "lines": sorted(r.line_ref for r in q3), "effect_by_reading": {
+        g = evaluate_as_payable(w, r, line(r).get("quantity"))
+        if g is None:
+            unvalued.setdefault(CUR[r.contract], []).append(key(r))
+        else:
+            kept.setdefault(CUR[r.contract], []).append(g)
+    reach["Q3"] = q3
+    sc["Q3"] = {"lines_decided": len(q3), "lines": sorted(key(r) for r in q3), "effect_by_reading": {
         "adopted": {"reading": "A", "lines": len(q3), "payable": sum(1 for r in q3 if r.payable), "value": _money(q3)},
         "B": {"lines": len(q3), "value": {c: _span(v) for c, v in sorted(kept.items())},
+              **({"lines_not_valued": {c: sorted(v) for c, v in sorted(unvalued.items())},
+                  "not_valued_because": "no billed quantity stated, or no contract rate formed for the line"} if unvalued else {}),
               "note": "no record caps the quantity: the billed quantity at the contract rate (every admissible rate where "
                       "the rate is conditional); CW P23 would deduct it from the next valuation (G4 event)"}}}
     # Q4 --------------------------------------------------------------------------------------------------------
     q4 = [r for r in dds.values() if "Q4" in _dims(r)]
-    readings = sorted({x.split(":", 1)[1] for r in q4 for k in r.alternatives for x in k.split("|") if x.startswith("Q4:")})
+    readings = sorted({x.split(":", 1)[1] for r in q4 for k in r.alternatives for x in (k or "").split("|") if x.startswith("Q4:")})
     hourly = [r for r in dds.values() if r.code in g3_dds.HOURLY]
-    sc["Q4"] = {"lines_decided": len(q4), "hourly_lines": len(hourly), "lines_where_readings_differ": sorted(r.line_ref for r in q4),
+    reach["Q4"] = hourly
+    sc["Q4"] = {"lines_decided": len(q4), "hourly_lines": len(hourly), "lines_where_readings_differ": sorted(key(r) for r in q4),
                 "effect_by_reading": {x: {"lines": sum(1 for r in q4 if any(_has("Q4", x)(k) for k in r.alternatives)),
                                           "value": _money([r for r in q4 if any(_has("Q4", x)(k) for k in r.alternatives)], _has("Q4", x))}
                                       for x in readings}}
@@ -141,13 +176,14 @@ def decision_scopes(w, res) -> dict:
     q5r = [r for r in dds.values() if _dims(r) & {"Q5-DD120", "Q5-RM530", "Q5-HC630"}]
     res5 = {}                                   # reading label -> the lines carrying it (each line once)
     for r in q5r:
-        for x in sorted({x for k in r.alternatives for x in k.split("|")}):
+        for x in sorted({x for k in r.alternatives for x in (k or "").split("|")}):
             if x.split(":", 1)[0] in ("Q5-DD120", "Q5-RM530", "Q5-HC630"):
                 res5.setdefault(x, []).append(r)
+    reach["Q5"] = dd102 + q5r + hc630
     sc["Q5"] = {"lines_decided": len(dd102) + len(q5r), "effect_by_reading": {
         "adopted": {"reading": "DD-102 A (decided); DD-120, RM-530, HC-630: every reading computed (residual open)",
                     "lines": len(dd102) + len(q5r), "DD-102": {"lines": len(dd102), "value": _money(dd102)},
-                    "residual_lines_where_readings_differ": sorted(r.line_ref for r in q5r), "value": _money(dd102)},
+                    "residual_lines_where_readings_differ": sorted(key(r) for r in q5r), "value": _money(dd102)},
         "B_DD102": {"lines": len(dd102), "value": {"USD": "0.00"},
                     "note": "the Sch 8 row's 'tool in the hole' names no tool for DD-102: not establishable on any line"},
         "HC630_per_run": {"lines": len(hc630), "lines_whose_amount_differs": sum(1 for r in hc630 if "Q5-HC630" in _dims(r)),
@@ -166,8 +202,10 @@ def decision_scopes(w, res) -> dict:
     pd210 = [r for r in dds.values() if r.code == "PD-210" and r.payable]
     both = [r for r in cw.values() if any("P11 rest-day alone" in x for x in r.readings)]
     inv = {h.ident: h.values for h in w.claims.rows["dds_headers"]}
-    proxy_cls = lambda r: _has("class", inv[dl[r.line_ref]["invoice_no"]]["well_class"])  # noqa: E731
-    claimed_g = lambda r: _has("ground", ((cl[r.line_ref].get("ground_class") or "").split(" ")[0] or "G2"))  # noqa: E731
+    # reading A (the G3 reading before correction): the header's class; the application's ground class, else S4's G2
+    proxy_cls = lambda r: _has("class", (inv.get(line(r).get("invoice_no")) or {}).get("well_class"))  # noqa: E731
+    claimed_g = lambda r: _has("ground", ((line(r).get("ground_class") or "").split(" ")[0] or "G2"))  # noqa: E731
+    reach["Q8"] = cls + grd + [r for r in dds.values() if r.code == "PD-210"] + both
     sc["Q8"] = {"lines_decided": len(cls) + len(grd) + len(pd210) + len(both), "effect_by_reading": {
         "adopted": {"reading": "conditional across every admissible value where the contract's authority is not supplied; "
                                "explicit contractual defaults applied (P11 rest-day alone)",
@@ -185,6 +223,7 @@ def decision_scopes(w, res) -> dict:
               "note": "every amount depending on an unsupplied document unresolved: no value on these lines"}}}
     # Q11 -------------------------------------------------------------------------------------------------------
     wu = [r for r in dds.values() if "wrong_unit" in r.findings]
+    reach["Q11"] = wu
     sc["Q11"] = {"lines_decided": len(wu), "effect_by_reading": {
         "adopted": {"reading": "accumulator and 25A decided; wrong-unit remedy open (G5)", "lines": len(wu), "value": _money(wu)},
         "wrong_unit_A": {"lines": len(wu), "value": _money(wu, _has("Q11", "A"))},
@@ -195,22 +234,30 @@ def decision_scopes(w, res) -> dict:
     losses = {l["report"]: l for run in w.runs.values() for l in run.losses}
     lh = [r for r in dds.values() if r.code in g3_dds.LOSS]
     lhp = [r for r in lh if r.payable]
-    b_val, b_diff = Decimal(0), 0
+    b_val, b_diff, b_none = Decimal(0), 0, []
     for r in lhp:
-        ln = dl[r.line_ref]
-        loss = losses[ln["report_ref"]]
-        amt = r.allowed_quantity * g3_dds.loss_value(r.code, ln["service_date"], Decimal(loss["well_daily_hours_through_loss_day"]), T,
+        ln = line(r)
+        loss = losses.get(ln.get("report_ref")) or {}
+        hours = loss.get("well_daily_hours_through_loss_day")
+        if hours is None or r.allowed_quantity is None or ln.get("service_date") is None:
+            b_none.append(key(r))              # the loss is not in G2's run history: no whole-well sum to value it by
+            continue
+        amt = r.allowed_quantity * g3_dds.loss_value(r.code, ln["service_date"], Decimal(hours), T,
                                                       g3_dds.Trace(), "whole-well daily sum", "Q13 reading B")
         b_val += amt
         b_diff += amt != r.amount
+    reach["Q13"] = lh
     sc["Q13"] = {"lines_decided": len(lh), "losses": len(losses),
                  "part_e_equals_tool_history": sum(1 for l in losses.values() if l["hours_on_well"] == l["tool_daily_hours_through_loss_day"]),
                  "effect_by_reading": {
                      "adopted": {"reading": "A", "lines": len(lh), "payable": len(lhp), "value": _money(lh)},
-                     "B": {"lines": len(lhp), "lines_whose_amount_differs": b_diff, "value": {"USD": str(b_val)}},
+                     "B": {"lines": len(lhp), "lines_whose_amount_differs": b_diff, "value": {"USD": str(b_val)},
+                           **({"lines_not_valued": {"USD": sorted(b_none)},
+                               "not_valued_because": "the loss is not in G2's run history (no whole-well hours)"} if b_none else {})},
                      "C": {"lines": len(lhp), "note": "a query bounded by A and B: not needed (Part E equals the tool history on every loss)"}}}
     # G3-D1, G3-D2, G3-D3 ---------------------------------------------------------------------------------------
     d1 = [r for r in allr if set(r.findings) & PROCEDURAL]
+    reach["G3-D1"] = d1
     sc["G3-D1"] = {"lines_decided": len(d1), "by_contract": {c: sum(1 for r in d1 if r.contract == c) for c in CUR},
                    "effect_by_reading": {
                        "adopted": {"lines": len(d1), "payable": sum(1 for r in d1 if r.payable), "value": _money(d1),
@@ -218,18 +265,30 @@ def decision_scopes(w, res) -> dict:
                                            "is payable now is not decided here (payment timing, G5)"},
                        "not_payable_now": {"lines": len(d1), "value": {c: "0.00" for c in sorted({CUR[r.contract] for r in d1})}}}}
     uns = [r for r in dds.values() if "report_unsigned" in r.findings]
+    reach["G3-D2"] = uns
     sc["G3-D2"] = {"lines_decided": len(uns), "effect_by_reading": {
         "adopted": {"lines": len(uns), "not_payable": sum(1 for r in uns if not r.payable), "value": _money(uns)},
         "all_lines": {"lines": len(uns), "value": {"USD": "0.00"}}}}
     sc["G3-D3"] = claim_fact_scope(w, cw)
+    for k, rs in reach.items():
+        nv = _not_valued(rs, key)
+        if nv:
+            sc[k]["lines_not_valued"] = nv
+            sc[k]["not_valued_note"] = ("these lines have no value at G3 (unresolved: an input G2 left empty, owner named on "
+                                        "the line; deferred: G4) and are left out of every value in this scope - never 0")
     return sc
 
 
 def evaluate_as_payable(w, r, q):
-    """Q3 reading B: the line's value at the billed quantity (no record caps it) at its contract rate(s)."""
+    """Q3 reading B: the line's value at the billed quantity (no record caps it) at its contract rate(s): the line's rate,
+    else every admissible rate its rate check formed (whatever its payability). None - the line is listed as not valued,
+    never counted as 0 - where the billed quantity is not stated or no contract rate was formed."""
+    if q is None:
+        return None
     if r.unit_rate is not None:
         return (q * r.unit_rate, q * r.unit_rate)
-    rates = [a["unit_rate"] for a in r.alternatives.values() if a.get("unit_rate") is not None]
+    rates = [v for v in r.rates.values() if v is not None] or \
+        [a["unit_rate"] for a in r.alternatives.values() if a.get("unit_rate") is not None]
     if not rates:
         return None
     return (q * min(rates), q * max(rates))
@@ -260,35 +319,58 @@ def _merge(a: dict, b: dict) -> dict:
 def claim_fact_scope(w, cw) -> dict:
     """G3-D3: facts the claim states and the contract names no other evidence for - the civil zone of physical execution
     (Cl.4, Cl.42) and night work (Cl.7). Adopted: accepted as stated and disclosed on the line; alternative: the value
-    under every zone / without the night uplift, computed by re-pricing the line."""
-    zone_lines, night_lines = [], []
+    under every zone / without the night uplift, computed by re-pricing the line with the same inputs as the batch.
+    A line with no value at G3 under a reading (an input G2 left empty) is listed, never counted as 0."""
+    zone_lines, night_lines, not_valued = [], [], {}
     zlo, zhi, nval, zadopt, nadopt = Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0)
     T = g3_cw.terms.cw()
-    for line, app, rec, exists in g3_cw.inputs_from_world(w):
-        r = cw[line["line_ref"]]
+    rows = w.claims.rows["cw_lines"]
+    ctx = g3_cw.input_context(w)
+
+    def one(r):
+        if r.payable is None:
+            return None
+        if not r.payable:
+            return Decimal(0)
+        return r.amount if r.amount is not None else min(a["amount"] for a in r.alternatives.values())
+
+    for key, (line, app, rec, exists) in zip(result_keys(rows), g3_cw.inputs_from_world(w)):
+        r = cw[key]
+        zoned = any(x.startswith("zone ") and "as stated in the application" in x for x in r.readings)
+        night = any(x.startswith("night work as stated") for x in r.readings)
+        if r.payable is None and (zoned or night):
+            not_valued.setdefault("adopted", []).append(key)
         if not r.payable:
             continue
-        own = r.amount if r.amount is not None else min(a["amount"] for a in r.alternatives.values())
-        if any(x.startswith("zone ") and "as stated in the application" in x for x in r.readings):
-            zone_lines.append(r.line_ref)
-            vals = []
-            for z in T.zones:
-                r2 = g3_cw.evaluate({**line, "site_zone": z}, app, rec, exists)
-                vals.append(r2.amount if r2.amount is not None else min(a["amount"] for a in r2.alternatives.values()))
-            zlo, zhi, zadopt = zlo + min(vals), zhi + max(vals), zadopt + own
-        if any(x.startswith("night work as stated") for x in r.readings):
-            night_lines.append(r.line_ref)
-            r3 = g3_cw.evaluate({**line, "night_work": "N"}, app, rec, exists)
-            nval += r3.amount if r3.amount is not None else min(a["amount"] for a in r3.alternatives.values())
-            nadopt += own
-    return {"lines_decided": len(zone_lines) + len(night_lines), "zone_lines": len(zone_lines), "night_lines": len(night_lines),
-            "note": "values at the lowest admissible band/ground alternative where the line is conditional",
-            "effect_by_reading": {
-                "adopted": {"lines": len(zone_lines) + len(night_lines), "value": {"SAR": {"zone_lines": str(zadopt), "night_lines": str(nadopt)}},
-                            "reading": "zone and night work as stated in the application, disclosed on each line"},
-                "unverified_zone": {"lines": len(zone_lines), "value": {"SAR": {"min": str(zlo), "max": str(zhi)}},
-                                    "note": "the value under every zone Z1-Z4"},
-                "unverified_night": {"lines": len(night_lines), "value": {"SAR": str(nval)}, "note": "without the night uplift"}}}
+        own = one(r)
+        if zoned:
+            zone_lines.append(key)
+            vals = [one(g3_cw.evaluate({**line, "site_zone": z}, app, rec, exists, inputs=ctx[key])) for z in T.zones]
+            if any(v is None for v in vals):
+                not_valued.setdefault("unverified_zone", []).append(key)
+            else:
+                zlo, zhi, zadopt = zlo + min(vals), zhi + max(vals), zadopt + own
+        if night:
+            night_lines.append(key)
+            v = one(g3_cw.evaluate({**line, "night_work": "N"}, app, rec, exists, inputs=ctx[key]))
+            if v is None:
+                not_valued.setdefault("unverified_night", []).append(key)
+            else:
+                nval += v
+                nadopt += own
+    out = {"lines_decided": len(zone_lines) + len(night_lines), "zone_lines": len(zone_lines), "night_lines": len(night_lines),
+           "note": "values at the lowest admissible band/ground alternative where the line is conditional",
+           "effect_by_reading": {
+               "adopted": {"lines": len(zone_lines) + len(night_lines), "value": {"SAR": {"zone_lines": str(zadopt), "night_lines": str(nadopt)}},
+                           "reading": "zone and night work as stated in the application, disclosed on each line"},
+               "unverified_zone": {"lines": len(zone_lines), "value": {"SAR": {"min": str(zlo), "max": str(zhi)}},
+                                   "note": "the value under every zone Z1-Z4"},
+               "unverified_night": {"lines": len(night_lines), "value": {"SAR": str(nval)}, "note": "without the night uplift"}}}
+    if not_valued:
+        out["lines_not_valued"] = {k: sorted(v) for k, v in sorted(not_valued.items())}
+        out["not_valued_note"] = ("adopted: lines unresolved on an input G2 left empty; unverified_*: lines with no value under "
+                                  "that reading (an input it needs is empty) - left out of the values of both readings, never 0")
+    return out
 
 
 def trace_sample(res) -> list[dict]:
