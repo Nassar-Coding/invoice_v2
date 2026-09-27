@@ -63,6 +63,8 @@ class Ddr:
     company_sig: str = "unsigned"          # signed | unsigned | unknown (common.signature_state; FD01)
     driller_sig: str = "unsigned"
     signatures_after_last_part: bool = True
+    repeats: list = field(default_factory=list)       # identical repetitions, read once (FD02)
+    conflicting: dict = field(default_factory=dict)   # field -> the differing values stated (queued 'key repeated')
     spans: dict = field(default_factory=dict)
 
     ctx: str | None = None                      # run context id (audit.provenance)
@@ -90,12 +92,21 @@ def _typed(part: str, key: str, value: str, ident: str, src: Source, q: Queue):
 
 
 def parse_file(rel: str, text: str, q: Queue) -> Ddr:
+    """Two passes (round 4 FD02): every occurrence of every header key, signature, Part and Part key is collected first,
+    then resolved. A repetition with the same content states one fact once (Sch 5 p24: one report per well-day - a
+    duplicate section is not a second day's personnel); a repetition with different content is queued ('key repeated')
+    and no value is taken from it - never the first or last by position (R8 p14: a change needs an authorised
+    revision). Derived facts (tools, crew, lost tool) are computed once, from the resolved values."""
     lines = text.split("\n")
     fname = rel.rsplit("/", 1)[-1]
     d = Ddr(file=fname, path=rel)
     ident = fname
     if lines[0].strip() != SPEC["header"]["title"]:
         q.add("ddr", ident, "title", f"unexpected title {lines[0]!r}", Source(rel, 1, lines[0]))
+    head: dict[str, list] = {}            # key -> [(value, src)]
+    sigs: dict[str, list] = {}
+    parts: dict[str, list] = {}           # part -> [ {key -> [(value, src)]} ] one dict per occurrence
+    part_src: dict[str, list] = {}
     part = "HEAD"
     last_part_line = 0
     for n, line in enumerate(lines[1:], start=2):
@@ -108,10 +119,9 @@ def parse_file(rel: str, text: str, q: Queue) -> Ddr:
                 q.add("ddr", ident, "part", f"unknown part heading {line!r}", src)
                 part = "UNKNOWN"
             else:
-                if p in d.parts:
-                    q.add("ddr", ident, p, "part repeated", src)
-                part, d.parts[p] = p, {}
-                d.spans[p] = src
+                part = p
+                parts.setdefault(p, []).append({})
+                part_src.setdefault(p, []).append(src)
             last_part_line = n
             continue
         m = KEY_RE.match(line)
@@ -120,15 +130,7 @@ def parse_file(rel: str, text: str, q: Queue) -> Ddr:
             continue
         k, v = m["k"], m["v"]
         if k in SIG.values():
-            st = signature_state(v)
-            if st == "unknown":
-                q.add("ddr", ident, k, f"signature text {v!r} does not establish a signature or its absence", src)
-            if k == SIG["company"]:
-                d.company_rep, d.company_sig = v, st
-            else:
-                d.lead_dd, d.driller_sig = v, st
-            d.company_signed, d.driller_signed = d.company_sig == "signed", d.driller_sig == "signed"
-            d.spans[k] = src
+            sigs.setdefault(k, []).append((v, src))
             if n < last_part_line:
                 d.signatures_after_last_part = False
             continue
@@ -136,50 +138,75 @@ def parse_file(rel: str, text: str, q: Queue) -> Ddr:
             if k not in SPEC["header"]["keys"]:
                 q.add("ddr", ident, k, "unknown header key", src)
                 continue
-            d.spans[k] = src
-            if k == "Date":
-                try:
-                    d.date = dmy_mon(v)
-                except ValueError:
-                    q.add("ddr", ident, "Date", f"unparseable {v!r}", src)
-            else:
-                setattr(d, {"Report": "report", "Contract": "contract", "Well": "well", "Rig": "rig"}[k], v)
+            head.setdefault(k, []).append((v, src))
             continue
         if part not in SPEC["parts"]:
             continue
         if k not in part_keys(part):
             q.add("ddr", ident, f"{part}.{k}", "unknown key", src)
             continue
-        if k in d.parts[part]:
-            q.add("ddr", ident, f"{part}.{k}", "key repeated", src)
-        d.spans[f"{part}.{k}"] = src
-        if k in ("In the hole", "Tools in run"):
-            terms = [t.strip() for t in v.split(",") if t.strip()]
-            target = d.tools_in_hole if k == "In the hole" else d.tools_in_run
-            for t in terms:
-                code = service_code(t, part) if t in TOOL_TERMS else None
-                if code is None:
-                    q.add("ddr", ident, f"{part}.{k}", f"term {t!r} is not an Appendix G tool term", src)
-                target[t] = code
-            d.parts[part][k] = terms
-        elif k == "Crew on tour":
-            for c in [c.strip() for c in v.split(",") if c.strip()]:
-                cm = CREW_RE.match(c)
-                code = CREW.get(cm["term"]) if cm else None
-                if code is None:
-                    q.add("ddr", ident, "A.Crew on tour", f"unrecognised crew entry {c!r}", src)
-                    continue
-                d.crew_terms[cm["term"]] = d.crew_terms.get(cm["term"], 0) + int(cm["n"])
-                d.crew[code] = d.crew.get(code, 0) + int(cm["n"])
-            d.parts[part][k] = v
-        elif k == "Lost in hole tool":
-            d.lost_tool_term = v
-            d.lost_tool_code = service_code(v, "E") if v in TOOL_TERMS else None
-            if d.lost_tool_code is None:
-                q.add("ddr", ident, "E.Lost in hole tool", f"term {v!r} has no LH code in Appendix G", src)
-            d.parts[part][k] = v
+        parts[part][-1].setdefault(k, []).append((v, src))
+
+    def one(field: str, occ: list):
+        """The single value several occurrences state, or None (queued) when they differ."""
+        vals = [v.strip() for v, _ in occ]
+        if len(set(vals)) == 1:
+            if len(occ) > 1:
+                d.repeats.append(f"{field} x{len(occ)} (identical)")
+            return occ[0]
+        q.add("ddr", ident, field, "key repeated", occ[-1][1])
+        d.conflicting[field] = [v for v, _ in occ]
+        return None
+
+    for k, occ in head.items():
+        got = one(k, occ)
+        d.spans[k] = occ[0][1]
+        if got is None:
+            continue
+        v, src = got
+        if k == "Date":
+            try:
+                d.date = dmy_mon(v)
+            except ValueError:
+                q.add("ddr", ident, "Date", f"unparseable {v!r}", src)
         else:
-            d.parts[part][k] = _typed(part, k, v, ident, src, q)
+            setattr(d, {"Report": "report", "Contract": "contract", "Well": "well", "Rig": "rig"}[k], v)
+    for k, occ in sigs.items():
+        d.spans[k] = occ[0][1]
+        got = one(k, occ)
+        v, st = (got[0], signature_state(got[0])) if got else (None, "unknown")
+        if got and st == "unknown":
+            q.add("ddr", ident, k, f"signature text {v!r} does not establish a signature or its absence", got[1])
+        if k == SIG["company"]:
+            d.company_rep, d.company_sig = v, st
+        else:
+            d.lead_dd, d.driller_sig = v, st
+    d.company_signed, d.driller_signed = d.company_sig == "signed", d.driller_sig == "signed"
+    for p, occs in parts.items():
+        d.parts[p] = {}
+        d.spans[p] = part_src[p][0]
+        if len(occs) > 1:
+            same = all({k: [v.strip() for v, _ in o] for k, o in x.items()} ==
+                       {k: [v.strip() for v, _ in o] for k, o in occs[0].items()} for x in occs[1:])
+            (d.repeats.append(f"Part {p} x{len(occs)} (identical)") if same else
+             q.add("ddr", ident, p, f"part repeated with different content ({len(occs)} copies)", part_src[p][-1]))
+        for k in part_keys(p):
+            occ = [o for x in occs for o in x.get(k, [])]
+            if not occ:
+                continue
+            if len(occs) > 1 and sum(1 for x in occs if k in x) != len(occs) and len({v.strip() for v, _ in occ}) == 1:
+                # stated in some copies of the Part and absent from others: which copy is the report is open
+                q.add("ddr", ident, f"{p}.{k}", "key repeated", occ[-1][1])
+                d.conflicting[f"{p}.{k}"] = [v for v, _ in occ] + ["<absent>"]
+                continue
+            if len(occs) > 1 and len({v.strip() for v, _ in occ}) == 1:
+                occ = occ[:1]                                  # the identical copies state one fact
+            got = one(f"{p}.{k}", occ)
+            if got is None:
+                continue
+            v, src = got
+            d.spans[f"{p}.{k}"] = src
+            _read_part_value(d, p, k, v, src, ident, q)
 
     for k in SPEC["header"]["keys"]:
         if k not in d.spans:
@@ -197,6 +224,37 @@ def parse_file(rel: str, text: str, q: Queue) -> Ddr:
             q.add("ddr", ident, k, "signature line missing", None)
     _consistency(d, q, ident)
     return d
+
+
+def _read_part_value(d: Ddr, part: str, k: str, v: str, src: Source, ident: str, q: Queue) -> None:
+    """One resolved Part value and the facts derived from it (tools, crew, lost tool): counted once."""
+    if k in ("In the hole", "Tools in run"):
+        terms = [t.strip() for t in v.split(",") if t.strip()]
+        target = d.tools_in_hole if k == "In the hole" else d.tools_in_run
+        for t in terms:
+            code = service_code(t, part) if t in TOOL_TERMS else None
+            if code is None:
+                q.add("ddr", ident, f"{part}.{k}", f"term {t!r} is not an Appendix G tool term", src)
+            target[t] = code
+        d.parts[part][k] = terms
+    elif k == "Crew on tour":
+        for c in [c.strip() for c in v.split(",") if c.strip()]:
+            cm = CREW_RE.match(c)
+            code = CREW.get(cm["term"]) if cm else None
+            if code is None:
+                q.add("ddr", ident, "A.Crew on tour", f"unrecognised crew entry {c!r}", src)
+                continue
+            d.crew_terms[cm["term"]] = d.crew_terms.get(cm["term"], 0) + int(cm["n"])
+            d.crew[code] = d.crew.get(code, 0) + int(cm["n"])
+        d.parts[part][k] = v
+    elif k == "Lost in hole tool":
+        d.lost_tool_term = v
+        d.lost_tool_code = service_code(v, "E") if v in TOOL_TERMS else None
+        if d.lost_tool_code is None:
+            q.add("ddr", ident, "E.Lost in hole tool", f"term {v!r} has no LH code in Appendix G", src)
+        d.parts[part][k] = v
+    else:
+        d.parts[part][k] = _typed(part, k, v, ident, src, q)
 
 
 def _consistency(d: Ddr, q: Queue, ident: str) -> None:

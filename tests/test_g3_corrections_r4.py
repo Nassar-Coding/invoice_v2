@@ -67,12 +67,13 @@ def dds_eval(w, ref, text_fn, engine=g3_dds, parser=records_dds):
     q = Queue()
     d2 = parser.parse_file(ddr.path, text_fn(ns.doc_text(ddr)), q)
     mine = [u for u in q.items if u.ident == d2.file]
+    indexed = d2 if d2.report == line.get("report_ref") else None       # G2 indexes reports by their Report number
     if engine is g3_dds:
         ctx = g3_dds.input_context(w)[ref]
-        inp = replace(ctx, doc_gaps=frozenset(u.field for u in mine),
+        inp = replace(ctx, doc_gaps=frozenset(u.field for u in mine), unindexed_reports=d2.report is None,
                       doc_repeated=frozenset(u.field for u in mine if u.reason == "key repeated"))
-        return engine.evaluate(line, inv, d2, inputs=inp), q
-    return engine.evaluate(line, inv, d2), q
+        return engine.evaluate(line, inv, indexed, inputs=inp), q
+    return engine.evaluate(line, inv, indexed), q
 
 
 def cw_eval(w, ref, text_fn, engine=g3_cw, parser=records_cw, line_patch=None):
@@ -166,3 +167,105 @@ def test_fd01_control_gate3_r3_promotes_unreadable_text_to_approval(world, r3):
     c = _s64_with_countersignature("??")
     rec = r3.records_cw.parse_file(f"civilwork/records/{c['line']['record_ref']}.txt", c["record"], Queue())
     assert rec.engineer_signed                                        # gate3-r3: '??' is the Engineer's approval
+
+
+# ============================================================================================ FD02 repeated evidence
+def _insert_before(key, line):
+    return lambda t: t.replace(f"\n{key}:", f"\n{line}\n{key}:", 1)
+
+
+def _insert_after(key, line):
+    def f(t):
+        ls = t.split("\n")
+        i = next(j for j, x in enumerate(ls) if x.startswith(key + ":"))
+        return "\n".join(ls[:i + 1] + [line] + ls[i + 1:])
+    return f
+
+
+def _dup_part(p, mutate=lambda x: x):
+    """The report with Part p written a second time (the copy passed through `mutate`, line by line)."""
+    def f(t):
+        ls = t.split("\n")
+        i = next(j for j, x in enumerate(ls) if x.startswith(f"PART {p} "))
+        j = i + 1
+        while j < len(ls) and ls[j].strip() and not ls[j].startswith(("PART", "Signed")):
+            j += 1
+        return "\n".join(ls[:j] + [""] + [mutate(x) for x in ls[i:j]] + ls[j:])
+    return f
+
+
+ONE_HAND = lambda t: t.replace("2 directional hands", "1 directional hands", 1)  # noqa: E731
+
+
+@pytest.mark.parametrize("order", [_insert_before, _insert_after])
+def test_fd02_conflicting_header_date_is_unresolved_in_either_order(world, order):
+    r, q = dds_eval(world, "MDS-00001-013", order("Date", "Date: 03-Jan-2025"))
+    assert r.amount_status == "unresolved" and "report_date_mismatch" not in r.findings
+    assert any(u.field == "Date" and u.reason == "key repeated" for u in q.items)
+
+
+@pytest.mark.parametrize("key, other", [("Report", "DDR-194-20250103"), ("Well", "NGP-BD-195")])
+def test_fd02_other_conflicting_header_keys(world, key, other):
+    r, q = dds_eval(world, "MDS-00001-013", _insert_before(key, f"{key}: {other}"))
+    assert r.amount_status == "unresolved" and any(u.field == key and u.reason == "key repeated" for u in q.items)
+
+
+@pytest.mark.parametrize("order", [_insert_before, _insert_after])
+@pytest.mark.parametrize("key", DDS_SIGS)
+def test_fd02_conflicting_signature_lines_are_unknown(world, order, key):
+    r, q = dds_eval(world, "MDS-00001-013", order(key, f"{key}: ____________________"))
+    assert r.amount_status == "unresolved" and "report_unsigned" not in r.findings
+
+
+@pytest.mark.parametrize("order", [_insert_before, _insert_after])
+@pytest.mark.parametrize("key", CW_SIGS)
+def test_fd02_conflicting_civil_signature_lines_are_unknown(world, order, key):
+    r, q = cw_eval(world, "PA-00001-04", order(key, f"{key}: ____________________"))
+    assert r.amount_status == "unresolved" and "record_unsigned" not in r.findings
+
+
+def test_fd02_identical_repeats_are_read_once(world):
+    """An identical repeated header line, signature or whole Part states one fact once: the value is the single copy's."""
+    base, _ = dds_eval(world, "MDS-00001-013", lambda t: t)
+    sig = next(x for x in ns.doc_text(_dds_line(world, "MDS-00001-013")[2]).split("\n") if x.startswith(DDS_SIGS[0]))
+    for fn in (_insert_after("Date", "Date: 02-Jan-2025"), _insert_after(DDS_SIGS[0], sig),
+               _dup_part("A"), _dup_part("B")):
+        r, q = dds_eval(world, "MDS-00001-013", fn)
+        assert (r.amount_status, r.amount) == (base.amount_status, base.amount) and not q.items
+
+
+def test_fd02_repeated_part_a_does_not_count_the_crew_twice(world):
+    """The audit's MDS-00001-010: Part A stating one directional hand supports quantity 1 (USD 1,847.35, the two-person
+    claim above the record); the same Part A repeated identically is still one hand; a copy stating a different crew
+    leaves the crew unresolved in either order."""
+    one, _ = dds_eval(world, "MDS-00001-010", ONE_HAND)
+    assert (one.allowed_quantity, one.amount) == (Decimal("1"), Decimal("1847.35")) and "quantity_above_report" in one.findings
+    twice, q = dds_eval(world, "MDS-00001-010", lambda t: _dup_part("A")(ONE_HAND(t)))
+    assert (twice.allowed_quantity, twice.amount, twice.findings) == (one.allowed_quantity, one.amount, one.findings)
+    for fn in (lambda t: _dup_part("A", lambda x: x.replace("1 directional", "2 directional"))(ONE_HAND(t)),
+               _dup_part("A", lambda x: x.replace("2 directional", "1 directional"))):
+        r, q = dds_eval(world, "MDS-00001-010", fn)
+        assert r.amount_status == "unresolved" and any(u.field == "A.Crew on tour" and u.reason == "key repeated" for u in q.items)
+
+
+def test_fd02_civil_conflicting_key_in_either_order_and_identical_repeat(world):
+    base, _ = cw_eval(world, "PA-00001-04", lambda t: t)
+    date = next(x for x in ns.doc_text(_cw_line(world, "PA-00001-04")[2]).split("\n") if x.startswith("Date:"))
+    for fn in (_insert_before("Date", "Date: 01/01/2025"), _insert_after("Date", "Date: 01/01/2025")):
+        r, q = cw_eval(world, "PA-00001-04", fn)
+        assert r.amount_status == "unresolved" and any(u.field == "Date" and u.reason == "key repeated" for u in q.items)
+    r, q = cw_eval(world, "PA-00001-04", _insert_after("Date", date))
+    assert (r.amount_status, r.amount) == (base.amount_status, base.amount) and not q.items
+
+
+def test_fd02_control_gate3_r3(world, r3):
+    """gate3-r3: a conflicting date prepended (original last) is silently resolved to the last - the line stays payable
+    at USD 4,892.30 with no queue item; an unsigned line followed by a named one is signed; an identical Part A repeated
+    doubles the crew (quantity 2, USD 3,694.70, no finding)."""
+    r, q = dds_eval(world, "MDS-00001-013", _insert_before("Date", "Date: 03-Jan-2025"), engine=r3.g3_dds, parser=r3.records_dds)
+    assert r.amount == Decimal("4892.30") and not q.items
+    k = DDS_SIGS[0]
+    r, q = dds_eval(world, "MDS-00001-013", _insert_before(k, f"{k}: ____________________"), engine=r3.g3_dds, parser=r3.records_dds)
+    assert r.amount == Decimal("4892.30") and not q.items
+    r, q = dds_eval(world, "MDS-00001-010", lambda t: _dup_part("A")(ONE_HAND(t)), engine=r3.g3_dds, parser=r3.records_dds)
+    assert (r.allowed_quantity, r.amount, r.findings) == (Decimal("2"), Decimal("3694.70"), [])

@@ -54,6 +54,8 @@ class CwRecord:
     foreman_sig: str = "unsigned"          # signed | unsigned | unknown (common.signature_state; FD01)
     engineer_sig: str = "unsigned"
     spans: dict = field(default_factory=dict)        # field -> Source
+    repeats: list = field(default_factory=list)      # identical repetitions, read once (FD02)
+    conflicting: dict = field(default_factory=dict)  # key -> the differing values stated (queued 'key repeated')
 
     ctx: str | None = None                      # run context id (audit.provenance)
 
@@ -99,7 +101,7 @@ def parse_file(rel: str, text: str, q: Queue) -> CwRecord:
     r.spans["title"] = Source(rel, 1, lines[0])
     if r.family is None:
         q.add("cw_record", ticket, "title", f"unknown record title {r.title!r}", r.spans["title"])
-    kv: dict[str, tuple[str, Source]] = {}
+    occ: dict[str, list[tuple[str, Source]]] = {}
     body = []
     for n, line in enumerate(lines[1:], start=2):
         if not line.strip():
@@ -107,15 +109,27 @@ def parse_file(rel: str, text: str, q: Queue) -> CwRecord:
         m = KEY_RE.match(line)
         src = Source(rel, n, line)
         if m and m["k"] in KEYS:
-            if m["k"] in kv:
-                q.add("cw_record", ticket, m["k"], "key repeated", src)
-            kv[m["k"]] = (m["v"], src)
+            occ.setdefault(m["k"], []).append((m["v"], src))
         else:
             body.append((line.strip(), src))
+    # round 4 FD02: a key stated twice with the same value states one fact; with different values it is queued and
+    # no value is taken from it (never the first or last by position)
+    kv: dict[str, tuple[str, Source]] = {}
+    for k, o in occ.items():
+        if len({v.strip() for v, _ in o}) == 1:
+            kv[k] = o[0]
+            if len(o) > 1:
+                r.repeats.append(f"{k} x{len(o)} (identical)")
+        else:
+            q.add("cw_record", ticket, k, "key repeated", o[-1][1])
+            r.conflicting[k] = [v for v, _ in o]
+    if len(body) > 1 and len({b for b, _ in body}) == 1:
+        r.repeats.append(f"narrative x{len(body)} (identical)")
+        body = body[:1]
     weekly = SPEC["families"].get(r.family, {}).get("weekly", False)
     needed = SPEC["record_layout"]["required_weekly" if weekly else "required_daily"]
     for k in needed:
-        if k not in kv:
+        if k not in kv and k not in r.conflicting:
             q.add("cw_record", ticket, k, "required line missing", None)
     for k in kv:
         if k not in needed and k not in SPEC["record_layout"]["optional"]:
@@ -170,6 +184,8 @@ def parse_file(rel: str, text: str, q: Queue) -> CwRecord:
             setattr(r, attr + "_sig", st)
             setattr(r, attr + "_signed", st == "signed")
             r.spans[attr] = src
+        elif key in r.conflicting:            # stated twice differently: neither signed nor unsigned is established
+            setattr(r, attr + "_sig", "unknown")
 
     if len(body) != 1:
         q.add("cw_record", ticket, "narrative", f"expected one narrative line, found {len(body)}", body[0][1] if body else None)
