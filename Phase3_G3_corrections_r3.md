@@ -25,7 +25,8 @@ The round's goal added a second fix. Every field G2 can leave None or unresolved
 | `ed7ba60` | Fix 2 follow-up: defects found by trying to break fix 2 (the output stage, batch keys, report identity, dominance); X8 widened |
 | `b3a39e4` | Fix 2 follow-up: a header number that two rows carry |
 | `89d3202` | this report, first version; task list |
-| (close commit) | the case-path control corrected (section 3, item 9); this report updated |
+| `cdcd355` | the case-path control corrected (section 3, item 9); this report updated |
+| (final commit) | T3 ticked after the fresh-clone run of `cdcd355` passed; report wording |
 
 **Result.**
 - **Fix 1.** A PD-210 charge missing its start depth, its end depth or both returns an explicit `depths_missing` finding. The result is unresolved, with its source line, reason and owner (G5). This holds on the case path, through the typed G2 loader and in the batch. Facts that hold for every possible interval are kept. The gate3-r2 engine raises `TypeError` on the same probes.
@@ -175,7 +176,7 @@ After each fix I tried to break the completion claim, including branches no case
 - a population-wide fuzz, in which every line has one field emptied and every document one key line dropped: 98,990 lines, 10,320 documents;
 - identity states: shared line references, and repeated report and header numbers.
 
-These found the defects below. All are fixed in `ed7ba60` and `b3a39e4`, each with a regression test and a control in `tests/test_g3_corrections_r3.py`.
+These found the defects below. Items 1–8 are fixed in `ed7ba60` and `b3a39e4`, and item 9 in the close commit. Each has a regression test and a control in `tests/test_g3_corrections_r3.py`. The output stage (`audit/g3_run.py`) was not changed by fixes 1 and 2, so the gate3-r2 output stage is also the one they left in place.
 
 1. **The output stage crashed.** `g3_run.decision_scopes` raised in four cases:
    - `TypeError` on an empty billed quantity (Q3 reading B);
@@ -189,7 +190,7 @@ These found the defects below. All are fixed in `ed7ba60` and `b3a39e4`, each wi
    **Fix:**
    - each result carries the rate domain its rate check formed (`LineResult.rates`), and reading B prices every line at every admissible rate;
    - a scope lists its unvalued lines by status (`lines_not_valued`);
-   - the summary counts them as `value_not_formed`, or as `rate_not_formed` when no rate was formed (1 line: MW-310, out of term).
+   - the summary counts a line with no value at G3 as `value_not_formed` (the 63 DS-900 lines), and a line whose rate was never formed as `rate_not_formed` (1 line: MW-310, out of term). Both used to be counted as "rate not single".
 3. **The batch could drop a line.** Two lines sharing a `line_ref` replaced each other's result, and the second line's provenance was attached to the first. A blank reference was keyed inconsistently.
 
    **Fix:** `g3_core.result_keys` keys a line with no reference, or a shared one, by its source position, for results and Inputs alike.
@@ -263,7 +264,7 @@ These found the defects below. All are fixed in `ed7ba60` and `b3a39e4`, each wi
   - `verification/g3/summary.json`: 63 lines are `value_not_formed` and 1 is `rate_not_formed`, both formerly `rate_not_single`;
   - `verification/g3/trace_sample.jsonl`: rates added;
   - `verification/g2/{run_context,coverage,conflicts}.json`: the run-context id, since the code changed.
-- **Gate.** `tools/check_g3.sh` runs G0, G1, G2, the full test suite, the case comparison and `verify_g3` X1–X8. It passes locally at `b3a39e4` with 272 tests. It must also pass in a fresh clone of the final SHA; that run is in the conversation.
+- **Gate.** `tools/check_g3.sh` runs G0, G1, G2, the full test suite, the case comparison and `verify_g3` X1–X8. It passes locally at `b3a39e4` with 272 tests, and in fresh clones of `89d3202` (596 s) and `cdcd355` (605 s). The run at the final SHA is in the conversation.
 
 ---
 
@@ -296,7 +297,9 @@ These found the defects below. All are fixed in `ed7ba60` and `b3a39e4`, each wi
 | Fix 2 follow-up (`ed7ba60`) | 08:33 |
 | Fix 2 follow-up, header numbers (`b3a39e4`) | 08:51 |
 | Report, first version (`89d3202`) | 08:53 |
-| Close commit; fresh-clone run at the final SHA | in the conversation |
+| Control corrected (`cdcd355`) | 08:58 |
+| Fresh clone of `cdcd355`: `check_g3.sh` passed (272 tests, X1–X8) | 09:12, 605 s |
+| Final commit; fresh-clone run at the final SHA | in the conversation |
 
 Each local `check_g3.sh` run takes about 9 minutes, of which the full test suite is 8 minutes 17 seconds. X8 takes about 35 seconds.
 
