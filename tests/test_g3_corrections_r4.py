@@ -672,3 +672,14 @@ def test_fd08_control_gate3_r3_fixes_the_post_amendment_rate(world, r3):
     for c, ref, amount in (("DDS", "MDS-01650-048", Decimal("3634.44")), ("CW", "PA-00041-01", Decimal("10951.68"))):
         r = _with_submission(world, c, ref, None, engine=r3.g3_dds if c == "DDS" else r3.g3_cw)
         assert (r.amount_status, r.amount) == ("determined", amount) and not _a3(r)
+
+
+# ============================================================================================ falsification (interactions)
+def test_fd02_fd04_certification_written_both_ways_is_unresolved_not_a_known_failure(world):
+    """Part D repeated with 'certified: Yes' in one copy and 'No' in the other, in either order: which copy is the report
+    is open - unresolved, never the 'No' consequence and never the 'Yes' value by position."""
+    for fn in (_dup_part("D", lambda x: x.replace("certified: Yes", "certified: No")),
+               lambda t: _dup_part("D")(t).replace("certified: Yes", "certified: No", 1)):
+        r, q = dds_eval(world, "MDS-00043-057", fn)
+        assert r.amount_status == "unresolved" and "source_handling_not_certified" not in r.findings
+        assert any(u.field == "D.Source handling certified" and u.reason == "key repeated" for u in q.items)
