@@ -408,3 +408,76 @@ def test_x8_control_gate3_r3_engine_ignores_obligations(x8_r3_engine):
     assert stats["obligation_ignored"] > 50
     assert any("B.Run circulating hours" in e and "source evidence obligation" in e for e in errs)
     assert any("D.Sources handled" in e and "source evidence obligation" in e for e in errs)
+
+
+# ============================================================================================ FD05 night work
+import csv  # noqa: E402
+import io  # noqa: E402
+
+import test_g3_corrections_r3 as r3t  # noqa: E402
+
+CW_LINES = "civilwork/invoices/application_lines.csv"
+NIGHT = {"PA-00001-04": "??", "PA-00001-01": "yes", "PA-00001-06": "1", "PA-00001-10": "n", "PA-00007-07": "",
+         "PA-00001-02": "??", "PA-00023-03": "??", "PA-00002-05": "", "PA-00004-01": "??"}
+ELIGIBLE_UNKNOWN = ["PA-00001-04", "PA-00001-01", "PA-00001-06", "PA-00001-10", "PA-00007-07"]
+NIGHT_IRRELEVANT = {"PA-00001-02": "item without a night uplift", "PA-00023-03": "zone factor above 1.10 suppresses it (27A)",
+                    "PA-00002-05": "Z4 Escarpment: zone factor above 1.10 suppresses it (27A)",
+                    "PA-00004-01": "Z3 in 2026: zone factor 1.145 suppresses it (27A)"}
+
+
+def _night_csv(text):
+    rows = list(csv.DictReader(io.StringIO(text)))
+    for r in rows:
+        r["night_work"] = NIGHT.get(r["line_ref"], r["night_work"])
+    out = io.StringIO()
+    wr = csv.DictWriter(out, fieldnames=list(rows[0]), lineterminator="\n")
+    wr.writeheader()
+    wr.writerows(rows)
+    return out.getvalue()
+
+
+@pytest.fixture(scope="module")
+def night_world(tmp_path_factory):
+    snap = r3t.snapshot_with(tmp_path_factory.mktemp("night"), CW_LINES, _night_csv)
+    w = build.build(snap)
+    return snap, w, g3_cw.run(w)
+
+
+def test_fd05_unknown_night_statement_through_the_csv_loader(world, night_world):
+    """Raw CSV -> G2 loader -> G3 batch: only Y or N states the fact. '??', 'yes', '1', 'n' and blank are queued by G2
+    and handed over as None; where the night uplift changes the rate the line is unresolved and names night_work."""
+    _snap, w, res = night_world
+    base = g3_cw.run(world)
+    queued = {u.ident for u in w.queue.items if u.kind == "cw_lines" and u.field == "night_work"}
+    assert set(NIGHT) <= queued
+    for ref in ELIGIBLE_UNKNOWN:
+        r = res[ref]
+        assert r.amount_status == "unresolved" and r.amount is None, ref
+        assert any(c.detail.startswith("night_work") for c in r.checks) and any("night_work" in x for x in r.reasons)
+        assert base[ref].amount_status == "determined"
+
+
+def test_fd05_where_the_night_fact_cannot_change_the_value_it_stays_determined(world, night_world):
+    _snap, w, res = night_world
+    base = g3_cw.run(world)
+    for ref, why in NIGHT_IRRELEVANT.items():
+        assert (res[ref].amount_status, res[ref].amount) == (base[ref].amount_status, base[ref].amount), (ref, why)
+
+
+def test_fd05_recognised_values_state_the_fact(world):
+    line, app, rec = _cw_line(world, "PA-00001-04")
+    y = g3_cw.evaluate({**line, "night_work": "Y"}, app, rec, True)
+    n = g3_cw.evaluate({**line, "night_work": "N"}, app, rec, True)
+    assert (y.amount, n.amount) == (Decimal("21631.15"), Decimal("17730.62"))
+
+
+def test_fd05_control_gate3_r3_reads_unknown_as_daytime(night_world, r3):
+    snap, _w, _res = night_world
+    old_claims = r3_module("claims")
+    c = old_claims.load(snap, Queue())
+    line = next(x for x in c.rows["cw_lines"] if x.ident == "PA-00001-04").values
+    app = next(h for h in c.rows["cw_headers"] if h.ident == line["application_no"]).values
+    rec = build.build().cw[line["record_ref"]]
+    assert line["night_work"] == "??" and not any(u.field == "night_work" and u.ident == "PA-00001-04" for u in c.queue.items)
+    r = r3.g3_cw.evaluate(line, app, rec, True)
+    assert (r.amount_status, r.amount) == ("determined", Decimal("17730.62"))

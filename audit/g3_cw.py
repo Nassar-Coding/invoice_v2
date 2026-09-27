@@ -337,7 +337,7 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
     elif zoned:
         blocked.append("site_zone: the zone factor of this item follows the Site zone the application states (Cl.4, Cl.27, "
                        "Cl.42; G3-D3), which it does not state")
-    night_unknown = empty(line.get("night_work"))
+    night_unknown = line.get("night_work") not in ("Y", "N")       # FD05: only a recognised Y or N states the fact
     if line.get("night_work") == "Y" and code in T.night:
         r.readings.append("night work as stated in the application (Cl.7; no supplied record states the time of work; G3-D3)")
     # ground classification (F2): the authority is the classification recorded at excavation (S4; Cl.5 the Engineer's
@@ -423,7 +423,7 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
                     if night_unknown and any(price(code, wd, s_, zone, g, False, pct, T)[0] != price(code, wd, s_, zone, g, True, pct, T)[0]
                                              for s_ in subs):
                         blocked.append("night_work: this item attracts the night uplift (Cl.7; Sch 4) and the line does not say "
-                                       "whether the work was at night")
+                                       "(Y or N) whether the work was at night")
                     break
                 priced["|".join(x for x in (gl, bl) if x)] = (rate_k, tr_k, [x for x in rd_k if not (band_unknown and x.startswith("band_pct="))])
         except KeyError as e:

@@ -20,12 +20,21 @@ FILES = {
 ID_FIELD = {"cw_headers": "application_no", "cw_lines": "line_ref", "dds_headers": "invoice_no", "dds_lines": "line_ref"}
 PARENT = {"cw_lines": ("application_no", "cw_headers"), "dds_lines": ("invoice_no", "dds_headers")}
 
+def yes_no(v: str) -> str:
+    """The civil night-work statement: 'Y' or 'N' only (round 4 FD05). Anything else is not a statement of either -
+    unparseable, queued, handed over as None - never read as 'not at night'."""
+    if v.strip() not in ("Y", "N"):
+        raise ValueError(v)
+    return v.strip()
+
+
 # field -> parser (observed formats: civil ISO dates, drilling DD-Mon-YYYY); other fields stay strings.
 TYPES = {
     "cw_headers": {"period_from": iso_date, "period_to": iso_date, "application_date": iso_date,
                    "application_total": dec, "retention": dec, "net_payable": dec, "adjustment": dec,
                    "retention_released": dec},
-    "cw_lines": {"line_no": int, "work_date": iso_date, "quantity": dec, "rate_applied": dec, "amount": dec},
+    "cw_lines": {"line_no": int, "work_date": iso_date, "quantity": dec, "rate_applied": dec, "amount": dec,
+                 "night_work": yes_no},
     "dds_headers": {"period_start": dmy_mon, "period_end": dmy_mon, "invoice_date": dmy_mon, "net_amount": dec,
                     "vat_amount": dec, "invoice_total": dec, "adjustment": dec},
     "dds_lines": {"line_no": int, "service_date": dmy_mon, "depth_from_m": dec, "depth_to_m": dec, "quantity": dec,
