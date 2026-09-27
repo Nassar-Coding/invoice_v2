@@ -16,6 +16,7 @@ record_layout:
   optional: [Ground]
   narrative: "exactly one free-text line between the header block and the signatures"
   placeholder_signature: "a value made only of underscores/spaces is not a signature (Cl.47 p8; plan §4)"
+  signature_states: "signed = a personal name (initials and surname, or given name and surname); unsigned = missing line, placeholder, or words saying nobody signed (unsigned, N/A, pending ...); unknown = any other text ('??', 'illegible'): queued, never approval (round 4 FD01; Cl.46-47 p8, P22 p14)"
   date_formats: {Date: "DD/MM/YYYY", Week beginning: "DD/MM/YYYY", Days on: "Ddd DD/MM, ... (year from the week start, rolled forward past December)"}
   source: ["Cl.47 (p8)", "47A (p33)", "Sch 5 (p27)", "P22 (p14)", "S4 (p10)"]
 

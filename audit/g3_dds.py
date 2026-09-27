@@ -261,11 +261,17 @@ def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict 
         r.add("evidence", "finding", "DDS-R05", "Cl.15 (p5)", "well_mismatch", f"report well {ddr.well}")
         payable = False
         reasons.append("the quoted report is for another well")
-    unsigned = not (ddr.company_signed and ddr.driller_signed)
+    # FD01: a signature is signed, unsigned (missing, placeholder, words saying nobody signed) or unknown (other text)
+    sigs = {records_dds.SIG["company"]: getattr(ddr, "company_sig", "signed" if ddr.company_signed else "unsigned"),
+            records_dds.SIG["driller"]: getattr(ddr, "driller_sig", "signed" if ddr.driller_signed else "unsigned")}
+    sig_unknown = [k for k, st in sigs.items() if st == "unknown" or k in twice]
+    unsigned = [k for k, st in sigs.items() if st == "unsigned" and k not in twice]
     if unsigned:
         r.add("evidence", "finding", "DDS-R05", "Cl.15 (p5); R8 (p14)", "report_unsigned", "; ".join(
-            f"{k} missing or a placeholder" for k, ok in ((records_dds.SIG["company"], ddr.company_signed),
-                                                           (records_dds.SIG["driller"], ddr.driller_signed)) if not ok))
+            f"{k} missing, a placeholder or stated as not signed" for k in unsigned))
+    for k in sig_unknown:
+        r.input_gap(k, "unresolved", "input_unresolved", "Cl.15 (p5); R8 (p14)", "the signature line does not establish a "
+                    "signature or its absence" + (" (written twice)" if k in twice else f" ({(ddr.company_rep if k == records_dds.SIG['company'] else ddr.lead_dd)!r})"), D)
     if part_needed:
         if part_needed not in ddr.parts and "part" in gaps:
             gap("part", f"has a part heading G2 could not read, so whether Part {part_needed} is present is not established")
@@ -278,6 +284,9 @@ def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict 
             payable = False
             reasons.append("Schedule 5 document not delivered in signed form (Cl.15, Cl.37; Q3 reading A)")
             r.readings.append("Q3:A")
+        elif sig_unknown:              # whether the condition-of-payment document is signed is not established
+            unknown.append("signature")
+            unresolved.append("report signature: " + ", ".join(sig_unknown) + " does not establish a signature (Cl.15, Cl.37)")
     if not any(c.check == "evidence" and c.status == "finding" for c in r.checks):
         r.add("evidence", "pass" if not unknown else "unresolved", "DDS-R05", "Cl.15 (p5); Cl.37 (p8); Sch 5 (p24)")
     if "A" not in ddr.parts:           # recorded; each fact of Part A a service needs then blocks it below

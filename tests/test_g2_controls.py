@@ -38,7 +38,7 @@ def test_queue_empty_on_corpus_but_contradictions_visible(world):
 def test_civil_bad_input_is_queued_not_defaulted():
     q = Queue()
     bad = ("DAILY EXCAVATION RECORD\nTicket: DX-99998\nJob: J\nArea: S-09 Nowhere\nDate: 31/02/2025\nGround: G9 Mud\n\n"
-           "dug a big hole\nand another\n\nSigned (foreman): A\n")
+           "dug a big hole\nand another\n\nSigned (foreman): A. Foreman\n")
     r = records_cw.parse_file("civilwork/records/DX-99999.txt", bad, q)
     got = {(u.field, u.reason.split(" ")[0]) for u in q.items}
     assert ("Area", "not") in got and ("Date", "unparseable") in got and ("Ground", "not") in got
@@ -51,7 +51,7 @@ def test_civil_bad_input_is_queued_not_defaulted():
     q = Queue()
     records_cw.parse_file("civilwork/records/CT-99999.txt",
                           "COMPACTION TEST CERTIFICATE\nTicket: CT-99999\nJob: J\nArea: S-01 Platform North\nDate: 01/02/2025\n\n"
-                          "rolled some stone\n\nSigned (foreman): A\nCountersigned (Engineer's representative): B\n", q)
+                          "rolled some stone\n\nSigned (foreman): A. Foreman\nCountersigned (Engineer's representative): B. Engineer\n", q)
     assert [u.reason.split(" ")[0] for u in q.items] == ["no"]                # unmatched narrative never defaulted
 
 
@@ -89,7 +89,7 @@ def test_ddr_internal_contradictions_become_conflicts():
            "Tools in run: MWD collar\nRun circulating hours: 5\nMetres logged: 0\nMetres reamed: 0\nRadioactive source carried: No\n\n"
            "PART D — RADIOACTIVE SOURCE HANDLING\nSource run: 3\nSources handled: x\nSource handling certified: Yes\n\n"
            "PART E — LOST IN HOLE\nLost in hole run: 2\nLost in hole tool: gamma tool\nCirculating hours accumulated on the well: 5\n\n"
-           "Signed (Company Representative): ____\nSigned (lead directional driller): Y\n")
+           "Signed (Company Representative): ____\nSigned (lead directional driller): K. Doyle\n")
     d = records_dds.parse_file("drilling_services/records/DDR_NGP-BD-999_20250101.txt", txt, q)
     checks = {c.check for c in q.conflicts}
     assert {"filename_vs_header", "report_number_vs_well_date", "A_run_vs_B_run", "A_tools_vs_B_tools", "report_date_outside_run",

@@ -11,7 +11,7 @@ import datetime as dt
 import re
 from dataclasses import dataclass, field
 
-from .common import SNAPSHOT, Queue, Source, dmy_mon, is_signature, spec_lib
+from .common import SNAPSHOT, Queue, Source, dmy_mon, signature_state, spec_lib
 
 SPEC = spec_lib.load_yaml(spec_lib.SPEC / "evidence_dds.yaml")
 GLOSSARY = spec_lib.load_terms("DDS")["tables"]["DDS.T20_GLOSSARY"]["rows"]
@@ -60,6 +60,8 @@ class Ddr:
     lead_dd: str | None = None
     company_signed: bool = False
     driller_signed: bool = False
+    company_sig: str = "unsigned"          # signed | unsigned | unknown (common.signature_state; FD01)
+    driller_sig: str = "unsigned"
     signatures_after_last_part: bool = True
     spans: dict = field(default_factory=dict)
 
@@ -118,10 +120,14 @@ def parse_file(rel: str, text: str, q: Queue) -> Ddr:
             continue
         k, v = m["k"], m["v"]
         if k in SIG.values():
+            st = signature_state(v)
+            if st == "unknown":
+                q.add("ddr", ident, k, f"signature text {v!r} does not establish a signature or its absence", src)
             if k == SIG["company"]:
-                d.company_rep, d.company_signed = v, is_signature(v)
+                d.company_rep, d.company_sig = v, st
             else:
-                d.lead_dd, d.driller_signed = v, is_signature(v)
+                d.lead_dd, d.driller_sig = v, st
+            d.company_signed, d.driller_signed = d.company_sig == "signed", d.driller_sig == "signed"
             d.spans[k] = src
             if n < last_part_line:
                 d.signatures_after_last_part = False

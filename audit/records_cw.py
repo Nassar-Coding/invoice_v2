@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from .common import SNAPSHOT, Queue, Source, dec, dmy_slash, is_signature, spec_lib
+from .common import SNAPSHOT, Queue, Source, dec, dmy_slash, signature_state, spec_lib
 
 SPEC = spec_lib.load_yaml(spec_lib.SPEC / "evidence_cw.yaml")
 TEMPLATES = [(t, re.compile(t["regex"])) for t in SPEC["templates"]]
@@ -51,6 +51,8 @@ class CwRecord:
     engineer: str | None = None
     foreman_signed: bool = False
     engineer_signed: bool = False
+    foreman_sig: str = "unsigned"          # signed | unsigned | unknown (common.signature_state; FD01)
+    engineer_sig: str = "unsigned"
     spans: dict = field(default_factory=dict)        # field -> Source
 
     ctx: str | None = None                      # run context id (audit.provenance)
@@ -161,8 +163,12 @@ def parse_file(rel: str, text: str, q: Queue) -> CwRecord:
     for key, attr in (("Signed (foreman)", "foreman"), ("Countersigned (Engineer's representative)", "engineer")):
         if key in kv:
             v, src = kv[key]
+            st = signature_state(v)
+            if st == "unknown":
+                q.add("cw_record", ticket, key, f"signature text {v!r} does not establish a signature or its absence", src)
             setattr(r, attr, v)
-            setattr(r, attr + "_signed", is_signature(v))
+            setattr(r, attr + "_sig", st)
+            setattr(r, attr + "_signed", st == "signed")
             r.spans[attr] = src
 
     if len(body) != 1:

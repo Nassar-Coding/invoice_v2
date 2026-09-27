@@ -220,13 +220,19 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
         else:
             if not ref.startswith(series + "-"):
                 ev.append(("record_wrong_series", f"{ref} is not a {series} record"))
+            # FD01: each signature is signed, unsigned (missing, placeholder, words saying nobody signed) or unknown
             sig_twice = [k for k in ("Signed (foreman)", "Countersigned (Engineer's representative)") if k in inputs.doc_repeated]
-            unsigned = [k for k, ok in (("Signed (foreman)", record.foreman_signed),
-                                        ("Countersigned (Engineer's representative)", record.engineer_signed)) if not ok and k not in sig_twice]
-            if unsigned:                # a signature missing on its own line: unsigned whatever a twice-written other line holds
-                ev.append(("record_unsigned", "; ".join(f"{k} missing or a placeholder" for k in unsigned)))
+            states = {k: st for k, st in (("Signed (foreman)", _sig(record, "foreman")),
+                                          ("Countersigned (Engineer's representative)", _sig(record, "engineer")))}
+            unsigned = [k for k, st in states.items() if st == "unsigned" and k not in sig_twice]
+            unreadable = [k for k, st in states.items() if st == "unknown" and k not in sig_twice]
+            if unsigned:                # a signature missing on its own line: unsigned whatever another line holds
+                ev.append(("record_unsigned", "; ".join(f"{k} missing, a placeholder or stated as not signed" for k in unsigned)))
             elif sig_twice:
                 unknown.append((sig_twice[0], "signature line written twice: whether the record is signed is not established"))
+            elif unreadable:
+                unknown.append((unreadable[0], f"signature line {getattr(record, 'foreman' if unreadable[0].startswith('Signed') else 'engineer')!r} "
+                                               "does not establish a signature or its absence"))
             weekly = record.family == "DW" or record.week_beginning
             if record.family is None:
                 unknown.append(("title", "the record's type (its title) is not established"))
@@ -345,8 +351,10 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
         # the classification is the Engineer's (Cl.5; App A 'Ground classification'; 27A 'whatever the Engineer recorded on
         # the day'; App A 'Engineer' includes the representative): a record without the representative's countersignature
         # is the Subcontractor's own statement, not that classification (round 2)
-        engineers = bool(record is not None and record.engineer_signed
+        engineers = bool(record is not None and _sig(record, "engineer") == "signed"
                          and "Countersigned (Engineer's representative)" not in inputs.doc_repeated)
+        engineer_unknown = bool(record is not None and not engineers and (_sig(record, "engineer") == "unknown" or
+                                "Countersigned (Engineer's representative)" in inputs.doc_repeated))
         recorded = bool(applies and evidence_ok and record.ground and engineers)
         if record is not None and "Ground" in inputs.doc_gaps:
             r.input_gap("Ground", "unresolved", "input_unresolved", "S4 (p10)", "record Ground line not established (G2)", D)
@@ -362,6 +370,12 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
             if record is not None and record.ground and not applies:
                 r.readings.append(f"ground not evidenced: the referenced record {line.get('record_ref')} states {record.ground} but "
                                   f"does not apply to this work ({why}), so it is not the classification of this excavation (S4, Cl.5)")
+            elif record is not None and record.ground and engineer_unknown:
+                r.readings.append(f"ground not evidenced: the record {line.get('record_ref')} for this work states {record.ground} but "
+                                  f"its Engineer's countersignature line does not establish a countersignature, so it is not "
+                                  f"established as the Engineer's classification (Cl.5; App A; 27A)")
+                r.input_gap("Countersigned (Engineer's representative)", "unresolved", "input_unresolved", "Cl.5 (p3); S4 (p10)",
+                            "the countersignature does not establish the Engineer's classification: every class carried", D)
             elif record is not None and record.ground and not engineers:
                 r.readings.append(f"ground not evidenced: the record {line.get('record_ref')} for this work states {record.ground} but "
                                   f"is not countersigned by the Engineer's representative, so it is not the Engineer's "
@@ -525,6 +539,11 @@ def _unresolved(r, tr, reasons, why: list[str], owner: str = "G5") -> LineResult
     tr.note("value unresolved: " + "; ".join(why), "Cl.42 (p8); guidelines: record what is missing rather than guessing a figure")
     r.trace = tr.steps
     return r
+
+
+def _sig(record, who: str) -> str:
+    """signed | unsigned | unknown for the record's foreman or engineer line (FD01)."""
+    return getattr(record, f"{who}_sig", "signed" if getattr(record, f"{who}_signed") else "unsigned")
 
 
 def record_applies(record, line: dict, code: str) -> tuple[bool, str]:

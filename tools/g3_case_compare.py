@@ -94,6 +94,13 @@ def load_expected() -> dict[str, dict]:
     return out
 
 
+def unmask(text: str) -> str:
+    """The case packets replace every personal name on a signature line by '<signature>' (tools/g3_cases.py _mask):
+    the source line carried a person's name. It is restored as a name in the source format before G2 parses the text,
+    so the signature is read as the source states it (round 4 FD01: other text is not a signature)."""
+    return text.replace("<signature>", "A. Signatory")
+
+
 def engine_result(case: dict):
     if case["contract"] == "CW":
         a, l = case["application"], case["line"]
@@ -105,7 +112,7 @@ def engine_result(case: dict):
                 "night_work": l["night_work"], "record_ref": l.get("record_ref") or None}
         rec = None
         if case.get("record"):
-            rec = records_cw.parse_file(f"civilwork/records/{line['record_ref']}.txt", case["record"], Queue())
+            rec = records_cw.parse_file(f"civilwork/records/{line['record_ref']}.txt", unmask(case["record"]), Queue())
         band = _d(case.get("state", {}).get("band_pct", "100"))      # null = the band state is not known (G4)
         return g3_cw.evaluate(line, app, rec, rec is not None, band_pct=band)
     i, l = case["invoice"], case["line"]
@@ -117,7 +124,7 @@ def engine_result(case: dict):
             "depth_from_m": _d(l.get("depth_from_m")), "depth_to_m": _d(l.get("depth_to_m")), "report_ref": l["report_ref"]}
     ddr, q = None, Queue()
     if case.get("report"):
-        ddr = records_dds.parse_file(f"drilling_services/records/{l['report_ref']}.txt", case["report"], q)
+        ddr = records_dds.parse_file(f"drilling_services/records/{l['report_ref']}.txt", unmask(case["report"]), q)
     inputs = Inputs(f"case {case['id']} line", f"case {case['id']} invoice", ddr.path if ddr is not None else None,
                     frozenset(u.field for u in q.items if ddr is not None and u.ident == ddr.file))
     kw = {"inputs": inputs} if "inputs" in inspect.signature(g3_dds.evaluate).parameters else {}   # an earlier engine (controls)

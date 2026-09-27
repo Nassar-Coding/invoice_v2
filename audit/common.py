@@ -92,5 +92,28 @@ def dmy_slash(raw: str) -> dt.date:
     return dt.datetime.strptime(raw.strip(), "%d/%m/%Y").date()
 
 
+# A signature line establishes one of three things (FD01; DDS Cl.15 p5, Cl.37 p8, Sch 5 p24; CW Cl.46-47 p8, P22 p14):
+#  signed   - a personal name in the form the challenge's records use (initials and surname, or given name and surname);
+#  unsigned - the line is missing, a placeholder (underscores/blank), or says in words that nobody signed;
+#  unknown  - any other text ('??', 'illegible', digits ...): it does not establish approval, and it does not establish
+#             its absence either. Arbitrary nonempty text is never promoted to approval.
+NON_SIGNING_WORDS = {"unsigned", "not", "no", "none", "nil", "n/a", "na", "pending", "awaiting", "tbc", "tba", "void",
+                     "refused", "missing", "absent", "blank", "declined", "withheld", "outstanding"}
+_NAME_WORD = r"[A-Z][a-z]+(?:['’-][A-Z]?[a-z]+)*"
+SIGNATURE_NAME = re.compile(rf"^(?:(?:[A-Z]\.\s?)+|{_NAME_WORD}\s)(?:{_NAME_WORD}|[A-Z][a-z]*-[A-Z][a-z]+)(?:\s{_NAME_WORD})*$")
+
+
+def signature_state(value: str | None) -> str:
+    """'signed', 'unsigned' or 'unknown' for the text on a signature line (None: the line is missing)."""
+    if value is None or PLACEHOLDER.match(value):
+        return "unsigned"
+    words = re.findall(r"[A-Za-z/]+", value.lower())
+    if words and any(w in NON_SIGNING_WORDS for w in words) and not SIGNATURE_NAME.match(value.strip()):
+        return "unsigned"
+    if SIGNATURE_NAME.match(value.strip()) and not any(w in NON_SIGNING_WORDS for w in words):
+        return "signed"
+    return "unknown"
+
+
 def is_signature(value: str | None) -> bool:
-    return value is not None and not PLACEHOLDER.match(value)
+    return signature_state(value) == "signed"

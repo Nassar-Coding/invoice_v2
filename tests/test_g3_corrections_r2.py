@@ -112,7 +112,7 @@ def _x2_on_case(c, r):
     """X2's admissible-value check on a synthetic case, with its record standing in for the world's."""
     import types
     from audit import records_cw
-    rec = records_cw.parse_file(f"civilwork/records/{c['line']['record_ref']}.txt", c["record"], Queue())
+    rec = records_cw.parse_file(f"civilwork/records/{c['line']['record_ref']}.txt", gcc.unmask(c["record"]), Queue())
     line = {**c["line"], "work_date": dt.date.fromisoformat(c["line"]["work_date"])}
     return vg.admissible_errors("CW", r, line, terms.cw(), types.SimpleNamespace(cw={c["line"]["record_ref"]: rec}))
 
@@ -135,7 +135,7 @@ def test_b1_control_x2_rejects_a_foreman_only_record_as_authority(monkeypatch):
 
     def foreman_record_engine(line, app, rec, exists, **kw):          # the engine before this fix
         if rec is not None:
-            rec = dataclasses.replace(rec, engineer_signed=True)
+            rec = dataclasses.replace(rec, engineer_signed=True, engineer_sig="signed")
         return real(line, app, rec, exists, **kw)
     monkeypatch.setattr(g3_cw, "evaluate", foreman_record_engine)
     r = gcc.engine_result(c)
@@ -403,7 +403,7 @@ def test_b2_the_report_bounds_where_the_metres_lie(f, t, qty, start, end):
     report's depths, by X3 and by X2's report-based check."""
     c = _measured_case(f, t, qty, start, end)
     r = gcc.engine_result(c)
-    ddr = records_dds.parse_file(f"drilling_services/records/{c['line']['report_ref']}.txt", c["report"], Queue())
+    ddr = records_dds.parse_file(f"drilling_services/records/{c['line']['report_ref']}.txt", gcc.unmask(c["report"]), Queue())
     F, T_, A, S, E = map(Decimal, (f, t, qty, start, end))
     parts = [(b, pa, pb, pb - pa, rt) for b, pa, pb, rt in g3_dds.pd210_parts(F, T_, DT)]
     meas = {b: pb - pa for b, pa, pb, _r in g3_dds.pd210_parts(max(F, S), min(T_, E), DT)}
@@ -433,7 +433,7 @@ def test_b2_control_a_domain_bounded_by_the_charge_is_rejected():
     real = _measured_case("1450", "1550", "99", "1451", "1550")
     as_charged = gcc.engine_result(_measured_case("1450", "1550", "99", "1450", "1550"))
     assert len(as_charged.alternatives) == 2                                          # 49+50 and 50+49
-    ddr = records_dds.parse_file(f"drilling_services/records/{real['line']['report_ref']}.txt", real["report"], Queue())
+    ddr = records_dds.parse_file(f"drilling_services/records/{real['line']['report_ref']}.txt", gcc.unmask(real["report"]), Queue())
     assert any("the report measures" in e for e in vg.pd210_measured_errors(as_charged, ddr))
     bad = copy.deepcopy(as_charged)
     for a in bad.alternatives.values():
