@@ -252,8 +252,9 @@ These found the defects below. Items 1–8 are fixed in `ed7ba60` and `b3a39e4`,
 
 ## 5. Regression
 
-- **B1, B2, D8.** `tests/test_g3_corrections_r2.py` passes: 32 tests, including their controls.
+- **B1, B2, D8.** `tests/test_g3_corrections_r2.py` passes: 59 tests (32 test functions, some parametrized), including their controls.
 - **F1–F4, Q5, D1, X4.** `tests/test_g3_corrections.py` passes: 22 tests.
+- **Round 3.** `tests/test_g3_corrections_r3.py` passes: 32 tests.
 - **Population against gate3-r2** (`3c308ab`), on all 98,990 lines: every value, status, payability, finding code, reason, alternative and trace is identical. The only differences are:
   - the new rate domain on each result (7,746 civil and 91,180 drilling lines; the other 64 have no rate formed: 63 DS-900 lines and 1 MW-310 line out of term);
   - 41 check details reworded (8 civil, 33 drilling), so that `record_missing` names the `record_ref` and an unsigned finding names the signature line.
