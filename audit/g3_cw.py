@@ -260,6 +260,9 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
                 ev.append(("record_area_mismatch", f"record area {record.area}, line {area}"))
             if record.rule is None or "narrative" in inputs.doc_gaps:
                 unknown.append(("narrative", "the record's activity and quantity are not established"))
+            elif getattr(record, "spec_mismatch", None) and code in {i for m in record.spec_mismatch.values() for i in m["items"]}:
+                ev.append(("item_not_supported_by_record", "; ".join(
+                    f"record states {a} {m['stated']}, Schedule 1 {code} requires {m['required']}" for a, m in record.spec_mismatch.items())))
             elif code not in (record.candidates or []):
                 ev.append(("item_not_supported_by_record", f"record evidences {record.candidates}, line bills {code}"))
             elif record.unit != sch["unit"]:

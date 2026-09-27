@@ -56,8 +56,19 @@ class CwRecord:
     spans: dict = field(default_factory=dict)        # field -> Source
     repeats: list = field(default_factory=list)      # identical repetitions, read once (FD02)
     conflicting: dict = field(default_factory=dict)  # key -> the differing values stated (queued 'key repeated')
+    spec_mismatch: dict = field(default_factory=dict)  # attribute -> {stated, required, items} (FD03)
 
     ctx: str | None = None                      # run context id (audit.provenance)
+
+def _same_value(got, want) -> bool:
+    """An attribute value against Schedule 1's: numerically for numbers (1800 = 1800.0), otherwise case-insensitively."""
+    if got is None:
+        return False
+    try:
+        return Decimal(str(got)) == Decimal(str(want))
+    except Exception:  # noqa: BLE001 - not a number: compare the words
+        return str(got).strip().upper() == str(want).strip().upper()
+
 
 def depth_candidates(depth: Decimal) -> list[str]:
     for band in SPEC["depth_rule"]["bands"]:
@@ -200,6 +211,11 @@ def parse_file(rel: str, text: str, q: Queue) -> CwRecord:
                 if tpl.get("reason"):
                     r.attributes["reason"] = tpl["reason"]
                 r.candidates = depth_candidates(Decimal(r.attributes["depth_m"])) if tpl["candidates"] == "depth_rule" else list(tpl["candidates"])
+                bad = {a: (r.attributes.get(a), want) for a, want in (tpl.get("requires") or {}).items()
+                       if not _same_value(r.attributes.get(a), want)}
+                if bad:                    # FD03: the record is for another specification - it evidences no candidate
+                    r.spec_mismatch = {a: {"stated": got, "required": want, "items": list(r.candidates)} for a, (got, want) in bad.items()}
+                    r.candidates = []
                 break
         else:
             q.add("cw_record", ticket, "narrative", f"no evidence template matches {r.narrative!r}", src)

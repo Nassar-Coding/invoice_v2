@@ -269,3 +269,57 @@ def test_fd02_control_gate3_r3(world, r3):
     assert r.amount == Decimal("4892.30") and not q.items
     r, q = dds_eval(world, "MDS-00001-010", lambda t: _dup_part("A")(ONE_HAND(t)), engine=r3.g3_dds, parser=r3.records_dds)
     assert (r.allowed_quantity, r.amount, r.findings) == (Decimal("2"), Decimal("3694.70"), [])
+
+
+# ============================================================================================ FD03 civil item attributes
+# (claim, record narrative text in the record, attribute text, a different valid value, an unreadable value)
+FD03 = [
+    ("PA-00002-07", "1800 dia", "1200 dia", "?? dia"),                    # PT1 precast chamber diameter, C.32.030
+    ("PA-00002-09", "400 ductile", "600 ductile", "4OO ductile"),         # PT2 ductile main diameter, C.31.020
+    ("PA-00001-10", "32/40 mix", "20/25 mix", "32/?? mix"),               # PR1 wall mix, B.21.040
+    ("PA-00003-07", "A393 mesh", "A142 mesh", "A3?3 mesh"),               # JS1 mesh, B.23.020
+    ("PA-00008-06", "of Type 1", "of Type 2", "of Type ?"),               # CT4 sub-base type, D.41.010
+]
+
+
+def _narrative(w, ref, old, new):
+    rec = _cw_line(w, ref)[2]
+    assert old in ns.doc_text(rec), (ref, old)
+    return lambda t: t.replace(old, new, 1)
+
+
+@pytest.mark.parametrize("ref, same, other, unreadable", FD03)
+def test_fd03_each_attribute_role_matching_different_unreadable(world, ref, same, other, unreadable):
+    base, _ = cw_eval(world, ref, lambda t: t)
+    r, q = cw_eval(world, ref, _narrative(world, ref, same, same))
+    assert (r.amount_status, r.amount, r.findings) == (base.amount_status, base.amount, base.findings) and not q.items
+    r, q = cw_eval(world, ref, _narrative(world, ref, same, other))       # a different valid specification
+    assert r.amount_status == "not_payable" and "item_not_supported_by_record" in r.findings and not q.items
+    assert "Schedule 1" in next(c.detail for c in r.checks if c.finding == "item_not_supported_by_record")
+    assert not r.alternatives                                            # never repriced as another item
+    r, q = cw_eval(world, ref, _narrative(world, ref, same, unreadable))  # unreadable: the narrative is not established
+    assert r.amount_status == "unresolved" and any(u.field == "narrative" for u in q.items)
+
+
+# every PR template variant: the concrete grade of each pour record form
+PR_VARIANTS = [("wall pour 12 m3, 32/40 mix", "B.21.040"), ("slab pour 12 m3, 32/40", "B.21.030"),
+               ("poured 12 m3 into the foundations, 32/40 mix", "B.21.020"), ("poured the slab, 12 cube of C32/40", "B.21.030"),
+               ("foundation pour 12 cube, C32/40 off the truck", "B.21.020")]
+
+
+@pytest.mark.parametrize("narrative, item", PR_VARIANTS)
+@pytest.mark.parametrize("grade, ok", [("32/40", True), ("20/25", False), ("40/50", False)])
+def test_fd03_every_pour_record_variant(narrative, item, grade, ok):
+    text = f"CONCRETE POUR RECORD\nTicket: PR-99999\nJob: J\nArea: S-01 Platform North\nDate: 01/02/2025\n\n" \
+           f"{narrative.replace('32/40', grade)}\n\nSigned (foreman): A. Foreman\nCountersigned (Engineer's representative): B. Engineer\n"
+    q = Queue()
+    r = records_cw.parse_file("civilwork/records/PR-99999.txt", text, q)
+    assert not q.items and r.rule and (r.candidates == [item]) == ok and bool(r.spec_mismatch) != ok
+
+
+def test_fd03_control_gate3_r3_ignores_the_specification(world, r3):
+    """The audit's table: on gate3-r3 each changed specification keeps its candidate and its value."""
+    for ref, same, other, _u in FD03:
+        base, _ = cw_eval(world, ref, lambda t: t, engine=r3.g3_cw, parser=r3.records_cw)
+        r, q = cw_eval(world, ref, _narrative(world, ref, same, other), engine=r3.g3_cw, parser=r3.records_cw)
+        assert (r.amount_status, r.amount, r.findings) == (base.amount_status, base.amount, base.findings) and not q.items
