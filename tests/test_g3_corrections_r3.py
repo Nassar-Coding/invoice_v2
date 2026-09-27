@@ -170,15 +170,18 @@ def test_mds_00018_023_start_depth_none_in_the_population_batch(base):
 # ---------------------------------------------------------------------------------------------------- controls
 @pytest.mark.parametrize("gone", [("depth_from_m",), ("depth_to_m",), ("depth_from_m", "depth_to_m")])
 def test_control_the_old_engine_fails_the_case_path(gone, monkeypatch):
+    """The gate3-r2 engine, called as it was designed (no G2 provenance argument): the complete case values; the same
+    case without its depths crashes on the missing depth itself."""
     old = old_module("g3_dds")
     monkeypatch.setattr(gcc, "g3_dds", old)
-    with pytest.raises(TypeError):
+    assert gcc.engine_result(_case()).amount_status == "conditional"
+    with pytest.raises(TypeError, match="not supported between instances of 'decimal.Decimal' and 'NoneType'"):
         gcc.engine_result(_case(**{g: None for g in gone}))
 
 
 def test_control_the_old_engine_stops_the_batch(blanked):
     w1, _ = blanked
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="not supported between instances of 'decimal.Decimal' and 'NoneType'"):
         old_module("g3_dds").run(w1)
 
 
@@ -336,8 +339,10 @@ def test_output_stage_on_an_empty_quantity(both):
     sc = g3_run.decision_scopes(sub, res)
     assert sc["Q3"]["effect_by_reading"]["B"]["lines_not_valued"] == {"SAR": [ref]}
     g3_run.summary(sub, res), g3_run.trace_sample(res)
-    with pytest.raises(TypeError):
-        old_module("g3_run").decision_scopes(sub, res)                        # the gate3-r2 output stage
+    old = old_module("g3_run")                                                # the gate3-r2 output stage:
+    old.decision_scopes(w, res0)                                              # completes on the complete world,
+    with pytest.raises(TypeError, match=r"unsupported operand type\(s\) for \*: 'NoneType' and 'decimal.Decimal'"):
+        old.decision_scopes(sub, res)                                         # crashes on the empty quantity
 
 
 def test_q3_reading_b_values_every_line(both):

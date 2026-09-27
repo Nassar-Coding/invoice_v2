@@ -24,12 +24,13 @@ The round's goal added a second fix. Every field G2 can leave None or unresolved
 | `1e62a6a` | Fix 2: the nullable-field sweep; engine crashes and silent defaults fixed; X8 |
 | `ed7ba60` | Fix 2 follow-up: defects found by trying to break fix 2 (the output stage, batch keys, report identity, dominance); X8 widened |
 | `b3a39e4` | Fix 2 follow-up: a header number that two rows carry |
-| (close commit) | this report; task list |
+| `89d3202` | this report, first version; task list |
+| (close commit) | the case-path control corrected (section 3, item 9); this report updated |
 
 **Result.**
 - **Fix 1.** A PD-210 charge missing its start depth, its end depth or both returns an explicit `depths_missing` finding. The result is unresolved, with its source line, reason and owner (G5). This holds on the case path, through the typed G2 loader and in the batch. Facts that hold for every possible interval are kept. The gate3-r2 engine raises `TypeError` on the same probes.
 - **Fix 2.** Every input G2 can leave empty or unresolved gives an explicit result through both engines, the batch and the output stage, in all 18 code families. That is 12,230 input states and 200 batch runs, with 0 failures. The gate3-r2 engines fail the same check 3,212 times.
-- **Falsification.** Trying to break my own fixes found eight more defects, including a crash in the output stage. All are fixed, each with a control.
+- **Falsification.** Trying to break my own fixes found nine more defects, including a crash in the output stage and a control of mine that passed for the wrong reason. All are fixed, each with a control.
 - **Checks.** All G0–G3 checks and 272 tests pass. The fresh-clone run at the final SHA is reported in the conversation, because a report cannot carry its own commit.
 
 ---
@@ -77,9 +78,11 @@ The DDS-S72 packet has no description field, so the case path also shows `claim_
 
 ### Controls (fail as intended)
 
-- The gate3-r2 engine raises `TypeError` on all three DDS-S72 probes.
-- It stops its batch on the blanked snapshot.
+- The gate3-r2 engine, called as it was designed, values the complete DDS-S72 case. On all three depth probes it raises `TypeError: '>' (or '<') not supported between instances of 'decimal.Decimal' and 'NoneType'`.
+- It stops its batch on the blanked snapshot with the same error.
 - X3 rejects a contained `engine_error`.
+
+The tests require these exact errors (see section 3, item 9).
 
 These are in `tests/test_g3_corrections_r3.py`.
 
@@ -213,6 +216,12 @@ These found the defects below. All are fixed in `ed7ba60` and `b3a39e4`, each wi
 8. **The flag for unindexed reports was over-broad.** It counted duplicate-number queue entries as unindexable files.
 
    **Fix:** the flag now comes from G2's by-file index (files with no report number).
+9. **A control of mine passed for the wrong reason.** Since fix 1, the case harness (`tools/g3_case_compare.py`) passed the new `inputs` argument unconditionally. The case-path control therefore raised `TypeError: evaluate() got an unexpected keyword argument 'inputs'` from the gate3-r2 engine, not the depth crash it was meant to show. It could not tell a guarded engine from an unguarded one.
+
+   **Fix:**
+   - the harness passes `inputs` only to an engine that takes it, as X8's adapter does;
+   - the control first shows the gate3-r2 engine values the complete case, then requires the depth error itself;
+   - the other two exception controls (the gate3-r2 batch, and the gate3-r2 output stage on an empty quantity) now also require their exact errors, and the output-stage control first shows that stage completing on the complete world.
 
 ---
 
@@ -220,7 +229,7 @@ These found the defects below. All are fixed in `ed7ba60` and `b3a39e4`, each wi
 
 | Check | Control | Result |
 |---|---|---|
-| Fix 1, case path and batch | the gate3-r2 engine | `TypeError` on each probe; its batch stops |
+| Fix 1, case path and batch | the gate3-r2 engine, called as designed | values the complete case; `TypeError … 'decimal.Decimal' and 'NoneType'` on each depth probe; its batch stops with the same error |
 | X3 | a contained `engine_error` | rejected |
 | X8, whole | the gate3-r2 engines | 3,212 errors (above) |
 | X8 criterion 2 | an engine that fills a blank zone with Z1 | "does not name it (silent)" |
@@ -286,6 +295,7 @@ These found the defects below. All are fixed in `ed7ba60` and `b3a39e4`, each wi
 | Fix 2 (`1e62a6a`) | 07:28 |
 | Fix 2 follow-up (`ed7ba60`) | 08:33 |
 | Fix 2 follow-up, header numbers (`b3a39e4`) | 08:51 |
+| Report, first version (`89d3202`) | 08:53 |
 | Close commit; fresh-clone run at the final SHA | in the conversation |
 
 Each local `check_g3.sh` run takes about 9 minutes, of which the full test suite is 8 minutes 17 seconds. X8 takes about 35 seconds.
@@ -300,7 +310,7 @@ Each local `check_g3.sh` run takes about 9 minutes, of which the full test suite
 
 **Found:**
 - **By the sweep:** 25 inputs that crashed the gate3-r2 engines, 47 handled silently, and 37 failing batch runs. All are fixed.
-- **By falsifying my own fixes:** the output-stage crash, lines with no value counted as 0 or dropped (Q3 reading B understated), batch key collisions, report and header numbers resolved silently, three hidden established consequences, and weaknesses in X8 itself. All are fixed.
+- **By falsifying my own fixes:** the output-stage crash, lines with no value counted as 0 or dropped (Q3 reading B understated), batch key collisions, report and header numbers resolved silently, three hidden established consequences, weaknesses in X8 itself, and a case-path control that passed for the wrong reason. All are fixed.
 
 **Not confirmed:**
 - No real line exercises an empty input.

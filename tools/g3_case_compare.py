@@ -14,6 +14,7 @@ Usage::  python tools/g3_case_compare.py [--check]   (prints the summary; writes
 from __future__ import annotations
 
 import datetime as dt
+import inspect
 import json
 import sys
 from decimal import Decimal
@@ -119,7 +120,8 @@ def engine_result(case: dict):
         ddr = records_dds.parse_file(f"drilling_services/records/{l['report_ref']}.txt", case["report"], q)
     inputs = Inputs(f"case {case['id']} line", f"case {case['id']} invoice", ddr.path if ddr is not None else None,
                     frozenset(u.field for u in q.items if ddr is not None and u.ident == ddr.file))
-    return g3_dds.evaluate(line, inv, ddr, question_readings=case.get("question_readings") or {}, inputs=inputs)
+    kw = {"inputs": inputs} if "inputs" in inspect.signature(g3_dds.evaluate).parameters else {}   # an earlier engine (controls)
+    return g3_dds.evaluate(line, inv, ddr, question_readings=case.get("question_readings") or {}, **kw)
 
 
 def _split(label: str | None):
