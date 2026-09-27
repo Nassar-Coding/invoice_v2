@@ -23,8 +23,8 @@ import datetime as dt
 import itertools
 from decimal import Decimal
 
-from . import links, terms
-from .g3_core import Inputs, LineResult, Trace
+from . import links, records_dds, terms
+from .g3_core import Inputs, LineResult, Trace, empty
 from .g3_core import q as to_cents
 
 CONTRACT_REF = "DDS-2025-118"
@@ -96,83 +96,162 @@ def pd210_parts(start: Decimal, end: Decimal, T):
     return parts
 
 
-def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None = None, inputs: Inputs | None = None) -> LineResult:
-    """inputs: provenance and G2's unresolved fields for this line (round 3); None when a caller has none to give."""
+# Cl.34 (p8): what every charge states (the PD-210 depths are handled with the performance footage, _pd210)
+CL34 = {"service_date": "date", "service_code": "service code", "description": "description", "hole_section": "hole section",
+        "day_status": "status of the day", "quantity": "quantity", "unit": "unit", "unit_rate": "rate", "amount": "amount"}
+
+
+def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict | None = None, inputs: Inputs | None = None) -> LineResult:
+    """line/inv: typed claim fields (inv None: the line's invoice header is not found); ddr: the G2 report or None.
+    inputs: G2 provenance and the report's G2-unresolved fields (round 3). An input G2 left empty is recorded with its
+    source, never defaulted: a check that needs it is unresolved, and a value that depends on it is unresolved (owner G5)
+    unless an established consequence (not payable) already decides the charge."""
     T = T or terms.dds()
     qr = question_readings or {}
     inputs = inputs or Inputs()
+    L, H, D = inputs.line_src, inputs.header_src, inputs.doc_src
     unresolved = []         # why the value cannot be established here (an input G2 left empty); never defaulted
-    code = line["service_code"]
-    r = LineResult("DDS", line["line_ref"], code)
+    code = line.get("service_code")
+    r = LineResult("DDS", line.get("line_ref") or "", code or "")
     tr, readings = Trace(), []
-    sch = T.sch1.get(code)
     if code == "DS-900":
         r.add("identification", "n/a", "DDS-R20", "Cl.38 (p8); P11 (p11)", detail="invoice-level discount charge; valued with the invoice total (G5)")
         r.amount_status, r.payable, r.family = "deferred", None, "DDS-DISCOUNT"
         r.reasons.append("DS-900 is recomputed from the invoice's corrected service subtotal at G5 (Cl.38, P11)")
         return r
+    for f, what in CL34.items():
+        if empty(line.get(f)):
+            r.input_gap(f, "finding", "claim_field_missing", "Cl.34 (p8)" + ("; Cl.19 (p6)" if f in ("hole_section", "day_status") else ""),
+                        f"the charge states no {what}", L)
+    sch = T.sch1.get(code) if not empty(code) else None
+    if empty(code):
+        r.family = "DDS-UNSCHEDULED"
+        return _unresolved(r, tr, [], ["service_code: the service cannot be identified without its code (Cl.34)"])
     if sch is None:
         r.add("identification", "unresolved", "DDS-R06", "Sch 1 (pp15-16)", "code_not_in_schedule_1")
         r.amount_status, r.payable, r.family = "unresolved", None, "DDS-UNSCHEDULED"
         return r
-    sd = line["service_date"]
+    sd = line.get("service_date")
     payable, reasons = True, []
+    if inv is None:
+        r.input_gap("invoice_no", "unresolved", "input_unresolved", "Cl.32 (p8)",
+                    f"the charge's invoice {line.get('invoice_no')!r} is not among the invoices G2 loaded: its header facts are unknown", L)
+        inv = {}
     # 1 identity --------------------------------------------------------------------------------------------
-    if inv["contract_ref"] != CONTRACT_REF:
-        r.add("identity", "finding", "DDS-R01", "p1 particulars; Cl.32 (p8)", "contract_ref_variant", inv["contract_ref"])
-    elif (inv.get("contractor") or "").upper() != CONTRACTOR:
-        r.add("identity", "finding", "DDS-R01", "p1 particulars", "contractor_mismatch", inv.get("contractor"))
+    cref, contractor = inv.get("contract_ref"), inv.get("contractor")
+    if empty(cref):
+        r.input_gap("contract_ref", "unresolved", "input_unresolved", "p1 particulars; Cl.32 (p8)",
+                    "the invoice states no contract reference: its identity is not confirmed (procedural, G3-D1)", H)
+    elif cref != CONTRACT_REF:
+        r.add("identity", "finding", "DDS-R01", "p1 particulars; Cl.32 (p8)", "contract_ref_variant", cref)
+    elif empty(contractor):
+        r.input_gap("contractor", "unresolved", "input_unresolved", "p1 particulars",
+                    "the invoice names no contractor: its identity is not confirmed (procedural, G3-D1)", H)
+    elif contractor.upper() != CONTRACTOR:
+        r.add("identity", "finding", "DDS-R01", "p1 particulars", "contractor_mismatch", contractor)
     else:
         r.add("identity", "pass", "DDS-R01", "p1 particulars")
-    if line.get("well_name") != inv.get("well_name"):
+    well = line.get("well_name")
+    if empty(well):
+        r.input_gap("well_name", "unresolved", "input_unresolved", "Cl.32 (p8); Cl.15 (p5)",
+                    "the charge states no well: its report cannot be tied to the well it is for", L)
+        unresolved.append("well_name: the charge states no well, so its report cannot be tied to it")
+    elif not empty(inv.get("well_name")) and well != inv.get("well_name"):
         r.add("identity", "finding", "DDS-R01", "Cl.32 (p8): each well invoiced separately", "line_well_differs_from_invoice",
-              f"{line.get('well_name')} vs {inv.get('well_name')}")
+              f"{well} vs {inv.get('well_name')}")
+    elif empty(inv.get("well_name")):
+        r.input_gap("well_name (invoice)", "unresolved", "input_unresolved", "Cl.32 (p8)",
+                    "the invoice states no well: one well per invoice is not confirmed (procedural, G3-D1)", H)
     # 2 term ------------------------------------------------------------------------------------------------
-    if not (T.commencement <= sd <= T.expiry):
+    if empty(sd):
+        r.add("term", "unresolved", "DDS-R03", "p1 particulars; A1 (p39); A2 (p41)", detail="service_date not stated (Cl.34)")
+        unresolved.append("service_date: the term, the rate in force, the index/FX month and the report's day all follow "
+                          "the date of the charge (Cl.34), which it does not state")
+    elif not (T.commencement <= sd <= T.expiry):
         r.add("term", "finding", "DDS-R03", "p1 particulars; A2 2.1 (p41)", "out_of_term", f"{sd} outside {T.commencement}..{T.expiry}")
         payable = False
         reasons.append("service outside the term as extended is not chargeable (A1/A2)")
     else:
         r.add("term", "pass", "DDS-R03", "p1 particulars; A1 (p39); A2 (p41)")
     # 3 window and period -----------------------------------------------------------------------------------
-    pe, idate = inv["period_end"], inv["invoice_date"]
-    if idate < pe:
+    ps, pe, idate = inv.get("period_start"), inv.get("period_end"), inv.get("invoice_date")
+    for f, v, what in (("period_start", ps, "first"), ("period_end", pe, "last")):
+        if empty(v):
+            r.input_gap(f, "finding", "claim_field_missing", "Cl.32 (p8)", f"the invoice states no {what} day of its period", H)
+    if empty(idate):
+        r.input_gap("invoice_date", "unresolved", "input_unresolved", "Cl.33 (p8); 36A (p35)",
+                    "the invoice date is not stated: the window and any 36A protection cannot be established", H)
+    if empty(pe) or empty(idate):
+        r.add("window", "unresolved", "DDS-R04", "Cl.33 (p8)", detail="period_end or invoice_date not stated")
+    elif idate < pe:
         r.add("window", "finding", "DDS-R04", "Cl.33 (p8)", "submitted_early", f"{idate} before period end {pe}")
     elif idate > pe + dt.timedelta(days=T.window_days):
         r.add("window", "finding", "DDS-R04", "Cl.33 (p8)", "submitted_late", f"{(idate - pe).days} days after period end")
     else:
         r.add("window", "pass", "DDS-R04", "Cl.33 (p8)")
-    if not (inv["period_start"] <= sd <= pe):
-        r.add("period", "finding", "DDS-R02", "Cl.32 (p8)", "outside_period", f"{sd} outside {inv['period_start']}..{pe}")
+    if empty(ps) or empty(pe) or empty(sd):
+        r.add("period", "unresolved", "DDS-R02", "Cl.32 (p8)", detail="period_start, period_end or service_date not stated")
+    elif not (ps <= sd <= pe):
+        r.add("period", "finding", "DDS-R02", "Cl.32 (p8)", "outside_period", f"{sd} outside {ps}..{pe}")
     else:
         r.add("period", "pass", "DDS-R02", "Cl.32 (p8)")
     # 4 unit (Cl.35; remedy Q11) ------------------------------------------------------------------------------
-    wrong_unit = line["unit"] != sch["unit"]
-    if wrong_unit:
-        r.add("unit", "finding", "DDS-R08", "Cl.35 (p8)", "wrong_unit", f"billed {line['unit']}, Schedule 1 {sch['unit']}")
+    unit = line.get("unit")
+    wrong_unit = not empty(unit) and unit != sch["unit"]
+    if empty(unit):
+        r.add("unit", "unresolved", "DDS-R08", "Cl.35 (p8); Cl.34 (p8)", detail="unit not stated")
+        unresolved.append("unit: whether the charge is stated in the Schedule 1 unit (Cl.35) cannot be established (Cl.34)")
+    elif wrong_unit:
+        r.add("unit", "finding", "DDS-R08", "Cl.35 (p8)", "wrong_unit", f"billed {unit}, Schedule 1 {sch['unit']}")
     else:
         r.add("unit", "pass", "DDS-R08", "Cl.35 (p8)")
     # 5 report evidence ---------------------------------------------------------------------------------------
     part_needed = T.sch5.get(code)
     r.family = _family(code)
     if ddr is None:
-        r.add("evidence", "finding", "DDS-R05", "Cl.15 (p5); 19A (p35)", "report_missing", f"no report {line.get('report_ref')}")
+        ref = line.get("report_ref")
+        if inputs.unindexed_reports:
+            r.input_gap("report_ref", "unresolved", "input_unresolved", "Cl.15 (p5); 19A (p35)",
+                        f"report {ref!r} is not among the indexed reports, and G2 could not index every report file "
+                        "(a Report number unresolved): whether it exists is not established", L)
+            return _unresolved(r, tr, reasons, unresolved + ["report_ref: the report may be one G2 could not index"])
+        r.add("evidence", "finding", "DDS-R05", "Cl.15 (p5); 19A (p35)", "report_missing",
+              "report_ref blank: the charge cites no Daily Drilling Report" if empty(ref) else f"no report {ref}")
         return _finish(r, tr, False, reasons + ["no Daily Drilling Report evidences the day"])
-    a = ddr.parts.get("A", {})
-    b = ddr.parts.get("B", {})
-    if ddr.date != sd:
+    gaps, twice = inputs.doc_gaps, inputs.doc_repeated
+    # a key the report writes twice is unresolved in G2 (it keeps the last): no fact of the report is taken from it
+    a = {k: v for k, v in ddr.parts.get("A", {}).items() if f"A.{k}" not in twice}
+    b = {k: v for k, v in ddr.parts.get("B", {}).items() if f"B.{k}" not in twice}
+    unknown = []            # report facts G2 could not establish: the evidence is unknown, not defective
+    for f in sorted(twice):
+        r.input_gap(f, "unresolved", "input_unresolved", "Cl.15 (p5)", "report key written twice: which value holds is not "
+                    "established (G2)", D)
+
+    def gap(field, why):
+        unknown.append(field)
+        r.input_gap(field, "unresolved", "input_unresolved", "Cl.15 (p5); App G (p36)", f"report {why} (G2)", D)
+        unresolved.append(f"report {field}: {why}")
+    if ddr.date is None:
+        gap("Date", "the report's date is not established")
+    elif not empty(sd) and ddr.date != sd:
         r.add("evidence", "finding", "DDS-R05", "19A (p35); Cl.15 (p5)", "report_date_mismatch", f"report {ddr.report} is for {ddr.date}")
         payable = False
         reasons.append("the quoted report is for another day: nothing recorded for the charged day (Cl.19A)")
-    if ddr.well != line.get("well_name"):
+    if ddr.well is None:
+        gap("Well", "the report's well is not established")
+    elif not empty(well) and ddr.well != well:
         r.add("evidence", "finding", "DDS-R05", "Cl.15 (p5)", "well_mismatch", f"report well {ddr.well}")
         payable = False
         reasons.append("the quoted report is for another well")
     unsigned = not (ddr.company_signed and ddr.driller_signed)
     if unsigned:
-        r.add("evidence", "finding", "DDS-R05", "Cl.15 (p5); R8 (p14)", "report_unsigned", "a required signature is a placeholder")
+        r.add("evidence", "finding", "DDS-R05", "Cl.15 (p5); R8 (p14)", "report_unsigned", "; ".join(
+            f"{k} missing or a placeholder" for k, ok in ((records_dds.SIG["company"], ddr.company_signed),
+                                                           (records_dds.SIG["driller"], ddr.driller_signed)) if not ok))
     if part_needed:
-        if part_needed not in ddr.parts:
+        if part_needed not in ddr.parts and "part" in gaps:
+            gap("part", f"has a part heading G2 could not read, so whether Part {part_needed} is present is not established")
+        elif part_needed not in ddr.parts:
             r.add("evidence", "finding", "DDS-R05", "Cl.37 (p8); Sch 5 (p24)", "required_part_missing", f"Part {part_needed} absent")
             payable = False
             reasons.append(f"Schedule 5 Part {part_needed} not completed: record not delivered, not payable (Cl.37; Q3 reading A)")
@@ -182,25 +261,40 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
             reasons.append("Schedule 5 document not delivered in signed form (Cl.15, Cl.37; Q3 reading A)")
             r.readings.append("Q3:A")
     if not any(c.check == "evidence" and c.status == "finding" for c in r.checks):
-        r.add("evidence", "pass", "DDS-R05", "Cl.15 (p5); Cl.37 (p8); Sch 5 (p24)")
+        r.add("evidence", "pass" if not unknown else "unresolved", "DDS-R05", "Cl.15 (p5); Cl.37 (p8); Sch 5 (p24)")
+    if "A" not in ddr.parts:           # recorded; each fact of Part A a service needs then blocks it below
+        r.input_gap("Part A", "unresolved", "input_unresolved", "Cl.15 (p5); R7 (p14)",
+                    "report has no Part A (operations summary) G2 could read", D)
     # 6 status and section as recorded (Cl.19, R7) --------------------------------------------------------------
     status, section = a.get("Status"), a.get("Hole section")
-    if line.get("day_status") != status:
+    status_matters = ((code in T.standby and (T.standby[code] is None or T.standby[code] != 100)) or code == "DD-121"
+                      or code in METRE_TOOL or code in T.section_rated)
+    if status is None and status_matters:
+        gap("A.Status", "Status of the day is not established (Cl.19)")
+    if section is None and (code == "PD-210" or (code in T.section_rated and status != "Standby")):
+        gap("A.Hole section", "Hole section is not established (Cl.19)")
+    if status is not None and not empty(line.get("day_status")) and line.get("day_status") != status:
         r.add("status", "finding", "DDS-R05", "Cl.19 (p6); R7 (p14)", "status_mismatch", f"line {line.get('day_status')}, report {status}")
-    if line.get("hole_section") != section:
+    if section is not None and not empty(line.get("hole_section")) and line.get("hole_section") != section:
         r.add("status", "finding", "DDS-R05", "Cl.19 (p6)", "section_mismatch", f"line {line.get('hole_section')}, report {section}")
     if status == "Standby" and code in T.standby and T.standby[code] is None:
         r.add("status", "finding", "DDS-R13", "Cl.20 (p6); Sch 3 Part 3 (pp20-21)", "not_chargeable_on_standby", f"{code} marked not chargeable")
         payable = False
         reasons.append("service not chargeable on a Standby day in any quantity (Cl.20)")
-    if code == "DD-121" and status != "Standby":
+    if code == "DD-121" and status is not None and status != "Standby":
         r.add("status", "finding", "DDS-R13", "Cl.21 (p6); Sch 3 Part 4 (p21)", "not_chargeable_on_operating", "DD-121 only on a Standby day")
         payable = False
         reasons.append("DD-121 is charged only on a Standby day (Sch 3 Part 4)")
     # 7 quantity ----------------------------------------------------------------------------------------------
-    billed = line["quantity"]
-    tools = {c for c in ddr.tools_in_hole.values() if c}
-    run_tools = {c for c in ddr.tools_in_run.values() if c}
+    billed = line.get("quantity")
+    if empty(billed):
+        r.add("quantity", "unresolved", "DDS-R07", "Cl.34 (p8)", detail="quantity not stated")
+        unresolved.append("quantity: the charge states no quantity (Cl.34)")
+    tools = {c for c in ddr.tools_in_hole.values() if c} if "A.In the hole" not in twice else set()
+    run_tools = {c for c in ddr.tools_in_run.values() if c} if "B.Tools in run" not in twice else set()
+    hole_listed, run_listed = "In the hole" in a, "Tools in run" in b
+    hole_unread = any(c is None for c in ddr.tools_in_hole.values())
+    run_unread = any(c is None for c in ddr.tools_in_run.values())
     q_opts = None           # label -> supported quantity where a reading the text does not settle gives more than one
     part_sets = None        # PD-210: label -> [(band, from, to, quantity, rate)]
     supported, basis = billed, ""
@@ -210,56 +304,118 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
         if code == COORDINATOR:
             basis = f"{rec} coordinator(s) recorded ('night man', App G) per day (Sch 8 intro p27; Q5 reading A)"
             r.readings.append("Q5:A")
+        if "Crew on tour" not in a:
+            gap("A.Crew on tour", "Crew on tour is " + ("written twice" if "A.Crew on tour" in twice else "not recorded"))
+        elif "A.Crew on tour" in gaps and (empty(billed) or rec < billed):
+            gap("A.Crew on tour", "Crew on tour has entries G2 could not read, and those recorded do not support the charge")
     elif code in links.TOOL_DAY_SERVICES:
         bcode = links.TOOL_BASIS.get(code)
         present = bcode in tools
         supported = Decimal("1") if present else Decimal("0")
         basis = f"tool of {bcode} {'recorded' if present else 'not recorded'} in the hole (Cl.28; App G)"
-        if not present:
+        if not present and (not hole_listed or hole_unread):
+            gap("A.In the hole", "In the hole " + ("is not recorded" if not hole_listed else "has terms G2 could not read")
+                + f": whether the tool of {bcode} was in the hole is not established")
+        elif not present:
             r.add("quantity", "finding", "DDS-R06", "Cl.28 (p7); App G (p36)", "tool_not_in_hole", basis)
             payable = False
             reasons.append("a day rental is charged only where the report records the tool in the hole (Cl.28)")
     elif code in HOURLY:
-        q_opts, basis = _hours(code, a, b, ddr, tools, T, qr)
-        if q_opts is None:
-            r.add("quantity", "finding", "DDS-R06", "Cl.21 (p6); Cl.28 (p7)", "tool_not_in_hole", basis)
-            payable, supported = False, Decimal("0")
-            reasons.append("DD-120 needs the rotary steerable in the hole")
-        else:
-            supported = max(q_opts.values())
+        # what the report does not establish (hours 0 to 24 on a day; whether it is the run's first day, Q4 reading C)
+        # matters only if some admissible value of it changes what the charge is allowed under some reading
+        missing = [k for k in ("Circulating hours", "Back-reaming hours") if a.get(k) is None]
+        first_unknown = b.get("Run first day") is None
+        needed = []
+        if code == "DD-120" and "DD-120" not in tools and (not hole_listed or hole_unread):
+            needed.append("A.In the hole")
+        elif missing or first_unknown:
+            variants = []
+            for combo in itertools.product(*[range(25) for _ in missing]):
+                aa = {**a, **dict(zip(missing, combo))}
+                for fd in ([ddr.date, None] if first_unknown else [b.get("Run first day")]):
+                    variants.append(_hours(code, aa, {**b, "Run first day": fd}, ddr, tools, T, qr)[0])
+            if not all(v is None for v in variants) and (empty(billed) or any(
+                    v is None or {min(billed, x) for x in v.values()} != {billed} for v in variants)):
+                needed += [f"A.{k}" for k in missing] + (["B.Run first day"] if first_unknown else [])
+            else:
+                for k in [f"A.{k}" for k in missing] + (["B.Run first day"] if first_unknown else []):
+                    r.input_gap(k, "n/a", None, "Cl.21, Cl.30 (pp6-7); 21A (p35)", f"report {k.split('.', 1)[1]} not "
+                                f"established (G2); every reading supports the billed hours whatever it recorded", D)
+        for k in needed:
+            gap(k, f"{k.split('.', 1)[-1]} is not established (needed for the hours, Cl.21, Cl.30; Q4, Q5)")
+        if not needed and not (missing or first_unknown):
+            q_opts, basis = _hours(code, a, b, ddr, tools, T, qr)
+            if q_opts is None:
+                r.add("quantity", "finding", "DDS-R06", "Cl.21 (p6); Cl.28 (p7)", "tool_not_in_hole", basis)
+                payable, supported = False, Decimal("0")
+                reasons.append("DD-120 needs the rotary steerable in the hole")
+            else:
+                supported = max(q_opts.values())
+        elif not needed:
+            if code == "DD-120" and "DD-120" not in tools:
+                q_opts, basis = _hours(code, {**a, **{k: 0 for k in missing}}, b, ddr, tools, T, qr)
+                r.add("quantity", "finding", "DDS-R06", "Cl.21 (p6); Cl.28 (p7)", "tool_not_in_hole", basis)
+                payable, supported, q_opts = False, Decimal("0"), None
+                reasons.append("DD-120 needs the rotary steerable in the hole")
+            else:
+                supported, basis = billed, (f"the billed {billed} hours are supported under every reading whatever the report "
+                                            f"recorded for {', '.join(missing + (['the run first day'] if first_unknown else []))}")
     elif code in COUNTS:
-        rec = Decimal(a.get(COUNTS[code]) or 0)
-        supported, basis = rec, f"{COUNTS[code]}: {rec} recorded on the report (Cl.30)"
-        if code == "HC-630":
-            per_run = min(rec, Decimal("1"))
-            basis += (f"; Q5 residual: counted as recorded (Cl.30) = {rec}, or one charge per BHA run (Sch 8 row 'each BHA "
-                      f"run') = {per_run}")
-            q_opts = {"Q5-HC630:count (Cl.30)": rec, "Q5-HC630:per BHA run (Sch 8)": per_run}
-            if qr.get("Q5_HC630") == "counts":
-                q_opts = {"Q5-HC630:count (Cl.30)": rec}
-            r.g4_dependencies.append("once_per_run (HC-630 under the Schedule 8 reading, Q5 residual): one charge per BHA run")
+        if a.get(COUNTS[code]) is None:
+            gap(f"A.{COUNTS[code]}", f"{COUNTS[code]} is not established (the count charged, Cl.30)")
+        else:
+            rec = Decimal(a.get(COUNTS[code]))
+            supported, basis = rec, f"{COUNTS[code]}: {rec} recorded on the report (Cl.30)"
+            if code == "HC-630":
+                per_run = min(rec, Decimal("1"))
+                basis += (f"; Q5 residual: counted as recorded (Cl.30) = {rec}, or one charge per BHA run (Sch 8 row 'each BHA "
+                          f"run') = {per_run}")
+                q_opts = {"Q5-HC630:count (Cl.30)": rec, "Q5-HC630:per BHA run (Sch 8)": per_run}
+                if qr.get("Q5_HC630") == "counts":
+                    q_opts = {"Q5-HC630:count (Cl.30)": rec}
+                r.g4_dependencies.append("once_per_run (HC-630 under the Schedule 8 reading, Q5 residual): one charge per BHA run")
     elif code in METRE_TOOL:
-        supported, basis, ok = _metres(code, line, a, tools, r, T, tr)
-        if not ok:
-            payable = False
-            reasons.append(basis)
+        needed = [k for k in ("Depth start (m MD)", "Depth end (m MD)", "Status") if a.get(k) is None]
+        if METRE_TOOL[code] not in tools and (not hole_listed or hole_unread):
+            needed.append("In the hole")
+        for k in needed:
+            gap(f"A.{k}", f"{k} is not established (the metres drilled with the tool, Cl.24, Cl.25)")
+        if not needed and not empty(billed):
+            supported, basis, ok = _metres(code, line, a, tools, r, T, tr)
+            if not ok:
+                payable = False
+                reasons.append(basis)
     elif code == "PD-210":
-        supported, basis, ok, part_sets = _pd210(line, a, r, T, inputs)
-        if ok is None:
-            unresolved.append(basis)
-        elif not ok:
-            payable = False
-            reasons.append(basis)
+        needed = [k for k in ("Depth start (m MD)", "Depth end (m MD)") if a.get(k) is None]
+        if section is None or needed:
+            for k in needed:
+                gap(f"A.{k}", f"{k} is not established (the metres drilled on the day, Cl.23)")
+        elif not empty(billed) or line.get("depth_from_m") is None or line.get("depth_to_m") is None:
+            supported, basis, ok, part_sets = _pd210(line, a, r, T, inputs)
+            if ok is None:
+                unresolved.append(basis)
+            elif not ok:
+                payable = False
+                reasons.append(basis)
     elif code in RUN_EVENTS:
         which, tool = RUN_EVENTS[code]
-        ok_tool = (tool in run_tools) if tool else (b.get("Radioactive source carried") is True)
-        day = b.get("Run last day" if which == "last" else "Run first day")
-        supported = Decimal("1") if ok_tool and day == sd else Decimal("0")
-        basis = f"run {b.get('Run')}: {'motor in the run' if tool else 'source carried'}={ok_tool}; {which} day {day} (Cl.26)"
-        if not ok_tool or day != sd:
-            r.add("quantity", "finding", "DDS-R15", "Cl.26 (p7)", "run_event_not_supported", basis)
-            payable = False
-            reasons.append("per-run charge not supported on this day by the run record (Cl.26)")
+        key = "Run last day" if which == "last" else "Run first day"
+        day = b.get(key)
+        needed = [key] if day is None else []
+        if tool and tool not in run_tools and (not run_listed or run_unread):
+            needed.append("Tools in run")
+        if not tool and b.get("Radioactive source carried") is None:
+            needed.append("Radioactive source carried")
+        for k in needed:
+            gap(f"B.{k}", f"{k} is not established (the run event, Cl.26)")
+        if not needed and not empty(sd):
+            ok_tool = (tool in run_tools) if tool else (b.get("Radioactive source carried") is True)
+            supported = Decimal("1") if ok_tool and day == sd else Decimal("0")
+            basis = f"run {b.get('Run')}: {'motor in the run' if tool else 'source carried'}={ok_tool}; {which} day {day} (Cl.26)"
+            if not ok_tool or day != sd:
+                r.add("quantity", "finding", "DDS-R15", "Cl.26 (p7)", "run_event_not_supported", basis)
+                payable = False
+                reasons.append("per-run charge not supported on this day by the run record (Cl.26)")
         r.g4_dependencies.append("once_per_run (DDS-R15)")
     elif code in WELL_EVENTS:
         supported, basis = Decimal("1"), "once for the well (Cl.27); first/last day of the well is G4 state"
@@ -269,11 +425,14 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
     else:
         r.add("quantity", "unresolved", "DDS-R07", "Sch 8 (pp27-28)", "quantity_rule_missing", code)
         return _finish(r, tr, None, reasons + ["no quantity rule"])
+    blocked = bool(unresolved)
     if code not in METRE_TOOL and code != "PD-210":
-        allowed = min(billed, supported)
+        allowed = None if (empty(billed) or blocked) else min(billed, supported)
         least = min(q_opts.values()) if q_opts else supported
-        if wrong_unit:
-            r.add("quantity", "n/a", "DDS-R08", "Cl.35 (p8)", detail=f"billed in {line['unit']}; supported {supported} {sch['unit']} (Q11)")
+        if blocked or empty(billed):
+            pass
+        elif wrong_unit:
+            r.add("quantity", "n/a", "DDS-R08", "Cl.35 (p8)", detail=f"billed in {unit}; supported {supported} {sch['unit']} (Q11)")
         elif billed > supported and not any(c.finding == "tool_not_in_hole" for c in r.checks) and code not in RUN_EVENTS:
             r.add("quantity", "finding", "DDS-R07", "Cl.21-22, 28, 30 (pp6-7)", "quantity_above_report", f"billed {billed}; {basis}")
         elif billed > least and code not in RUN_EVENTS:
@@ -282,38 +441,61 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
         elif not any(c.check == "quantity" for c in r.checks):
             r.add("quantity", "pass", "DDS-R07", "Cl.21-31 (pp6-7)", detail=basis)
     else:
-        allowed = supported
+        allowed = None if blocked else supported
     # 8 rate --------------------------------------------------------------------------------------------------
     well_class = inv.get("well_class")
     rates = {}              # label -> (rate, Trace); more than one only for class-rated services (F1)
+    priceable = not empty(sd) and not (status is None and status_matters) and not (
+        section is None and code in T.section_rated and status != "Standby")
     if code == "PD-210":
         tr.note("PD-210 priced by Schedule 2 depth band; no class factor (17B, D1); annual footage band 100% (per-well "
                 "records bound 10,002 m < 40,000 m, Q11)", "Sch 2 (p17); Cl.23 (p6); 17B (p35); spec/question_scopes.json Q11_DDS")
     elif code in LOSS:
-        rate = _loss_value(code, sd, ddr, r, tr, T)
-        if rate is None:
-            payable = False
-            reasons.append("loss not evidenced as this tool (Part E)")
-        else:
-            rates[None] = (rate, tr)
-    else:
+        e = {k: v for k, v in ddr.parts.get("E", {}).items() if f"E.{k}" not in twice}
+        if (ddr.lost_tool_code is None or "Lost in hole tool" not in e) and ("E.Lost in hole tool" in gaps or "Lost in hole tool" not in e) \
+                and "E" in ddr.parts:
+            gap("E.Lost in hole tool", "Lost in hole tool is not established (Part E, Cl.31)")
+        elif e.get("Circulating hours accumulated on the well") is None and "E" in ddr.parts and ddr.lost_tool_code == code:
+            gap("E.Circulating hours accumulated on the well", "Circulating hours accumulated on the well is not established (Cl.31)")
+        elif priceable and "E" in ddr.parts:
+            try:
+                rate = _loss_value(code, sd, ddr, r, tr, T, twice)
+            except KeyError as ke:
+                rate = None
+                unresolved.append(f"no published FX for {ke} (Sch 2D p19): the loss value cannot be converted")
+            if rate is None and not unresolved:
+                payable = False
+                reasons.append("loss not evidenced as this tool (Part E)")
+            elif rate is not None:
+                rates[None] = (rate, tr)
+    elif priceable:
         classed = code in T.class_rated
         if classed:
             r.readings.append(f"well class not evidenced: no call-off supplied (Cl.4; P2, P3); the invoice header states "
                               f"{well_class} (the claim, not authority); every class priced")
+        subs = [idate] if not empty(idate) else [None, sd]          # submitted after every issue, or on the service date
         try:
             for cls in (list(T.class_factor) if classed else [None]):
-                trk = Trace()
-                trk.steps = list(tr.steps)
-                rd = []
-                base_rate(code, sd, idate, T, trk, rd)
-                build_up(code, status, section, cls, sd, T, trk)
-                rates[f"class:{cls}" if cls else None] = (trk.value, trk)
+                built = []
+                for s_ in subs:
+                    trk = Trace()
+                    trk.steps = list(tr.steps)
+                    rd = []
+                    base_rate(code, sd, s_, T, trk, rd)
+                    build_up(code, status, section, cls, sd, T, trk)
+                    built.append((trk.value, trk, rd))
+                if any(x[0] != built[0][0] for x in built[1:]):
+                    unresolved.append("invoice_date: a retrospective instrument changes this rate for invoices submitted before "
+                                      "its issue (36A), and the invoice date is not stated")
+                    rates = {}
+                    break
+                rates[f"class:{cls}" if cls else None] = (built[0][0], built[0][1])
                 if not readings:
-                    readings.extend(rd)
+                    readings.extend(built[0][2])
         except KeyError as e:
             rates = {}
             tr.note(f"not priced: no published index for {e} (outside the tables)", "Sch 2C (p18)")
+            unresolved.append(f"no published index for {e} (Sch 2C p18): the rate cannot be built for the service month")
         if classed and len(rates) > 1:
             r.condition("class", "G5", f"Cl.4 (p3): the call-off's well class governs; P2, P3 (p11); App A (p29); no call-off "
                         f"supplied; the invoice header states {well_class} (the claim, not authority)")
@@ -324,23 +506,29 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
     else:
         rate = next(iter(rates.values()))[0] if len(rates) == 1 else None
     r.unit_rate = rate
-    if len(rates) > 1:
-        match = [k for k, (rt, _t) in rates.items() if rt == line["unit_rate"]]
+    ur = line.get("unit_rate")
+    if empty(ur):
+        r.add("rate", "unresolved", "DDS-R09", "Cl.17, Cl.18 (p6); Cl.34 (p8)", detail="unit_rate not stated")
+    elif len(rates) > 1:
+        match = [k for k, (rt, _t) in rates.items() if rt == ur]
         listing = ", ".join(f"{k} {rt}" for k, (rt, _t) in rates.items())
         if match:
             r.add("rate", "unresolved", "DDS-R09", "Cl.4 (p3); Cl.17, Cl.18 (p6)", "rate_differs",
-                  f"billed {line['unit_rate']} is the rate under {', '.join(match)} ({listing}); the class is not established (G5)")
+                  f"billed {ur} is the rate under {', '.join(match)} ({listing}); the class is not established (G5)")
         else:
             r.add("rate", "finding", "DDS-R09", "Cl.17, Cl.18 (p6); instruments pp37-42", "rate_differs",
-                  f"billed {line['unit_rate']} is the rate under no admissible class ({listing})")
-    elif rate is not None and line["unit_rate"] != rate:
-        r.add("rate", "finding", "DDS-R09", "Cl.17, Cl.18 (p6); instruments pp37-42", "rate_differs", f"billed {line['unit_rate']}, contract {rate}")
+                  f"billed {ur} is the rate under no admissible class ({listing})")
+    elif rate is not None and ur != rate:
+        r.add("rate", "finding", "DDS-R09", "Cl.17, Cl.18 (p6); instruments pp37-42", "rate_differs", f"billed {ur}, contract {rate}")
     elif rate is not None:
         r.add("rate", "pass", "DDS-R09", "Cl.17, Cl.18 (p6)")
     # 9 arithmetic --------------------------------------------------------------------------------------------
-    if billed * line["unit_rate"] != line["amount"]:
+    amt = line.get("amount")
+    if empty(billed) or empty(ur) or empty(amt):
+        r.add("arithmetic", "unresolved", "DDS-R20", "Cl.18 (p6); Cl.36 (p8)", detail="quantity, unit_rate or amount not stated")
+    elif billed * ur != amt:
         r.add("arithmetic", "finding", "DDS-R20", "Cl.18 (p6); Cl.36 (p8)", "amount_arithmetic",
-              f"{billed} x {line['unit_rate']} = {billed * line['unit_rate']}, billed {line['amount']}")
+              f"{billed} x {ur} = {billed * ur}, billed {amt}")
     else:
         r.add("arithmetic", "pass", "DDS-R20", "Cl.18 (p6)")
     # G4 dependencies ----------------------------------------------------------------------------------------
@@ -745,8 +933,8 @@ def _metres(code, line, a, tools, r, T, tr):
     return allowed, f"metres drilled {sup}", True
 
 
-def _loss_value(code, sd, ddr, r, tr, T):
-    e = ddr.parts.get("E", {})
+def _loss_value(code, sd, ddr, r, tr, T, twice=frozenset()):
+    e = {k: v for k, v in ddr.parts.get("E", {}).items() if f"E.{k}" not in twice}
     if ddr.lost_tool_code != code:
         r.add("identification", "finding", "DDS-R17", "Cl.31 (p7); App G (p36)", "lost_tool_mismatch", f"Part E tool {ddr.lost_tool_term} -> {ddr.lost_tool_code}")
         return None
@@ -769,19 +957,22 @@ def loss_value(code, sd, hours: Decimal, T, tr: Trace, basis: str, reading: str)
 
 
 def inputs_from_world(w):
+    """(line, invoice, report) for every drilling line of the G2 world (invoice None: its header is not found)."""
     invs = {h.ident: h.values for h in w.claims.rows["dds_headers"]}
     for row in w.claims.rows["dds_lines"]:
         v = row.values
-        yield v, invs[v["invoice_no"]], w.ddr.get(v["report_ref"]) if v.get("report_ref") else None
+        yield v, invs.get(v.get("invoice_no")), w.ddr.get(v["report_ref"]) if v.get("report_ref") else None
 
 
 def input_context(w) -> dict[str, Inputs]:
     """Per line ident: provenance of the line, its invoice and its report, and the report's fields in G2's queue."""
     invs = {h.ident: h for h in w.claims.rows["dds_headers"]}
-    gaps = {}
+    gaps, repeated = {}, {}
     for u in w.queue.items:
         if u.kind == "ddr":
             gaps.setdefault(u.ident, set()).add(u.field)
+            if u.reason == "key repeated":
+                repeated.setdefault(u.ident, set()).add(u.field)
     unindexed = any(u.kind == "ddr" and u.field == "Report" for u in w.queue.items)
     out = {}
     for row in w.claims.rows["dds_lines"]:
@@ -790,7 +981,8 @@ def input_context(w) -> dict[str, Inputs]:
         ddr = w.ddr.get(v["report_ref"]) if v.get("report_ref") else None
         out[row.ident] = Inputs(f"{row.source.path}:{row.source.line}", f"{h.source.path}:{h.source.line}" if h else None,
                                 ddr.path if ddr is not None else None,
-                                frozenset(gaps.get(ddr.file, ())) if ddr is not None else frozenset(), unindexed)
+                                frozenset(gaps.get(ddr.file, ())) if ddr is not None else frozenset(), unindexed,
+                                frozenset(repeated.get(ddr.file, ())) if ddr is not None else frozenset())
     return out
 
 

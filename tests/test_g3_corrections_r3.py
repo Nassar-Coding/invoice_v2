@@ -200,3 +200,110 @@ def test_batch_contains_an_engine_error_and_carries_on(base, monkeypatch):
     res = g3_dds.run(w)
     assert res["MDS-00018-023"].amount_status == "unresolved" and "engine_error" in res["MDS-00018-023"].unresolved
     assert len(res) == len(res0) and res["MDS-00018-039"].amount == res0["MDS-00018-039"].amount
+
+
+# ---------------------------------------------------------------------------------------------------- X8 nullable sweep
+import yaml  # noqa: E402
+
+import null_sweep as ns  # noqa: E402
+from audit import g3_cw  # noqa: E402
+
+
+@pytest.fixture(scope="module")
+def both(base):
+    w, dds = base
+    return w, {"CW": g3_cw.run(w), "DDS": dds}
+
+
+@pytest.fixture(scope="module")
+def old_x8(both):
+    w, res = both
+    return ns.x8(w, res, ns.Engines(old_module("g3_cw"), old_module("g3_dds")))
+
+
+def test_x8_passes_on_every_code_family(both):
+    w, res = both
+    stats = {}
+    assert vg.x8(w, res, stats=stats) == []
+    fams = yaml.safe_load((ROOT / "spec/g3_code_families.yaml").read_text())["contracts"]
+    want = {f"{c} family {f['id']}" for c, fs in fams.items() for f in fs}
+    assert want == {k for k in stats if " family " in k}                      # all 18 families, incl. no-billed-line ones
+    assert stats["mutations"] > 9000 and stats["batch_runs"] > 190
+    assert stats["explicit_unresolved"] > 1000 and stats["registered"] > 100 and stats["irrelevant_unchanged"] > 5000
+
+
+def test_x8_control_the_gate3_r2_engine_fails(old_x8):
+    """The engine the re-audit tested: exceptions (the PD-210 depths among them), rejections without a contract rule,
+    and a batch that stops."""
+    errs, stats = old_x8
+    assert stats["exceptions"] > 900 and stats["silent"] > 1000
+    assert any("depth_from_m" in e and "exception TypeError" in e for e in errs)
+    assert any("CW" in e and " unit=" in e and "not payable without the contract's own rule" in e for e in errs)
+    assert any(e.startswith("DDS batch with line depth_from_m empty: exception TypeError") for e in errs)
+
+
+def _cw_variant(evaluate, run=None):
+    m = types.SimpleNamespace(evaluate=evaluate, input_context=g3_cw.input_context, inputs_from_world=g3_cw.inputs_from_world)
+
+    def default_run(w):
+        ctx, out = g3_cw.input_context(w), {}
+        for row, (line, app, rec, ex) in zip(w.claims.rows["cw_lines"], g3_cw.inputs_from_world(w)):
+            r = evaluate(line, app, rec, ex, inputs=ctx[row.ident])
+            out[r.line_ref or row.ident] = r
+        return out
+    m.run = run or default_run
+    return m
+
+
+def _x8_with(both, cw_mod):
+    w, res = both
+    return ns.x8(w, res, ns.Engines(cw_mod, g3_dds))[0]
+
+
+def test_x8_control_a_silently_defaulted_zone(both):
+    def zone_z1(line, app, record, exists, band_pct=None, T=None, inputs=None):
+        if not (line.get("site_zone") or "").strip():
+            line = {**line, "site_zone": "Z1 Compound"}                          # the default X8 must catch
+        return g3_cw.evaluate(line, app, record, exists, band_pct=band_pct, T=T, inputs=inputs)
+    errs = _x8_with(both, _cw_variant(zone_z1))
+    assert any("site_zone" in e and "does not name it (silent)" in e for e in errs)
+
+
+def test_x8_control_a_named_default_is_still_a_default(both):
+    def zone_z1_named(line, app, record, exists, band_pct=None, T=None, inputs=None):
+        blank = not (line.get("site_zone") or "").strip()
+        r = g3_cw.evaluate({**line, "site_zone": "Z1 Compound"} if blank else line, app, record, exists, band_pct=band_pct, T=T, inputs=inputs)
+        if blank:
+            r.readings.append("site_zone not stated: taken as Z1")
+        return r
+    errs = _x8_with(both, _cw_variant(zone_z1_named))
+    assert any("site_zone" in e and "fixes a value" in e for e in errs)
+
+
+def test_x8_control_an_overcautious_engine_loses_a_known_value(both):
+    def overcautious(line, app, record, exists, band_pct=None, T=None, inputs=None):
+        r = g3_cw.evaluate(line, app, record, exists, band_pct=band_pct, T=T, inputs=inputs)
+        if app is not None and not (app.get("contract_ref") or "").strip():
+            r.amount_status, r.payable, r.amount, r.allowed_quantity, r.unit_rate, r.alternatives = "unresolved", None, None, None, None, {}
+        return r
+    errs = _x8_with(both, _cw_variant(overcautious))
+    assert any("contract_ref" in e and "a known value lost" in e for e in errs)
+
+
+def test_x8_control_a_batch_that_drops_lines(both):
+    def dropping_run(w):
+        return {k: r for k, r in g3_cw.run(w).items()
+                if next(x for x in w.claims.rows["cw_lines"] if x.ident == k).values.get("quantity") is not None}
+    errs = _x8_with(both, _cw_variant(g3_cw.evaluate, dropping_run))
+    assert any("CW batch with line quantity empty" in e and "results for" in e for e in errs)
+
+
+def test_x8_control_a_batch_that_is_not_the_direct_evaluation(both):
+    def provenance_lost_run(w):
+        out = {}
+        for row, (line, app, rec, ex) in zip(w.claims.rows["cw_lines"], g3_cw.inputs_from_world(w)):
+            r = g3_cw.evaluate(line, app, rec, ex)                               # G2's provenance dropped on the way
+            out[r.line_ref or row.ident] = r
+        return out
+    errs = _x8_with(both, _cw_variant(g3_cw.evaluate, provenance_lost_run))
+    assert any("differs from its direct evaluation" in e for e in errs)

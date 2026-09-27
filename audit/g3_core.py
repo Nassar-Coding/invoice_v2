@@ -84,6 +84,7 @@ class Inputs:
     doc_src: str | None = None              # path of the record/report the line cites
     doc_gaps: frozenset = frozenset()       # fields of that document in G2's unresolved queue ("Date", "A.Status", ...)
     unindexed_reports: bool = False         # some report file has no indexable Report number (G2 queue)
+    doc_repeated: frozenset = frozenset()   # of those, fields written twice: G2 keeps a value, but which is right is open
 
 
 def empty(v) -> bool:

@@ -977,6 +977,18 @@ def x7(w, res: dict, committed: dict | None = None) -> list[str]:
     return errs
 
 
+# ============================================================================== X8 inputs G2 can leave empty
+def x8(w, res: dict, cw=None, dds=None, stats: dict | None = None) -> list[str]:
+    """Every field G2 can leave None or unresolved (claims, records, reports; G2's own inventory) x every code family,
+    through the engines and the batch: an explicit result - no exception, no silent default, no lost value
+    (tools/null_sweep.py). cw/dds: the engine modules under test (an earlier version for the negative control)."""
+    import null_sweep
+    errs, st = null_sweep.x8(w, res, null_sweep.Engines(cw or g3_cw, dds or g3_dds))
+    if stats is not None:
+        stats.update(st)
+    return errs
+
+
 def comparison_reproduces(comparison: dict) -> list[str]:
     committed = (OUT / "case_comparison.json").read_text() if (OUT / "case_comparison.json").exists() else None
     fresh = json.dumps(comparison, indent=1, default=str) + "\n"
@@ -1006,7 +1018,10 @@ def main() -> int:
         ("X6 billed rate/amount and claim-stated classifications (well class, ground class, section, status) never change a contract value",
          lambda: x6(w, res) + x6(w, res, mutate=perturb_claim_classes)),
         ("X7 committed G3 outputs reproduce; every result carries the current run context", lambda: x7(w, res)),
+        ("X8 every input G2 can leave empty or unresolved, in every code family, gives an explicit result through the "
+         "engines and the batch: no exception, no silent default, no lost value", lambda: x8(w, res, stats=x8_stats)),
     ]
+    x8_stats = {}
     ok = True
     n_lines = sum(len(v) for v in res.values())
     print(f"G3 population: {n_lines} lines (CW {len(res['CW'])}, DDS {len(res['DDS'])}); cases {comparison['cases']}; "
@@ -1014,6 +1029,13 @@ def main() -> int:
     for name, fn in checks:
         e = fn()
         print(("PASS " if not e else "FAIL ") + name)
+        if name.startswith("X8") and x8_stats:
+            fams = sorted(k.split(" family ")[1] for k in x8_stats if " family " in k)
+            print(f"     {x8_stats.get('mutations')} input states on {len(fams)} code families; "
+                  f"{x8_stats.get('explicit_unresolved', 0)} unresolved and named, {x8_stats.get('registered', 0)} not payable "
+                  f"by the contract's rule, {x8_stats.get('all_values_carried', 0)} carrying every value, "
+                  f"{x8_stats.get('irrelevant_unchanged', 0)} unchanged (input not used); "
+                  f"{x8_stats.get('out_of_scope_value_accepted_by_G2', 0)} out of scope; {x8_stats.get('batch_runs')} batch runs")
         for x in e[:20]:
             print("     -", x)
         if len(e) > 20:
