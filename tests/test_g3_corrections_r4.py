@@ -481,3 +481,38 @@ def test_fd05_control_gate3_r3_reads_unknown_as_daytime(night_world, r3):
     assert line["night_work"] == "??" and not any(u.field == "night_work" and u.ident == "PA-00001-04" for u in c.queue.items)
     r = r3.g3_cw.evaluate(line, app, rec, True)
     assert (r.amount_status, r.amount) == ("determined", Decimal("17730.62"))
+
+
+# ============================================================================================ FD06 DDS arithmetic
+def _pd210_charge(w, qty, amount, engine=g3_dds):
+    """MDS-00018-023 (PD-210, report 1792-1944 m) charged at `qty` m, USD 58.15, `amount`."""
+    line, inv, ddr = _dds_line(w, "MDS-00018-023")
+    line = {**line, "quantity": Decimal(qty), "amount": Decimal(amount)}
+    kw = {"inputs": _ctx(w, "DDS")["MDS-00018-023"]} if engine is g3_dds else {}
+    return engine.evaluate(line, inv, ddr, **kw)
+
+
+# (quantity, billed amount, arithmetic finding expected): 152.5 x 58.15 = 8,867.875 -> 8,867.88 (tie, up to even);
+# 152.3 x 58.15 = 8,856.245 -> 8,856.24 (tie, down to even); 152.2 x 58.15 = 8,850.43 (exact); 152.33 x 58.15 =
+# 8,857.9895 -> 8,857.99 (not a tie); wrong cents on each
+FD06 = [("152.5", "8867.88", False), ("152.3", "8856.24", False), ("152.2", "8850.43", False), ("152.33", "8857.99", False),
+        ("152.5", "8867.87", True), ("152.3", "8856.25", True), ("152.2", "8850.44", True), ("152.33", "8857.98", True)]
+
+
+@pytest.mark.parametrize("qty, amount, wrong", FD06)
+def test_fd06_arithmetic_uses_the_contracts_cent_rounding(world, qty, amount, wrong):
+    r = _pd210_charge(world, qty, amount)
+    assert ("amount_arithmetic" in r.findings) is wrong
+    arith = next(c for c in r.checks if c.check == "arithmetic")
+    assert arith.status == ("finding" if wrong else "pass")
+
+
+def test_fd06_other_findings_are_kept(world):
+    """152.5 m is within 25A's 1% of the report's 152 m: no arithmetic finding; the nomination condition stays."""
+    r = _pd210_charge(world, "152.5", "8867.88")
+    assert "amount_arithmetic" not in r.findings and any(c["dimension"] == "nomination" for c in r.conditions)
+
+
+def test_fd06_control_gate3_r3_flags_a_correctly_rounded_amount(world, r3):
+    for qty, amount in (("152.5", "8867.88"), ("152.3", "8856.24")):
+        assert "amount_arithmetic" in _pd210_charge(world, qty, amount, engine=r3.g3_dds).findings

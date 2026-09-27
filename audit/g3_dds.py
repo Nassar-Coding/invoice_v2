@@ -578,11 +578,14 @@ def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict 
     amt = line.get("amount")
     if empty(billed) or empty(ur) or empty(amt):
         r.add("arithmetic", "unresolved", "DDS-R20", "Cl.18 (p6); Cl.36 (p8)", detail="quantity, unit_rate or amount not stated")
-    elif billed * ur != amt:
-        r.add("arithmetic", "finding", "DDS-R20", "Cl.18 (p6); Cl.36 (p8)", "amount_arithmetic",
-              f"{billed} x {ur} = {billed * ur}, billed {amt}")
+    elif to_cents(billed * ur, "half_even") != amt:
+        # FD06: the amount is quantity x rate ascertained in cents, a fraction of a cent half to even (Cl.17, Cl.18) -
+        # the same rounding the valuation trace applies (_amount_step)
+        r.add("arithmetic", "finding", "DDS-R20", "Cl.17, Cl.18 (p6); Cl.36 (p8)", "amount_arithmetic",
+              f"{billed} x {ur} = {billed * ur}, in cents {to_cents(billed * ur, 'half_even')}, billed {amt}")
     else:
-        r.add("arithmetic", "pass", "DDS-R20", "Cl.18 (p6)")
+        r.add("arithmetic", "pass", "DDS-R20", "Cl.17, Cl.18 (p6)",
+              detail="" if billed * ur == amt else f"{billed} x {ur} = {billed * ur}, in cents (half to even) {amt}")
     # G4 dependencies ----------------------------------------------------------------------------------------
     if code in T.limited:
         r.g4_dependencies.append("daily_limit (DDS-R14, D6)")
