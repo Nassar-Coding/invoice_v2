@@ -73,6 +73,24 @@ class Trace:
         return v
 
 
+@dataclass(frozen=True)
+class Inputs:
+    """What G2 hands G3 besides the typed values (round 3): where the line, its header and its evidence document come
+    from, and the fields of that document G2 could not establish (its unresolved queue). An engine never defaults a
+    missing input: it records it with this provenance (drilling guidelines principle 3, check 12) and leaves any value
+    that depends on it unresolved."""
+    line_src: str | None = None             # "file:line" of the claim row
+    header_src: str | None = None           # "file:line" of its application/invoice header
+    doc_src: str | None = None              # path of the record/report the line cites
+    doc_gaps: frozenset = frozenset()       # fields of that document in G2's unresolved queue ("Date", "A.Status", ...)
+    unindexed_reports: bool = False         # some report file has no indexable Report number (G2 queue)
+
+
+def empty(v) -> bool:
+    """A value G2 left empty: None (typed fields, unparsed evidence) or a blank string (untyped claim fields)."""
+    return v is None or (isinstance(v, str) and not v.strip())
+
+
 @dataclass
 class Check:
     check: str                  # identity | term | window | period | unit | evidence | identification | quantity | rate | arithmetic | status
@@ -118,6 +136,10 @@ class LineResult:
 
     def add(self, check, status, rule, clause, finding=None, detail=""):
         self.checks.append(Check(check, status, rule, clause, finding, str(detail)))
+
+    def input_gap(self, field: str, status: str, finding: str, clause: str, why: str, src: str | None) -> None:
+        """An input G2 left empty or could not establish, recorded with its provenance - never replaced by a default."""
+        self.add("input", status, "G3-IN", clause, finding, f"{field}: {why} [{src or 'source not given'}]")
 
     def to_json(self) -> dict:
         s = lambda v: None if v is None else str(v)  # noqa: E731

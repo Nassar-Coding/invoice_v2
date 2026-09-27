@@ -24,7 +24,7 @@ import itertools
 from decimal import Decimal
 
 from . import links, terms
-from .g3_core import LineResult, Trace
+from .g3_core import Inputs, LineResult, Trace
 from .g3_core import q as to_cents
 
 CONTRACT_REF = "DDS-2025-118"
@@ -96,9 +96,12 @@ def pd210_parts(start: Decimal, end: Decimal, T):
     return parts
 
 
-def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None = None) -> LineResult:
+def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None = None, inputs: Inputs | None = None) -> LineResult:
+    """inputs: provenance and G2's unresolved fields for this line (round 3); None when a caller has none to give."""
     T = T or terms.dds()
     qr = question_readings or {}
+    inputs = inputs or Inputs()
+    unresolved = []         # why the value cannot be established here (an input G2 left empty); never defaulted
     code = line["service_code"]
     r = LineResult("DDS", line["line_ref"], code)
     tr, readings = Trace(), []
@@ -241,8 +244,10 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
             payable = False
             reasons.append(basis)
     elif code == "PD-210":
-        supported, basis, ok, part_sets = _pd210(line, a, r, T)
-        if not ok:
+        supported, basis, ok, part_sets = _pd210(line, a, r, T, inputs)
+        if ok is None:
+            unresolved.append(basis)
+        elif not ok:
             payable = False
             reasons.append(basis)
     elif code in RUN_EVENTS:
@@ -348,6 +353,8 @@ def evaluate(line: dict, inv: dict, ddr, T=None, question_readings: dict | None 
         reasons.append("nothing chargeable under the quantity rules")
     if not payable:
         return _finish(r, tr, payable, reasons)
+    if unresolved:          # established consequences above stand; otherwise the value waits on the missing input
+        return _unresolved(r, tr, reasons, unresolved)
     # every admissible result: quantity readings x class rates, or PD-210 part sets; Q11 (wrong unit) adds reading B
     options = {}
     if code == "PD-210":
@@ -529,13 +536,67 @@ def _hours(code, a, b, ddr, tools, T, qr):
     return out, basis + (f"; Q4 reading {fixed} applied" if fixed else "")
 
 
-def _pd210(line, a, r, T):
+def _unresolved(r, tr, reasons, why: list[str], owner: str = "G5") -> LineResult:
+    """A value that depends on an input G2 left empty: no amount, no default, the reason and who resolves it (a query to the
+    contractor, reported at G5). Every check that did not need the input has run and stays on the result."""
+    r.payable, r.reasons = None, reasons + why
+    r.amount_status = "unresolved"
+    r.allowed_quantity = r.amount = r.unit_rate = None
+    r.alternatives = {}
+    r.conditions = [{"dimension": "input", "owner": owner, "basis": "; ".join(why)}] + \
+        [c for c in r.conditions if c["dimension"] == "nomination"]
+    if r.code == "PD-210" and "Q8:performance-section nomination not supplied" in r.readings and not any(
+            c["dimension"] == "nomination" for c in r.conditions):
+        r.condition("nomination", "G5", "Cl.23 (p6), App A (p29): PD-210 only on a section the call-off nominates; no call-off supplied")
+    tr.note("value unresolved: " + "; ".join(why), "Cl.34 (p8); drilling guidelines principle 3 and check 12")
+    r.trace = tr.steps
+    return r
+
+
+def _pd210_depths_missing(line, a, r, T, f, t, inputs):
+    """Cl.34 (p8): a PD-210 charge states 'the depths at which the charged interval starts and ends'. Without them, which
+    metres the charge is for - so the metres the report supports for it (25A) and the band they lie in (Cl.23) - cannot be
+    established from the charge. The value is unresolved (owner G5: a query to the contractor); the interval is never
+    guessed from the report and never set to zero. What holds for EVERY interval inside the report's measured one is kept:
+    the metres drilled on the day, the bands and their rates, a charge above the day's metres (25A), and the rate where
+    the day's drilling lies in one band."""
+    gone = [n for n, v in (("depth_from_m", f), ("depth_to_m", t)) if v is None]
+    other = [f"{n} {v}" for n, v in (("depth_from_m", f), ("depth_to_m", t)) if v is not None]
+    for n in gone:
+        r.input_gap(n, "finding", "depths_missing", "Cl.34 (p8)",
+                    "the charge states no " + ("start" if n == "depth_from_m" else "end") + " depth"
+                    + (f" (it states {', '.join(other)})" if other else ""), inputs.line_src)
+    why = (f"PD-210 charge without its {' and '.join(gone)} (Cl.34): the metres the report supports for the charge and the "
+           f"band they lie in cannot be established from it; not guessed from the report, not zero")
+    billed = line["quantity"]
+    s_raw, e_raw = a.get("Depth start (m MD)"), a.get("Depth end (m MD)")
+    if s_raw is None or e_raw is None:
+        return None, why + "; the report's measured depths are not established either", None, None
+    start, end = Decimal(s_raw), Decimal(e_raw)
+    day = max(end - start, Decimal("0"))
+    bands = pd210_parts(start, end, T)
+    r.readings.append(f"known without the charge's depths: the report measures {start}-{end} m, {day} m drilled on the day, in "
+                      + ", ".join(f"band {b} ({pa}-{pb} m) at {rt}" for b, pa, pb, rt in bands))
+    if billed is not None and billed > day * (1 + T.metre_tolerance / 100):
+        r.add("quantity", "finding", "DDS-R07", "Cl.23 (p6); 25A (p35)", "quantity_above_report",
+              f"billed {billed} m; the report measures {day} m drilled on the day, so no interval of that day supports more "
+              f"than {day} m (whatever depths the charge would state)")
+    if len(bands) == 1 and line.get("unit_rate") is not None:
+        rate = bands[0][3]
+        if line["unit_rate"] != rate:
+            r.add("rate", "finding", "DDS-R09", "Sch 2 (p17); Cl.23 (p6)", "rate_differs",
+                  f"billed {line['unit_rate']}; every metre drilled on the day lies in band {bands[0][0]} ({rate})")
+        else:
+            r.add("rate", "pass", "DDS-R09", "Sch 2 (p17); Cl.23 (p6)", detail=f"every metre drilled on the day lies in band {bands[0][0]}")
+    return None, why, None, None
+
+
+def _pd210(line, a, r, T, inputs=None):
     """PD-210 (Cl.23, 25A; F4): the allowed metres (25A: as charged within 1% of the metres the report supports for the
     charged interval, else the supported metres), priced by the band the metres lie in. The parts always carry the allowed
     quantity: in one band the charged metres take that band's rate; across bands a difference between the charged
     metres and the interval cannot be placed from the charge (-> every admissible allocation, or the two extremes and the
     whole domain beyond ENUMERATE_MAX: 'tolerance', owner G5; B2)."""
-    start, end = Decimal(a.get("Depth start (m MD)")), Decimal(a.get("Depth end (m MD)"))
     billed = line["quantity"]
     f, t = line.get("depth_from_m"), line.get("depth_to_m")
     section = a.get("Hole section")
@@ -543,6 +604,9 @@ def _pd210(line, a, r, T):
         r.add("quantity", "finding", "DDS-R19", "Cl.23 (p6); App A (p29)", "not_performance_section", f"section {section}")
         return Decimal("0"), f"PD-210 only on a performance-drilled (12-1/4 or 8-1/2 inch) section; report section {section}", False, None
     r.readings.append("Q8:performance-section nomination not supplied")
+    if f is None or t is None:
+        return _pd210_depths_missing(line, a, r, T, f, t, inputs or Inputs())
+    start, end = Decimal(a.get("Depth start (m MD)")), Decimal(a.get("Depth end (m MD)"))
     lo, hi = max(f, start), min(t, end)
     sup = max(hi - lo, Decimal("0"))
     within = billed <= sup * (1 + T.metre_tolerance / 100)
@@ -711,10 +775,43 @@ def inputs_from_world(w):
         yield v, invs[v["invoice_no"]], w.ddr.get(v["report_ref"]) if v.get("report_ref") else None
 
 
+def input_context(w) -> dict[str, Inputs]:
+    """Per line ident: provenance of the line, its invoice and its report, and the report's fields in G2's queue."""
+    invs = {h.ident: h for h in w.claims.rows["dds_headers"]}
+    gaps = {}
+    for u in w.queue.items:
+        if u.kind == "ddr":
+            gaps.setdefault(u.ident, set()).add(u.field)
+    unindexed = any(u.kind == "ddr" and u.field == "Report" for u in w.queue.items)
+    out = {}
+    for row in w.claims.rows["dds_lines"]:
+        v = row.values
+        h = invs.get(v.get("invoice_no"))
+        ddr = w.ddr.get(v["report_ref"]) if v.get("report_ref") else None
+        out[row.ident] = Inputs(f"{row.source.path}:{row.source.line}", f"{h.source.path}:{h.source.line}" if h else None,
+                                ddr.path if ddr is not None else None,
+                                frozenset(gaps.get(ddr.file, ())) if ddr is not None else frozenset(), unindexed)
+    return out
+
+
+def engine_error(line: dict, ident: str, e: Exception) -> LineResult:
+    """The batch never stops on one line: an exception becomes an explicit result naming it (X3 fails on any)."""
+    r = LineResult("DDS", line.get("line_ref") or ident, line.get("service_code") or "")
+    r.add("engine", "unresolved", "G3-ENGINE", "G3 engine", "engine_error", f"{type(e).__name__}: {e}")
+    r.amount_status, r.payable, r.family = "unresolved", None, "DDS-ENGINE-ERROR"
+    r.reasons.append(f"engine error ({type(e).__name__}): the line is not valued; a defect in G3, not a finding on the invoice")
+    r.conditions = [{"dimension": "engine", "owner": "G3", "basis": "engine error"}]
+    return r
+
+
 def run(w, T=None) -> dict[str, LineResult]:
     out = {}
-    for line, inv, ddr in inputs_from_world(w):
-        res = evaluate(line, inv, ddr, T=T)
+    ctx = input_context(w)
+    for row, (line, inv, ddr) in zip(w.claims.rows["dds_lines"], inputs_from_world(w)):
+        try:
+            res = evaluate(line, inv, ddr, T=T, inputs=ctx[row.ident])
+        except Exception as e:  # noqa: BLE001 - recorded on the line, never swallowed: X3 fails on engine_error
+            res = engine_error(line, row.ident, e)
         res.ctx = w.run_context["id"] if w.run_context else None
-        out[res.line_ref] = res
+        out[res.line_ref or row.ident] = res
     return out

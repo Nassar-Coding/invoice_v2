@@ -713,7 +713,7 @@ def x3(results: dict, T=None) -> list[str]:
     T = T or {"CW": terms.cw(), "DDS": terms.dds()}
     for contract, rs in results.items():
         for ref, r in rs.items():
-            e = []
+            e = [f"engine error: {c.detail}" for c in r.checks if c.finding == "engine_error"]   # contained, never passed
             if r.amount_status in ("determined", "conditional", "alternatives") and r.payable:
                 if r.amount is not None:
                     e += _check_trace(contract, r.code, r.trace, T, r.amount, r.allowed_quantity, r.unit_rate)

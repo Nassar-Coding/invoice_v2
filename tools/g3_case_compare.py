@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT))
 
 from audit import g3_cw, g3_dds, records_cw, records_dds  # noqa: E402
 from audit.common import Queue  # noqa: E402
+from audit.g3_core import Inputs  # noqa: E402
 
 DIR = ROOT / "verification" / "g3" / "cases"
 OUT = ROOT / "verification" / "g3" / "case_comparison.json"
@@ -113,10 +114,12 @@ def engine_result(case: dict):
             "unit_rate": _d(l["unit_rate"]), "amount": _d(l["amount"]), "service_date": _date(l["service_date"]),
             "well_name": l["well_name"], "hole_section": l["hole_section"], "day_status": l["day_status"],
             "depth_from_m": _d(l.get("depth_from_m")), "depth_to_m": _d(l.get("depth_to_m")), "report_ref": l["report_ref"]}
-    ddr = None
+    ddr, q = None, Queue()
     if case.get("report"):
-        ddr = records_dds.parse_file(f"drilling_services/records/{l['report_ref']}.txt", case["report"], Queue())
-    return g3_dds.evaluate(line, inv, ddr, question_readings=case.get("question_readings") or {})
+        ddr = records_dds.parse_file(f"drilling_services/records/{l['report_ref']}.txt", case["report"], q)
+    inputs = Inputs(f"case {case['id']} line", f"case {case['id']} invoice", ddr.path if ddr is not None else None,
+                    frozenset(u.field for u in q.items if ddr is not None and u.ident == ddr.file))
+    return g3_dds.evaluate(line, inv, ddr, question_readings=case.get("question_readings") or {}, inputs=inputs)
 
 
 def _split(label: str | None):
