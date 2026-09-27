@@ -496,7 +496,8 @@ def _pd210_charge(w, qty, amount, engine=g3_dds):
 # 152.3 x 58.15 = 8,856.245 -> 8,856.24 (tie, down to even); 152.2 x 58.15 = 8,850.43 (exact); 152.33 x 58.15 =
 # 8,857.9895 -> 8,857.99 (not a tie); wrong cents on each
 FD06 = [("152.5", "8867.88", False), ("152.3", "8856.24", False), ("152.2", "8850.43", False), ("152.33", "8857.99", False),
-        ("152.5", "8867.87", True), ("152.3", "8856.25", True), ("152.2", "8850.44", True), ("152.33", "8857.98", True)]
+        ("152.5", "8867.87", True), ("152.3", "8856.25", True), ("152.2", "8850.44", True), ("152.33", "8857.98", True),
+        ("152.5", "8867.875", False)]      # the exact product billed to a fraction of a cent: the multiplication is right
 
 
 @pytest.mark.parametrize("qty, amount, wrong", FD06)

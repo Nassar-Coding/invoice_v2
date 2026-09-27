@@ -2,11 +2,9 @@
  "cases": 192,
  "expected": 192,
  "comparisons": 903,
- "agree": 857,
+ "agree": 858,
  "disposed": 45,
- "failures": [
-  "DDS-S76 findings: reader ['band_crossing_not_split', 'depths_differ_from_quantity'] engine ['amount_arithmetic', 'band_crossing_not_split', 'depths_differ_from_quantity']"
- ],
+ "failures": [],
  "categories": [
   "A.16.010 dewatering week",
   "A1 row effective 2025-10-01 (not the instrument date 2025-09-28)",
@@ -5705,11 +5703,10 @@
     "depths_differ_from_quantity"
    ],
    "engine": [
-    "amount_arithmetic",
     "band_crossing_not_split",
     "depths_differ_from_quantity"
    ],
-   "agree": false
+   "agree": true
   },
   {
    "id": "DDS-S76",
