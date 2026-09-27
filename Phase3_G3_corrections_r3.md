@@ -298,7 +298,7 @@ These found the defects below. Items 1–8 are fixed in `ed7ba60` and `b3a39e4`,
 | Fix 2 follow-up, header numbers (`b3a39e4`) | 08:51 |
 | Report, first version (`89d3202`) | 08:53 |
 | Control corrected (`cdcd355`) | 08:58 |
-| Fresh clone of `cdcd355`: `check_g3.sh` passed (272 tests, X1–X8) | 09:12, 605 s |
+| Fresh clone of `cdcd355`: `check_g3.sh` passed (272 tests, X1–X8) | 08:58–09:08, 605 s |
 | Final commit; fresh-clone run at the final SHA | in the conversation |
 
 Each local `check_g3.sh` run takes about 9 minutes, of which the full test suite is 8 minutes 17 seconds. X8 takes about 35 seconds.
