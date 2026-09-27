@@ -210,13 +210,23 @@ def _x3(r):
     return vg.x3({"DDS": {"case": r}})
 
 
+def _in_domain(dom, qs):
+    """FD07: an allocation lies in the continuous domain when it carries the sum and each band is within its bounds."""
+    return sum(qs, Decimal(0)) == Decimal(dom["sum_m"]) and all(
+        Decimal(p["min_m"]) <= q <= Decimal(p["max_m"]) for q, p in zip(qs, dom["parts"]))
+
+
 def test_b2_98_m_carries_every_allocation():
     r = _case("DDS-S72")
     assert r.amount is None and r.allowed_quantity == Decimal("98") and r.payable
-    assert _allocs(r) == {(Decimal(48), Decimal(50)), (Decimal(49), Decimal(49)), (Decimal(50), Decimal(48))}
-    assert sorted(str(a["amount"]) for a in r.alternatives.values()) == ["4908.70", "4924.50", "4940.30"]
+    d = next(c for c in r.conditions if c["dimension"] == "tolerance")["domain"]
+    assert all(_in_domain(d, qs) for qs in [(Decimal(48), Decimal(50)), (Decimal(49), Decimal(49)), (Decimal(50), Decimal(48)),
+                                            (Decimal("49.5"), Decimal("48.5"))])        # FD07: not only whole metres
+    assert sorted(str(a["amount"]) for a in r.alternatives.values()) == ["4908.70", "4940.30"]    # witnesses at the bounds
+    assert d["amount_bounds_usd"] == {"min": "4908.70", "max": "4940.30", "kind": "exact"}
     dom = next(c for c in r.conditions if c["dimension"] == "tolerance")
-    assert dom["owner"] == "G5" and dom["domain"]["count"] == 3 and dom["domain"]["mode"] == "enumerated"
+    assert dom["owner"] == "G5" and dom["domain"]["count"] is None and dom["domain"]["mode"] == "continuous" and \
+        dom["domain"]["step_m"] is None
     assert _x3(r) == []
 
 
@@ -224,9 +234,9 @@ def test_b2_40_m_is_never_an_empty_payable_result():
     r = _case("DDS-S73")
     assert r.payable and r.allowed_quantity == Decimal("40") and r.alternatives        # was: no amount, no alternatives
     dom = next(c for c in r.conditions if c["dimension"] == "tolerance")["domain"]
-    assert (dom["mode"], dom["count"], dom["listed"]) == ("bounds", 41, 2)
+    assert (dom["mode"], dom["count"], len(dom["samples"])) == ("continuous", None, 2)
     assert [(p["min_m"], p["max_m"]) for p in dom["parts"]] == [("0", "40"), ("0", "40")]
-    assert "39 allocations between the two listed extremes" in dom["not_listed"] and "G5" in dom["not_listed"]
+    assert "every other allocation in the domain" in dom["remainder"] and "G5" in dom["remainder"]
     assert sorted(str(a["amount"]) for a in r.alternatives.values()) == ["1694.00", "2326.00"]
     assert _x3(r) == []
 
@@ -242,7 +252,7 @@ def test_b2_control_x3_rejects_the_incomplete_domain(monkeypatch):
     monkeypatch.setattr(g3_dds, "_allocation_sets", _old_one_band_at_a_time)
     r = _case("DDS-S72")
     assert len(r.alternatives) == 2                                    # 49+49 missing (the re-audit's finding)
-    assert any("allocation domain incomplete: 2 distinct allocation(s) listed, the domain holds 3" in e for e in _x3(r))
+    assert any("allocation domain not stated on its condition" in e for e in _x3(r))      # FD07: the whole domain is due
 
 
 def test_b2_control_x3_rejects_a_payable_line_with_no_amount_or_alternatives():
@@ -261,7 +271,10 @@ def test_b2_engine_guard_never_emits_an_empty_payable_result(monkeypatch):
 def test_b2_control_x3_rejects_one_missing_enumerated_allocation():
     r = copy.deepcopy(_case("DDS-S76"))
     r.alternatives.pop(next(iter(r.alternatives)))
-    assert any("domain incomplete: 15 distinct allocation(s) listed, the domain holds 16" in e for e in _x3(r))
+    assert any("sampled by fewer than two allocations" in e for e in _x3(r))
+    cut = copy.deepcopy(_case("DDS-S76"))                  # FD07: a domain missing part of its range (48.5-49.9 of 48.5-50)
+    next(c for c in cut.conditions if c["dimension"] == "tolerance")["domain"]["parts"][0]["max_m"] = "49.9"
+    assert any("the constraints give 98.5 m in" in e for e in _x3(cut))
 
 
 def test_b2_control_x3_rejects_bounds_that_are_not_the_extremes_or_hide_the_domain():
@@ -269,13 +282,17 @@ def test_b2_control_x3_rejects_bounds_that_are_not_the_extremes_or_hide_the_doma
     wrong = copy.deepcopy(r)
     k = next(k for k in wrong.alternatives if "highest" in k)
     wrong.alternatives[k] = copy.deepcopy(wrong.alternatives[next(k2 for k2 in wrong.alternatives if "lowest" in k2)])
-    assert any("are not the domain's lowest and highest amounts" in e for e in _x3(wrong))
+    assert any("sampled by fewer than two allocations" in e for e in _x3(wrong))
+    narrow = copy.deepcopy(r)                              # FD07: bounds that are not an enclosure of every amount
+    b = next(c for c in narrow.conditions if c["dimension"] == "tolerance")["domain"]["amount_bounds_usd"]
+    b["max"] = str(min(a["amount"] for a in narrow.alternatives.values()))
+    assert any("do not enclose every admissible amount" in e for e in _x3(narrow))
     hidden = copy.deepcopy(r)
     next(c for c in hidden.conditions if c["dimension"] == "tolerance").pop("domain")
-    assert any("bounds without the whole domain stated" in e for e in _x3(hidden))
+    assert any("allocation domain not stated on its condition" in e for e in _x3(hidden))
     uncounted = copy.deepcopy(r)
-    next(c for c in uncounted.conditions if c["dimension"] == "tolerance")["domain"]["count"] = 2
-    assert any("bounds without the whole domain stated" in e for e in _x3(uncounted))
+    next(c for c in uncounted.conditions if c["dimension"] == "tolerance")["domain"]["count"] = 66     # a finite count claimed
+    assert any("allocation domain is continuous and unresolved" in e for e in _x3(uncounted))
 
 
 def test_b2_existing_controls_still_fail(monkeypatch):
@@ -294,8 +311,8 @@ def test_b2_existing_controls_still_fail(monkeypatch):
 def test_b2_decimal_metres_are_ascertained_in_cents_and_the_control_fails(monkeypatch):
     """DDS Cl.17 'Every amount is ascertained in cents': found by the round-2 reader on DDS-S76 (98.5 m)."""
     r = _case("DDS-S76")
-    assert len(r.alternatives) == 16 and all(a["amount"] == a["amount"].quantize(Decimal("0.01")) for a in r.alternatives.values())
-    assert {str(a["amount"]) for a in r.alternatives.values()} >= {"4937.78", "4961.48"}
+    assert len(r.alternatives) == 2 and all(a["amount"] == a["amount"].quantize(Decimal("0.01")) for a in r.alternatives.values())
+    assert {str(a["amount"]) for a in r.alternatives.values()} >= {"4937.77", "4961.48"}     # FD07: 4937.77 is the minimum
     assert _x3(r) == []
     real_part = g3_dds.Trace.part
     monkeypatch.setattr(g3_dds.Trace, "part", lambda self, label, qty, rate, source, mode=None: real_part(self, label, qty, rate, source))
@@ -303,18 +320,37 @@ def test_b2_decimal_metres_are_ascertained_in_cents_and_the_control_fails(monkey
     assert any("is not ascertained in cents (DDS Cl.17)" in e for e in _x3(bad))
 
 
-def _brute(parts, allowed, step):
-    """Independent of engine and X3: every allocation on the grid by direct product, then filtered."""
+def _span(parts, allowed):
+    """Independent of engine and X3 (FD07: no metre grid): each band's range over every real allocation, found by
+    moving metres between the band and the others as far as their own ranges allow."""
     lens = [p[3] for p in parts]
     short = allowed <= sum(lens)          # fewer metres: each band 0..its length; more: each band its length plus some excess
     span = [(Decimal(0), le) if short else (le, le + allowed - sum(lens)) for le in lens]
-    ranges = [[a + Decimal(i) * step for i in range(int((b - a) / step) + 1)] for a, b in span]
-    out = set()
-    for qs in itertools.product(*ranges[:-1]):
-        last = allowed - sum(qs, Decimal(0))
-        if span[-1][0] <= last <= span[-1][1] and (last / step) % 1 == 0:
-            out.add(qs + (last,))
+    out = []
+    for i, (a, b) in enumerate(span):
+        rest_lo = sum(x for j, (x, _y) in enumerate(span) if j != i)
+        rest_hi = sum(y for j, (_x, y) in enumerate(span) if j != i)
+        out.append((max(a, allowed - rest_hi), min(b, allowed - rest_lo)))
     return out
+
+
+def _rounded_range(parts, span, allowed):
+    """Two bands: every half-cent point of either band's product over the whole range and a point inside each gap."""
+    import math
+    from fractions import Fraction as Fr
+    r1, r2 = Fr(parts[0][4]), Fr(parts[1][4])
+    a, b, A = Fr(span[0][0]), Fr(span[0][1]), Fr(allowed)
+    pts = {a, b}
+    for r, f in ((r1, lambda y: y), (r2, lambda y: A - y)):
+        lo, hi = sorted((f(a) * r * 100, f(b) * r * 100))
+        for k in range(math.ceil(lo - Fr(1, 2)), math.floor(hi - Fr(1, 2)) + 1):
+            x = f((k + Fr(1, 2)) / 100 / r)
+            if a <= x <= b:
+                pts.add(x)
+    pts = sorted(pts)
+    xs = pts + [(x + y) / 2 for x, y in zip(pts, pts[1:])]
+    vals = [round(x * r1 * 100) + round((A - x) * r2 * 100) for x in xs]
+    return Decimal(min(vals)).scaleb(-2), Decimal(max(vals)).scaleb(-2)
 
 
 SCENARIOS = (
@@ -340,14 +376,24 @@ def test_b2_falsification_crossing_charges(f, t, allowed):
     r = gcc.engine_result(c)
     assert r.payable and r.allowed_quantity == allowed
     parts = [(b, pa, pb, pb - pa, rt) for b, pa, pb, rt in g3_dds.pd210_parts(f, t, DT)]
-    every = _brute(parts, allowed, g3_dds.pd210_step(allowed, f, t))
+    span = _span(parts, allowed)
     dom = next(x for x in r.conditions if x["dimension"] == "tolerance")["domain"]
-    assert dom["count"] == len(every) and dom["mode"] == ("enumerated" if len(every) <= 25 else "bounds")
-    if dom["mode"] == "enumerated":
-        assert _allocs(r) == every
-    else:
-        amt = lambda qs: sum(((q * p[4]).quantize(Decimal("0.01"), rounding="ROUND_HALF_EVEN") for q, p in zip(qs, parts)), Decimal(0))  # noqa: E731
-        assert sorted(a["amount"] for a in r.alternatives.values()) == [min(map(amt, every)), max(map(amt, every))]
+    assert dom["count"] is None and dom["step_m"] is None and dom["mode"] == "continuous"
+    assert [(Decimal(p["min_m"]), Decimal(p["max_m"])) for p in dom["parts"]] == span
+    amt = lambda qs: sum(((q * p[4]).quantize(Decimal("0.01"), rounding="ROUND_HALF_EVEN") for q, p in zip(qs, parts)), Decimal(0))  # noqa: E731
+    assert all(sum(qs, Decimal(0)) == allowed and all(lo <= q <= hi for q, (lo, hi) in zip(qs, span)) for qs in _allocs(r))
+    bmin, bmax = Decimal(dom["amount_bounds_usd"]["min"]), Decimal(dom["amount_bounds_usd"]["max"])
+    if len(parts) == 2:
+        assert dom["amount_bounds_usd"]["kind"] == "exact" and (bmin, bmax) == _rounded_range(parts, span, allowed)
+        assert sorted(a["amount"] for a in r.alternatives.values()) == [bmin, bmax]
+    else:                                 # an enclosure: every vertex and random interior allocation lies within it
+        assert dom["amount_bounds_usd"]["kind"] == "conservative"
+        rnd = random.Random(7)
+        for _ in range(300):
+            qs = [lo + (hi - lo) * Decimal(rnd.randint(0, 10 ** 4)) / 10 ** 4 for lo, hi in span[:-1]]
+            last = allowed - sum(qs, Decimal(0))
+            if span[-1][0] <= last <= span[-1][1]:
+                assert bmin <= amt(qs + [last]) <= bmax
     assert _x3(r) == []
 
 
@@ -356,12 +402,11 @@ def test_b2_scenarios_cover_every_branch():
     for f, t, a in SCENARIOS:
         f, t, a = Decimal(f), Decimal(t), Decimal(a)
         n = len(g3_dds.pd210_parts(f, t, DT))
-        parts = [(b, pa, pb, pb - pa, rt) for b, pa, pb, rt in g3_dds.pd210_parts(f, t, DT)]
-        big = len(_brute(parts, a, g3_dds.pd210_step(a, f, t))) > 25
-        kinds.add((n, "excess" if a > t - f else "reduction", "decimal" if a % 1 else "whole", "bounds" if big else "listed"))
-    assert {(2, "excess", "whole", "listed"), (2, "excess", "decimal", "listed"), (2, "reduction", "whole", "listed"),
-            (2, "reduction", "decimal", "listed"), (2, "reduction", "whole", "bounds"), (3, "excess", "whole", "bounds"),
-            (3, "reduction", "whole", "bounds"), (3, "reduction", "whole", "listed")} <= kinds
+        kinds.add((n, "excess" if a > t - f else "reduction", "decimal" if a % 1 else "whole",
+                   "exact" if n == 2 else "conservative"))           # FD07: bounds exact on two bands, an enclosure beyond
+    assert {(2, "excess", "whole", "exact"), (2, "excess", "decimal", "exact"), (2, "reduction", "whole", "exact"),
+            (2, "reduction", "decimal", "exact"), (3, "excess", "whole", "conservative"),
+            (3, "reduction", "whole", "conservative")} <= kinds
 
 
 def test_b2_four_bands_checked_by_x3_independent_count():
@@ -372,11 +417,11 @@ def test_b2_four_bands_checked_by_x3_independent_count():
     c["report"] = c["report"].replace("Depth start (m MD): 1450", "Depth start (m MD): 1400").replace("Depth end (m MD): 1550", "Depth end (m MD): 4600")
     r = gcc.engine_result(c)
     dom = next(x for x in r.conditions if x["dimension"] == "tolerance")["domain"]
-    assert (dom["mode"], dom["count"], len(dom["parts"])) == ("bounds", 56, 4)       # C(5 + 3, 3): 5 m short over 4 bands
+    assert (dom["mode"], dom["count"], len(dom["parts"])) == ("continuous", None, 4)   # FD07: 5 m short over 4 bands, any split
     assert _x3(r) == []
     bad = copy.deepcopy(r)
-    next(x for x in bad.conditions if x["dimension"] == "tolerance")["domain"]["count"] = 55
-    assert any("bounds without the whole domain stated" in e for e in _x3(bad))
+    next(x for x in bad.conditions if x["dimension"] == "tolerance")["domain"]["count"] = 56           # the old grid count
+    assert any("allocation domain is continuous and unresolved" in e for e in _x3(bad))
 
 
 
@@ -411,12 +456,16 @@ def test_b2_the_report_bounds_where_the_metres_lie(f, t, qty, start, end):
     allowed = r.allowed_quantity
     short = allowed <= sum(cap)
     span = [(Decimal(0), c_) if short else (c_, c_ + allowed - sum(cap)) for c_ in cap]
-    every = {qs + (allowed - sum(qs, Decimal(0)),) for qs in itertools.product(*[
-        [a + i for i in range(int(b - a) + 1)] for a, b in span[:-1]])
-        if span[-1][0] <= allowed - sum(qs, Decimal(0)) <= span[-1][1]}
     got = _allocs(r) or {tuple(Decimal(s["quantity"]) for s in r.trace if s["op"] == "part")}
-    if len(every) <= 25:
-        assert got == every, (got, every)
+    # FD07: any real split within the report's bounds (coupled by the sum), not a whole-metre grid
+    coupled = [(max(a, allowed - sum(y for j, (_x, y) in enumerate(span) if j != i)),
+                min(b, allowed - sum(x for j, (x, _y) in enumerate(span) if j != i))) for i, (a, b) in enumerate(span)]
+    assert all(sum(qs, Decimal(0)) == allowed and all(lo <= q <= hi for q, (lo, hi) in zip(qs, coupled)) for qs in got), got
+    dom = next((x["domain"] for x in r.conditions if x.get("domain")), None)
+    if dom:
+        assert [(Decimal(p["min_m"]), Decimal(p["max_m"])) for p in dom["parts"]] == coupled and dom["count"] is None
+    else:
+        assert all(lo == hi for lo, hi in coupled)                 # one allocation only where the constraints force it
     assert _x3(r) == [] and vg.pd210_measured_errors(r, ddr) == []
 
 
@@ -440,7 +489,7 @@ def test_b2_control_a_domain_bounded_by_the_charge_is_rejected():
         for s in a["trace"]:
             if s["op"] == "part" and s["label"].startswith("band 1"):
                 s["label"] = s["label"].replace("1450-1500 m", "1450-1500 m (report measures 1451-1500 m)")
-    assert any("is not admissible" in e for e in _x3(bad))
+    assert any("is outside the domain's bounds" in e for e in _x3(bad))       # FD07: no grid; the report's bounds
 
 # ---------------------------------------------------------------------------------------------------- D8 record
 import csv  # noqa: E402

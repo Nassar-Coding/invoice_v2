@@ -21,8 +21,10 @@ from __future__ import annotations
 
 import datetime as dt
 import itertools
+import math
 from collections import defaultdict
 from decimal import Decimal
+from fractions import Fraction
 
 from . import links, records_dds, terms
 from .g3_core import Inputs, LineResult, Trace, empty, headers_by_id, result_keys
@@ -608,10 +610,13 @@ def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict 
             t = Trace()
             t.steps = list(tr.steps)
             dom = next((c["domain"] for c in r.conditions if c.get("domain")), None)
-            if dom and dom["mode"] == "bounds":
-                t.note(f"allocation domain: {dom['count']} ways of placing {dom['allowed_m']} m in steps of {dom['step_m']} m; "
-                       f"this is the {pl.split(':', 1)[1].split(',')[0]}-amount way; {dom['not_listed']}",
-                       "Cl.23 (p6); Cl.34 (p8); 25A (p35); B2")
+            if dom and dom["mode"] == "continuous":
+                b = dom["amount_bounds_usd"]
+                t.note(f"allocation domain (continuous, not a finite list): {dom['sum_m']} m over "
+                       + ", ".join(f"band {p['band']} {p['min_m']} to {p['max_m']} m" for p in dom["parts"])
+                       + f", coupled by the sum; every allocation USD {b['min']} to {b['max']} ({b['kind']} bounds); this trace is "
+                       f"one sample ({pl.split(':', 1)[1].split(',')[0]}), not the selected amount; {dom['remainder']}",
+                       "Cl.23 (p6); Cl.34 (p8); 25A (p35); B2; FD07")
             where = {p["band"]: p["measured"] for p in dom["parts"]} if dom else {}
             for band, pa, pb, qty, prate in parts:
                 m = where.get(band, f"{pa}-{pb}")
@@ -620,7 +625,10 @@ def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict 
                        f"DDS.T02_DEPTH_BANDS band {band} (Sch 2 p17); Cl.23 (p6): a boundary depth belongs to the shallower band; "
                        f"Cl.17 (p6): every amount in cents, half to even", mode="half_even")
             amt = t.total("amount = sum of depth-band parts", "Cl.23 (p6): each band part priced at its own rate")
-            options[pl] = (sum((x[3] for x in parts), Decimal(0)), parts[0][4] if len(parts) == 1 else None, amt, t.steps)
+            qty = sum((x[3] for x in parts), Decimal(0))
+            if dom and dom["mode"] == "continuous" and qty == billed:          # a sampled allocation carries the allowed metres as the charge states them
+                qty = billed
+            options[pl] = (qty, parts[0][4] if len(parts) == 1 else None, amt, t.steps)
     else:
         for (ql, sup), (rl, (rt, trk)) in itertools.product((q_opts or {None: supported}).items(), rates.items()):
             alw = min(billed, sup)
@@ -661,8 +669,8 @@ def _collapse(options: dict) -> dict:
     """Drop every dimension whose value does not change any result, then identical labels merge."""
     def dims(label):
         return dict(x.split(":", 1) for x in label.split("|")) if label else {}
-    names = sorted({d for k in options for d in dims(k)})
-    for name in names:
+    names = sorted({d for k in options for d in dims(k)} - {"tolerance"})   # FD07: a continuous allocation domain is never
+    for name in names:                                                       # collapsed because its samples' amounts coincide
         groups = {}
         for k, v in options.items():
             rest = "|".join(f"{d}:{x}" for d, x in dims(k).items() if d != name)
@@ -734,7 +742,11 @@ def _finish(r, tr, payable, reasons, options=None):
         for d in sorted(left - {"class"}):
             r.condition(d, *DIM_OWNER[d])
         r.amount_status = "alternatives" if left & READING_DIMS else "conditional"
-        r.readings.append("no single amount: " + ", ".join(sorted(left)) + " (every admissible result carried with its trace)")
+        r.readings.append("no single amount: " + ", ".join(sorted(left)) + (
+            " (every admissible result carried with its trace)" if "tolerance" not in left else
+            " (the complete allocation domain and its amount bounds are stated on the 'tolerance' condition, owner G5; the "
+            "traces are witness allocations sampled from it, not every allocation" + (
+                ", every other admissible result carried with its trace)" if left - {"tolerance"} else ")")))
         r.trace = [x for x in tr.steps] + [{"op": "note", "label": "alternatives: one full trace each", "source": "spec/g3_decisions.yaml"}]
     r.conditions = [c for c in r.conditions if c["dimension"] in
                     {x.split(":", 1)[0] for k in r.alternatives for x in (k or "").split("|") if x} | {"nomination"}]
@@ -842,8 +854,8 @@ def _pd210(line, a, r, T, inputs=None):
     """PD-210 (Cl.23, 25A; F4): the allowed metres (25A: as charged within 1% of the metres the report supports for the
     charged interval, else the supported metres), priced by the band the metres lie in. The parts always carry the allowed
     quantity: in one band the charged metres take that band's rate; across bands a difference between the charged
-    metres and the interval cannot be placed from the charge (-> every admissible allocation, or the two extremes and the
-    whole domain beyond ENUMERATE_MAX: 'tolerance', owner G5; B2)."""
+    metres and the interval cannot be placed from the charge (-> the complete continuous allocation domain with its amount
+    bounds and witness allocations: 'tolerance', owner G5; B2, FD07)."""
     billed = line["quantity"]
     f, t = line.get("depth_from_m"), line.get("depth_to_m")
     section = a.get("Hole section")
@@ -880,20 +892,12 @@ def _pd210(line, a, r, T, inputs=None):
     elif allowed == sum(cap, Decimal(0)) and cap == [p[3] for p in parts]:
         sets = {None: parts}
     else:
-        sets = _allocation_sets(parts, allowed, pd210_step(allowed, f, t, lo, hi), r, cap, measured)
+        sets = _allocation_sets(parts, allowed, r, cap, measured, (line.get("depth_from_m"), line.get("depth_to_m")),
+                                (start, end))
     return allowed, f"report depths {start}-{end}; charged {f}-{t}; allowed {allowed} m", True, sets
 
 
-ENUMERATE_MAX = 25        # allocations listed one by one up to this many; beyond it the two extremes and the domain
-
-
-def pd210_step(*xs: Decimal) -> Decimal:
-    """The resolution at which admissible allocations are listed: the finest decimal place the VALUES of the charged
-    quantity and depths need - 98, 98.0 and 98.00 are one number and give one domain (FD07); whole metres when all are
-    whole (report depths are whole metres, R3 p14). It only sets how the domain is listed: each allocation's amount is
-    linear in the metres placed in each band (Cl.23), so the lowest and highest listed amounts bound every allocation
-    at any finer resolution as well."""
-    return Decimal(1).scaleb(min(min(x.normalize().as_tuple().exponent for x in xs), 0))
+SAMPLE_LIMIT = 200000     # half-cent points an exact bound may examine per band; beyond it a labelled enclosure
 
 
 def pd210_domain(parts, allowed: Decimal, cap: list | None = None) -> tuple[list, list]:
@@ -901,7 +905,8 @@ def pd210_domain(parts, allowed: Decimal, cap: list | None = None) -> tuple[list
     `cap`: the metres the report measures in each band of the charged interval (default: the interval's own lengths).
     Fewer metres than that: each band carries between 0 and its measured metres, the others taking the rest. More
     (within 25A): each band carries at least its measured metres, the excess anywhere in the bands the charged interval
-    spans."""
+    spans. The bounds are coupled by the sum (pd210_coupled); no source fixes a metre granularity (FD07), so every
+    real allocation within them is admissible."""
     ln = list(cap) if cap is not None else [p[3] for p in parts]
     total = sum(ln, Decimal(0))
     if allowed <= total:
@@ -909,71 +914,171 @@ def pd210_domain(parts, allowed: Decimal, cap: list | None = None) -> tuple[list
     return list(ln), [x + allowed - total for x in ln]
 
 
-def pd210_count(lo, hi, allowed: Decimal, step: Decimal) -> int:
-    """Number of allocations q (lo <= q <= hi, sum q = allowed) in steps of `step` (dynamic programme over the bands)."""
-    width = [int((h - l) / step) for l, h in zip(lo, hi)]
-    rest = int((allowed - sum(lo, Decimal(0))) / step)
-    ways = [1] + [0] * rest
-    for w in width:
-        new, run = [0] * (rest + 1), 0
-        for s in range(rest + 1):
-            run += ways[s] - (ways[s - w - 1] if s - w - 1 >= 0 else 0)
-            new[s] = run
-        ways = new
-    return ways[rest]
+def pd210_coupled(lo, hi, allowed: Decimal) -> tuple[list, list]:
+    """The range each band's metres actually take once the others fill the rest of the sum: the projection of
+    {sum q = allowed, lo <= q <= hi} on each band. Equal ends in every band: the constraints force one allocation."""
+    slo, shi = sum(lo, Decimal(0)), sum(hi, Decimal(0))
+    return ([max(a, allowed - (shi - b)) for a, b in zip(lo, hi)], [min(b, allowed - (slo - a)) for a, b in zip(lo, hi)])
 
 
-def _allocation_sets(parts, allowed, step, r, cap=None, measured=None) -> dict:
-    """Every admissible allocation as its own alternative ('tolerance:<metres per band>'), or, beyond ENUMERATE_MAX,
-    the lowest- and highest-amount allocations with the whole domain stated on the owned condition: the metres the
-    charge's depths do not place are never put in one band by assumption (Cl.23 prices metres by the band they lie in;
-    Cl.34 the charge states depths; 25A pays the charged metres)."""
-    lo, hi = pd210_domain(parts, allowed, cap)
-    count = pd210_count(lo, hi, allowed, step)
+def _cents(v: Fraction) -> int:
+    """Cl.17: an amount in cents, a fraction of a cent rounded half to even (round() of a Fraction is half to even)."""
+    return round(v * 100)
+
+
+def _shortest_decimal(a: Fraction, b: Fraction) -> Decimal:
+    """The decimal with the fewest places strictly inside (a, b), nearest its middle: a readable witness quantity."""
+    p = 0
+    while True:
+        s = 10 ** p
+        n0, n1 = math.floor(a * s) + 1, math.ceil(b * s) - 1
+        if n0 <= n1:
+            mid = (a + b) / 2 * s
+            n = min(max(round(mid), n0), n1)
+            return Decimal(n).scaleb(-p)
+        p += 1
+
+
+def _terminating(x: Fraction) -> bool:
+    d = x.denominator
+    for f in (2, 5):
+        while d % f == 0:
+            d //= f
+    return d == 1
+
+
+def _dec(x: Fraction) -> Decimal:
+    return Decimal(x.numerator) / Decimal(x.denominator)
+
+
+def _m(x) -> str:
+    """A quantity as its value (98, 98.0 and 98.00 are one number: the spelling never changes the domain; FD07)."""
+    return format(Decimal(x).normalize(), "f")
+
+
+def pd210_amount_bounds(rates, lo, hi, allowed: Decimal) -> dict:
+    """The lowest and highest amount over EVERY admissible allocation, each band priced in cents half to even and then
+    added (Cl.17, Cl.23), with an allocation attaining each (a witness) where one is a finite decimal.
+
+    Two bands: q1 = x in [lo1, hi1], q2 = allowed - x. The amount g(x) = R(x r1) + R((allowed - x) r2) is a step
+    function that changes only where a band's product crosses a half cent; between two such points it is constant, and
+    at one it takes the half-even value. |g - h| <= 0.01 for the unrounded linear amount h, so an extreme lies within
+    0.02 / |r1 - r2| metres of the vertex where h has that extreme; there every half-cent point, both ends and one point
+    inside each gap between them are evaluated, so the extremes are exact ('kind: exact') - and need not lie at the
+    vertex. More bands (or too many points): the linear extremes widened by half a cent per band and taken to whole
+    cents enclose every rounded amount ('kind: conservative': an enclosure, never presented as attained)."""
+    n = len(rates)
+    F = [Fraction(x) for x in rates]
+    A = Fraction(allowed)
+    lo_f, hi_f = [Fraction(x) for x in lo], [Fraction(x) for x in hi]
+
+    def vertex(order):
+        qs, left = list(lo_f), A - sum(lo_f)
+        for i in order:
+            add = min(hi_f[i] - lo_f[i], left)
+            qs[i] += add
+            left -= add
+        return qs
+    by_rate = sorted(range(n), key=lambda i: F[i])
+    v_lo, v_hi = vertex(by_rate), vertex(by_rate[::-1])
+    lin_lo, lin_hi = sum(q * r for q, r in zip(v_lo, F)), sum(q * r for q, r in zip(v_hi, F))
+
+    def conservative():
+        return {"min": Decimal(math.ceil((lin_lo - Fraction(n, 200)) * 100)).scaleb(-2),
+                "max": Decimal(math.floor((lin_hi + Fraction(n, 200)) * 100)).scaleb(-2), "kind": "conservative",
+                "witnesses": {"lowest-rate vertex": [_dec(q) for q in v_lo], "highest-rate vertex": [_dec(q) for q in v_hi]}}
+    if n != 2 or F[0] == F[1]:
+        return conservative()
+    (r1, r2), a, b = F, lo_f[0], hi_f[0]
+
+    def g(x):
+        return _cents(x * r1) + _cents((A - x) * r2)
+    width = Fraction(1, 50) / abs(r1 - r2)
+    out = {}
+    for which, pick in (("lowest", min), ("highest", max)):
+        at_b = (r1 < r2) == (which == "lowest")                 # the vertex where the linear amount has this extreme
+        L, U = (max(a, b - width), b) if at_b else (a, min(b, a + width))
+        pts = {L, U}
+        for r, band_q in ((r1, lambda y: y), (r2, lambda y: A - y)):    # half-cent points of each band's product
+            ends = sorted((band_q(L) * r * 100, band_q(U) * r * 100))
+            k0, k1 = math.ceil(ends[0] - Fraction(1, 2)), math.floor(ends[1] - Fraction(1, 2))
+            if k1 - k0 > SAMPLE_LIMIT:
+                return conservative()
+            for k in range(k0, k1 + 1):
+                x = band_q((k + Fraction(1, 2)) / 100 / r)
+                if L <= x <= U:
+                    pts.add(x)
+        pts = sorted(pts)
+        cands = [(g(x), 0 if x in (a, b) else 2, x, None) for x in pts]
+        cands += [(g((x + y) / 2), 1, x, y) for x, y in zip(pts, pts[1:])]
+        best = pick(c[0] for c in cands)
+        wit = None
+        for _v, _pref, x, y in sorted((c for c in cands if c[0] == best), key=lambda c: c[1]):
+            if y is not None:
+                wit = _shortest_decimal(x, y)
+            elif _terminating(x):
+                wit = _dec(x)
+            if wit is not None:
+                break
+        out[which] = (Decimal(best).scaleb(-2), wit)
+    return {"min": out["lowest"][0], "max": out["highest"][0], "kind": "exact",
+            "witnesses": {f"{w} amount": [x, allowed - x] for w, (_v, x) in out.items() if x is not None}}
+
+
+def _allocation_sets(parts, allowed, r, cap=None, measured=None, charged=None, report=None) -> dict:
+    """Where the charge's depths do not place the allowed metres in the bands (Cl.23 prices metres by the band they lie
+    in; Cl.34 the charge states depths; 25A pays the charged metres), the admissible allocations are every real split
+    within the coupled per-band bounds: no source fixes a metre granularity (FD07; R3 p14 states how depths are
+    reported, not how a partial quantity is apportioned). Constraints forcing one allocation: that allocation alone,
+    exhaustive. Otherwise the complete domain is stated symbolically on the 'tolerance' condition (owner G5) with its
+    amount bounds, and witness allocations are returned as samples: never a finite exhaustive list, never a count, never
+    the selected amount, and no allocation is said to be absent because it is not sampled."""
+    lo, hi = pd210_coupled(*pd210_domain(parts, allowed, cap), allowed)
     measured = measured or {p[0]: (p[1], p[2]) for p in parts}
 
-    def label(qs, prefix=""):
-        return "tolerance:" + prefix + " + ".join(f"{q} m in band {p[0]}" for q, p in zip(qs, parts))
+    def as_set(qs, spelled=False):
+        return [(band, pa, pb, q if spelled else Decimal(_m(q)), rate) for q, (band, pa, pb, _l, rate) in zip(qs, parts)]
 
-    def as_set(qs):
-        return [(band, pa, pb, q, rate) for q, (band, pa, pb, _l, rate) in zip(qs, parts)]
-
-    if count <= ENUMERATE_MAX:
-        found = []
-
-        def walk(i, acc, left):
-            if i == len(parts) - 1:
-                if lo[i] <= left <= hi[i]:
-                    found.append(acc + [left])
-                return
-            q = lo[i]
-            while q <= hi[i] and q <= left:
-                walk(i + 1, acc + [q], left - q)
-                q += step
-        walk(0, [], allowed)
-        sets = {label(qs): as_set(qs) for qs in found}
-        mode = "enumerated"
-    else:
-        def extreme(order):
-            qs, left = list(lo), allowed - sum(lo, Decimal(0))
-            for i in order:
-                add = min(hi[i] - lo[i], left)
-                qs[i] += add
-                left -= add
-            return qs
-        by_rate = sorted(range(len(parts)), key=lambda i: parts[i][4])
-        low, high = extreme(by_rate), extreme(by_rate[::-1])
-        sets = {label(low, "lowest, "): as_set(low), label(high, "highest, "): as_set(high)}
-        mode = "bounds"
+    def label(tag, qs):
+        return "tolerance:" + tag + ", " + " + ".join(f"{_m(q)} m in band {p[0]}" for q, p in zip(qs, parts))
+    desc = [{"band": p[0], "min_m": _m(a), "max_m": _m(b),
+             "measured_capacity_m": _m(measured[p[0]][1] - measured[p[0]][0]) if p[0] in measured else "0",
+             "from_m": _m(p[1]), "to_m": _m(p[2]), "interval_m": _m(p[3]),
+             "measured": (f"{measured[p[0]][0]}-{measured[p[0]][1]}" if p[0] in measured else None),     # as the trace labels it
+             "rate": str(p[4]), "rate_source": f"DDS.T02_DEPTH_BANDS band {p[0]} (Sch 2 p17), USD per metre"}
+            for p, a, b in zip(parts, lo, hi)]
+    if any(a > b for a, b in zip(lo, hi)):
+        return {}                                                  # no admissible allocation: the engine guard reports it
+    if lo == hi:                                                   # forced by the constraints: one allocation, exhaustive;
+        r.conditions.append({"dimension": "tolerance", "owner": DIM_OWNER["tolerance"][0],      # nothing is unresolved, so
+                             "basis": DIM_OWNER["tolerance"][1],                                  # _finish drops it; its
+                             "domain": {"mode": "singleton", "step_m": None, "count": 1,          # parts label the trace
+                                        "exhaustive": True, "sum_m": _m(allowed), "parts": desc}})
+        return {None: as_set(lo, True)}
+    bounds = pd210_amount_bounds([p[4] for p in parts], lo, hi, allowed)
+    sets = {}
+    for role, qs in bounds["witnesses"].items():
+        sets.setdefault(label(("witness at the " if bounds["kind"] == "exact" else "sample, ") + role, qs), as_set(qs))
+    ends = [pd210_coupled([side] + lo[1:], [side] + hi[1:], allowed)[0] for side in (lo[0], hi[0])]
+    for qs in ends:                          # at least two distinct samples: the domain is never read as one allocation
+        if len({tuple(x[3] for x in s) for s in sets.values()}) < 2:
+            sets.setdefault(label("sample, domain end", qs), as_set(qs))
     r.conditions.append({
         "dimension": "tolerance", "owner": DIM_OWNER["tolerance"][0], "basis": DIM_OWNER["tolerance"][1],
-        "domain": {"mode": mode, "allowed_m": str(allowed), "step_m": str(step), "count": count,
-                   "parts": [{"band": p[0], "from_m": str(p[1]), "to_m": str(p[2]), "interval_m": str(p[3]),
-                              "measured": (f"{measured[p[0]][0]}-{measured[p[0]][1]}" if p[0] in measured else None),
-                              "min_m": str(a), "max_m": str(b)} for p, a, b in zip(parts, lo, hi)],
-                   "listed": len(sets),
-                   "not_listed": ("none" if mode == "enumerated" else
-                                  f"{count - 2} allocations between the two listed extremes: each admissible, unresolved, owner G5")}})
+        "domain": {"mode": "continuous", "step_m": None, "count": None, "enumerable": False, "exhaustive": False,
+                   "domain_complete": True, "sum_m": _m(allowed),
+                   "charged_m": f"{_m(charged[0])}-{_m(charged[1])}" if charged else None,
+                   "report_m": f"{_m(report[0])}-{_m(report[1])}" if report else None,
+                   "parts": desc,
+                   "coupling": "the per-band bounds are coupled by the sum; any real split within them is admissible "
+                               "(no source fixes a metre granularity: Cl.23 p6, R3 p14, 25A p35, Sch 2 p17)",
+                   "rounding": "each band part in cents, half to even, then added (Cl.17, Cl.18, Cl.23 p6)",
+                   "amount_bounds_usd": {"min": str(bounds["min"]), "max": str(bounds["max"]), "kind": bounds["kind"]},
+                   "samples": sorted(k.split(":", 1)[1] for k in sets),
+                   "samples_role": "witness allocations with full traces: samples of the domain, not a complete list and "
+                                   "not the selected amount",
+                   "remainder": "every other allocation in the domain: admissible, unresolved, owner G5",
+                   "state": "unresolved", "owner": DIM_OWNER["tolerance"][0]}})
     return sets
 
 

@@ -5298,9 +5298,54 @@
   },
   {
    "id": "DDS-S72",
-   "field": "allocation_count",
-   "reader": 3,
-   "engine": 3,
+   "field": "allocation_domain",
+   "reader": {
+    "reader_allocation_count": 3,
+    "source_domain": {
+     "mode": "continuous",
+     "step_m": null,
+     "count": null,
+     "enumerable": false,
+     "exhaustive": false,
+     "sum_m": "98",
+     "state": "unresolved",
+     "owner": "G5",
+     "parts": [
+      [
+       "1",
+       "48",
+       "50"
+      ],
+      [
+       "2",
+       "48",
+       "50"
+      ]
+     ]
+    }
+   },
+   "engine": {
+    "mode": "continuous",
+    "step_m": null,
+    "count": null,
+    "enumerable": false,
+    "exhaustive": false,
+    "sum_m": "98",
+    "state": "unresolved",
+    "owner": "G5",
+    "parts": [
+     [
+      "1",
+      "48",
+      "50"
+     ],
+     [
+      "2",
+      "48",
+      "50"
+     ]
+    ]
+   },
    "agree": true
   },
   {
@@ -5366,9 +5411,54 @@
   },
   {
    "id": "DDS-S73",
-   "field": "allocation_count",
-   "reader": 41,
-   "engine": 41,
+   "field": "allocation_domain",
+   "reader": {
+    "reader_allocation_count": 41,
+    "source_domain": {
+     "mode": "continuous",
+     "step_m": null,
+     "count": null,
+     "enumerable": false,
+     "exhaustive": false,
+     "sum_m": "40",
+     "state": "unresolved",
+     "owner": "G5",
+     "parts": [
+      [
+       "1",
+       "0",
+       "40"
+      ],
+      [
+       "2",
+       "0",
+       "40"
+      ]
+     ]
+    }
+   },
+   "engine": {
+    "mode": "continuous",
+    "step_m": null,
+    "count": null,
+    "enumerable": false,
+    "exhaustive": false,
+    "sum_m": "40",
+    "state": "unresolved",
+    "owner": "G5",
+    "parts": [
+     [
+      "1",
+      "0",
+      "40"
+     ],
+     [
+      "2",
+      "0",
+      "40"
+     ]
+    ]
+   },
    "agree": true
   },
   {
@@ -5442,9 +5532,54 @@
   },
   {
    "id": "DDS-S74",
-   "field": "allocation_count",
-   "reader": 3,
-   "engine": 3,
+   "field": "allocation_domain",
+   "reader": {
+    "reader_allocation_count": 3,
+    "source_domain": {
+     "mode": "continuous",
+     "step_m": null,
+     "count": null,
+     "enumerable": false,
+     "exhaustive": false,
+     "sum_m": "202",
+     "state": "unresolved",
+     "owner": "G5",
+     "parts": [
+      [
+       "1",
+       "100",
+       "102"
+      ],
+      [
+       "2",
+       "100",
+       "102"
+      ]
+     ]
+    }
+   },
+   "engine": {
+    "mode": "continuous",
+    "step_m": null,
+    "count": null,
+    "enumerable": false,
+    "exhaustive": false,
+    "sum_m": "202",
+    "state": "unresolved",
+    "owner": "G5",
+    "parts": [
+     [
+      "1",
+      "100",
+      "102"
+     ],
+     [
+      "2",
+      "100",
+      "102"
+     ]
+    ]
+   },
    "agree": true
   },
   {
@@ -5510,9 +5645,64 @@
   },
   {
    "id": "DDS-S75",
-   "field": "allocation_count",
-   "reader": 66,
-   "engine": 66,
+   "field": "allocation_domain",
+   "reader": {
+    "reader_allocation_count": 66,
+    "source_domain": {
+     "mode": "continuous",
+     "step_m": null,
+     "count": null,
+     "enumerable": false,
+     "exhaustive": false,
+     "sum_m": "1510",
+     "state": "unresolved",
+     "owner": "G5",
+     "parts": [
+      [
+       "1",
+       "0",
+       "10"
+      ],
+      [
+       "2",
+       "1490",
+       "1500"
+      ],
+      [
+       "3",
+       "0",
+       "10"
+      ]
+     ]
+    }
+   },
+   "engine": {
+    "mode": "continuous",
+    "step_m": null,
+    "count": null,
+    "enumerable": false,
+    "exhaustive": false,
+    "sum_m": "1510",
+    "state": "unresolved",
+    "owner": "G5",
+    "parts": [
+     [
+      "1",
+      "0",
+      "10"
+     ],
+     [
+      "2",
+      "1490",
+      "1500"
+     ],
+     [
+      "3",
+      "0",
+      "10"
+     ]
+    ]
+   },
    "agree": true
   },
   {
@@ -5690,9 +5880,54 @@
   },
   {
    "id": "DDS-S76",
-   "field": "allocation_count",
-   "reader": 16,
-   "engine": 16,
+   "field": "allocation_domain",
+   "reader": {
+    "reader_allocation_count": 16,
+    "source_domain": {
+     "mode": "continuous",
+     "step_m": null,
+     "count": null,
+     "enumerable": false,
+     "exhaustive": false,
+     "sum_m": "98.5",
+     "state": "unresolved",
+     "owner": "G5",
+     "parts": [
+      [
+       "1",
+       "48.5",
+       "50"
+      ],
+      [
+       "2",
+       "48.5",
+       "50"
+      ]
+     ]
+    }
+   },
+   "engine": {
+    "mode": "continuous",
+    "step_m": null,
+    "count": null,
+    "enumerable": false,
+    "exhaustive": false,
+    "sum_m": "98.5",
+    "state": "unresolved",
+    "owner": "G5",
+    "parts": [
+     [
+      "1",
+      "48.5",
+      "50"
+     ],
+     [
+      "2",
+      "48.5",
+      "50"
+     ]
+    ]
+   },
    "agree": true
   },
   {

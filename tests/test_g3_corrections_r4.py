@@ -570,31 +570,97 @@ def _domain(r):
 def test_fd07_dds_domain_is_independent_of_spelling():
     rs = [gcc.engine_result(_s72(q)) for q in DDS_Q]
     doms = [(_domain(r)["step_m"], _domain(r)["count"], _domain(r)["mode"]) for r in rs]
-    assert len(set(doms)) == 1 and doms[0] == ("1", 3, "enumerated")
-    amts = [sorted({a["amount"] for a in r.alternatives.values()}) for r in rs]
-    assert all(a == amts[0] for a in amts) and (amts[0][0], amts[0][-1]) == (Decimal("4908.70"), Decimal("4940.30"))
+    assert len(set(doms)) == 1 and doms[0] == (None, None, "continuous")          # FD07: no metre grid, no count
+    assert all(_domain(r) == _domain(rs[0]) for r in rs)
+    amts = [(_domain(r)["amount_bounds_usd"]["min"], _domain(r)["amount_bounds_usd"]["max"]) for r in rs]
+    assert all(a == amts[0] for a in amts) and amts[0] == ("4908.70", "4940.30")
     for r in rs:
         assert vg.x3({"DDS": {"case": r}}) == []
 
 
 def test_fd07_dds_fractional_charge_constructed_independently():
-    """98.5 m charged on 1,450-1,550 m (band edge 1,500): listed at 0.1 m; the bounds are 48.5 m / 50 m in either band's
-    extreme: the lowest amount puts every movable metre in band 1 (42.35), the highest in band 2 (58.15)."""
+    """98.5 m charged on 1,450-1,550 m (band edge 1,500): band 1 carries 48.5 to 50 m, any real split (FD07). The
+    unrounded extremes put every movable metre in band 1 (42.35) or band 2 (58.15); rounded, the lowest amount is one
+    cent below that vertex (49.99985 / 48.50015 m: 2117.49 + 2820.28 = 4937.77)."""
     r = gcc.engine_result(_s72("98.5"))
     dom = _domain(r)
-    assert dom["step_m"] == "0.1" and vg.x3({"DDS": {"case": r}}) == []
-    amts = sorted({a["amount"] for a in r.alternatives.values()})
+    assert dom["step_m"] is None and vg.x3({"DDS": {"case": r}}) == []
+    amts = (Decimal(dom["amount_bounds_usd"]["min"]), Decimal(dom["amount_bounds_usd"]["max"]))
     lo = (Decimal("50") * Decimal("42.35")).quantize(Decimal("0.01")) + (Decimal("48.5") * Decimal("58.15")).quantize(Decimal("0.01"))
     hi = (Decimal("48.5") * Decimal("42.35")).quantize(Decimal("0.01")) + (Decimal("50") * Decimal("58.15")).quantize(Decimal("0.01"))
-    assert (amts[0], amts[-1]) == (lo, hi)
+    assert (amts[0], amts[1]) == (lo - Decimal("0.01"), hi) == (Decimal("4937.77"), Decimal("4961.48"))
     same = gcc.engine_result(_s72("98.50"))
-    assert _domain(same)["step_m"] == "0.1" and sorted({a["amount"] for a in same.alternatives.values()}) == amts
+    assert _domain(same)["step_m"] is None and _domain(same) == dom
 
 
 def test_fd07_control_gate3_r3_depends_on_spelling(world, r3):
     assert {_arith(_cw_q(world, "PA-00008-06", q, "14894.14", engine=r3.g3_cw)) for q in ("384", "384.0")} == {
         ("finding", "amount_arithmetic"), ("unresolved", "amount_arithmetic")}
     assert [str(r3.g3_dds.pd210_step(Decimal(q))) for q in DDS_Q] == ["1", "0.1", "0.01"]
+
+
+R4 = "77537c5e8c64b779bf6bdb714758195b388c23fc"   # gate3-r4: the audited code FD07 (DDS) reopens
+
+
+def _at_r4(path: str, name: str):
+    """`path` as committed at gate3-r4, executed as `name` (inside the audit package for audit modules)."""
+    src = subprocess.run(["git", "show", f"{R4}:{path}"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    mod = types.ModuleType(name)
+    if path.startswith("audit/"):
+        mod.__package__ = "audit"
+    mod.__file__ = str(ROOT / path)
+    sys.modules[name] = mod
+    exec(compile(src, f"{R4}:{path}", "exec"), mod.__dict__)
+    return mod
+
+
+# the gate3-r4 negative control's messages, as the runs below produce them (reported in Phase3_G3_FD07_correction.md)
+R4_CLOSURE_FAILURE = "domain claimed finite or complete"
+R4_OFF_GRID = ("PD-210 allocation (Decimal('49.5'), Decimal('48.5')) is not admissible (sum 98, bands "
+               "[(Decimal('48'), Decimal('50')), (Decimal('48'), Decimal('50'))], step 1)")
+R4_COUNT = "PD-210 allocation domain incomplete: 4 distinct allocation(s) listed, the domain holds 3 (step 1); amounts 4908.70..4940.30"
+
+
+def test_fd07_control_gate3_r4_claims_a_complete_three_point_domain(monkeypatch):
+    """Section 6 of the FD07 closure spec, on the gate3-r4 engine and verifier (77537c5): (1) its unmodified DDS-S72 path
+    reaches the 98 m valuation and the three-point output; (2) the continuous-domain closure assertion fails on it;
+    (3) a correctly formed 49.5 / 48.5 m witness at 4,916.60 is rejected by its pd210_domain_errors as off the 1 m grid
+    and beyond its count of three; (4) the corrected verifier accepts that witness on the corrected result and rejects
+    the invalid mutations (tests/test_g3_fd07_dds.py has each one)."""
+    import test_g3_fd07_dds as fd7
+    from audit import terms
+    old_dds = _at_r4("audit/g3_dds.py", "audit._r4_g3_dds")
+    old_vg = _at_r4("tools/verify_g3.py", "_r4_verify_g3")
+    monkeypatch.setattr(gcc, "g3_dds", old_dds)
+    old = gcc.engine_result(gcc.load_cases()["DDS-S72"])                    # (1) its own path, the packet unchanged
+    monkeypatch.undo()
+    dom = _domain(old)
+    assert old.payable and old.allowed_quantity == Decimal("98") and old.amount is None
+    assert (dom["mode"], dom["step_m"], dom["count"], dom["listed"], dom["not_listed"]) == ("enumerated", "1", 3, 3, "none")
+    assert sorted(str(a["amount"]) for a in old.alternatives.values()) == ["4908.70", "4924.50", "4940.30"]
+    assert old_vg.pd210_domain_errors(old, terms.dds()) == []                # consistent under its own grid
+    with pytest.raises(AssertionError, match=R4_CLOSURE_FAILURE) as closure:  # (2)
+        fd7.continuous_closure(old, "98", [("48", "50"), ("48", "50")], ("4908.70", "4940.30"))
+    assert "{'mode': 'enumerated', 'allowed_m': '98', 'step_m': '1', 'count': 3" in str(closure.value)
+    assert any("allocation domain is continuous and unresolved" in e for e in vg.x3({"DDS": {"case": old}}))
+    w = fd7.with_witness(old, (Decimal("49.5"), Decimal("48.5")))            # (3) a valid trace: replays to 4916.60
+    wa = next(a for k, a in w.alternatives.items() if "(test)" in k)
+    assert wa["amount"] == Decimal("4916.60") and vg._check_trace("DDS", "PD-210", wa["trace"], terms_both(), Decimal("4916.60"),
+                                                                  Decimal("98"), None) == []
+    errs = old_vg.pd210_domain_errors(w, terms.dds())
+    assert errs == [R4_OFF_GRID, R4_COUNT]
+    new = gcc.engine_result(gcc.load_cases()["DDS-S72"])                    # (4)
+    assert vg.x3({"DDS": {"case": fd7.with_witness(new, (Decimal("49.5"), Decimal("48.5")))}}) == []
+    for bad in [fd7.with_witness(new, (Decimal("49.5"), Decimal("48.6"))), fd7.with_witness(new, (Decimal("50.1"), Decimal("47.9"))),
+                fd7.with_witness(new, (Decimal("49.5"), Decimal("48.5")), rates={**fd7.RATE, "1": Decimal("42.36")}),
+                fd7.with_witness(new, (Decimal("49.5"), Decimal("48.5")), total="4916.61"), fd7._three_point(new),
+                fd7._drop_condition(new), fd7._bounds(new, "4908.70", "4940.29")]:
+        assert vg.x3({"DDS": {"case": bad}})
+
+
+def terms_both():
+    from audit import terms
+    return {"CW": terms.cw(), "DDS": terms.dds()}
 
 
 # ============================================================================================ FD08 missing submission date

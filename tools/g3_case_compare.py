@@ -155,6 +155,43 @@ def compare(case: dict, exp: dict | None, res) -> list[dict]:
         out.append({"id": cid, "field": field, "reader": rv, "engine": ev, "agree": (rv == ev) if agree is None else agree})
 
     ealts = {k: v for k, v in res.alternatives.items() if "amount" in v}
+    dom = next((c["domain"] for c in res.conditions if c.get("domain")), None)
+    cont = dom if dom and dom.get("mode") == "continuous" else None
+
+    def admitted(label, q, amount) -> bool:
+        """FD07: a reader's alternative lies in the engine's continuous domain (see the alternatives row)."""
+        import re
+        from audit import terms
+        rate = {b: rt for _lo, _hi, rt, b in terms.dds().depth_bands}
+        if q is None or amount is None or q != Decimal(cont["sum_m"]):
+            return False
+        qs = {b: Decimal(x) for b, x in re.findall(r"band (\d) (\d+(?:\.\d+)?) m", label or "")}
+        if qs:
+            return set(qs) == {p["band"] for p in cont["parts"]} and sum(qs.values()) == q and all(
+                Decimal(p["min_m"]) <= qs[p["band"]] <= Decimal(p["max_m"]) for p in cont["parts"]) and amount == sum(
+                ((x * rate[b]).quantize(Decimal("0.01"), rounding="ROUND_HALF_EVEN") for b, x in qs.items()), Decimal(0))
+        return any(_d(v["amount"]) == amount for v in ealts.values())
+
+    def source_domain():
+        """The allocation domain from the case inputs alone (FD07 replacement of the reader's grid count)."""
+        import re
+        from audit import terms
+        f, t, q = _d(case["line"].get("depth_from_m")), _d(case["line"].get("depth_to_m")), _d(exp.get("allowed_quantity"))
+        rs, re_ = (Decimal(re.search(rf"Depth {w} \(m MD\): *([\d.]+)", case.get("report") or "").group(1)) for w in ("start", "end"))
+        bands = [(b, max(f, lo), min(t, hi) if hi is not None else t) for lo, hi, _rt, b in terms.dds().depth_bands]
+        bands = [(b, a, e) for b, a, e in bands if e > a]
+        cap = [max(Decimal(0), min(e, re_) - max(a, rs)) for _b, a, e in bands]
+        if q is None or len(bands) < 2:
+            return None
+        total = sum(cap, Decimal(0))
+        lo = [max(Decimal(0), q - (total - x)) for x in cap] if q <= total else list(cap)
+        hi = [min(x, q) for x in cap] if q <= total else [x + q - total for x in cap]
+        lo, hi = ([max(a, q - (sum(hi) - b)) for a, b in zip(lo, hi)], [min(b, q - (sum(lo) - a)) for a, b in zip(lo, hi)])
+        if lo == hi:
+            return None                    # one allocation: exhaustive, no domain to state
+        m = lambda x: format(x.normalize(), "f")  # noqa: E731
+        return {"mode": "continuous", "step_m": None, "count": None, "enumerable": False, "exhaustive": False, "sum_m": m(q),
+                "state": "unresolved", "owner": "G5", "parts": [[b, m(a), m(e)] for (b, _f, _t), a, e in zip(bands, lo, hi)]}
     if not any(v.get("allowed_quantity") == 0 for v in ealts.values()):
         add("payable", exp.get("payable"), res.payable)    # else payability itself depends on an open reading (Q11 B)
     ralts = exp.get("alternatives") or {}
@@ -162,6 +199,14 @@ def compare(case: dict, exp: dict | None, res) -> list[dict]:
     if ealts or ralts:
         if ralts:
             et, rt = _alt_table(ealts) if ealts else {"": [(str(res.allowed_quantity), str(res.amount))]}, _alt_table(ralts)
+            if cont:
+                # FD07: the engine carries a continuous allocation domain (no source fixes a metre step) with witness
+                # traces, not a finite list. A reader's alternative is compared by membership: an allocation it states
+                # (band N q m) must lie in the domain and replay to its amount in cents half to even; one it states only
+                # as the lowest or highest must be an amount an engine witness attains. The engine side lists the reader
+                # outcomes the domain admits, so an inadmissible reader value disagrees; the reader values are kept.
+                et = {"": sorted({(str(rq_), str(ra_)) for k, v in ralts.items() for rq_, ra_ in
+                                  [(_d(v.get("allowed_quantity")), _d(v.get("amount")))] if admitted(k, rq_, ra_)})}
             if any(c["dimension"] == "nomination" for c in res.conditions):
                 # the engine's nomination condition (Cl.23: PD-210 only on a nominated section; no call-off supplied) means
                 # the stated amount if nominated and nothing otherwise - the same content as a 0.00 alternative
@@ -179,9 +224,20 @@ def compare(case: dict, exp: dict | None, res) -> list[dict]:
         add("allowed_quantity", str(rq) if rq is not None else None, str(res.allowed_quantity) if res.allowed_quantity is not None else None,
             agree=(rq == res.allowed_quantity))
         add("amount", str(ra) if ra is not None else None, str(res.amount) if res.amount is not None else None, agree=(ra == res.amount))
-    if "allocation_count" in exp:          # v4: the number of admissible ways of placing metres the depths do not place
-        dom = next((c["domain"] for c in res.conditions if c.get("domain")), None)
-        add("allocation_count", exp.get("allocation_count"), dom["count"] if dom else None)
+    if "allocation_count" in exp and (dom or exp.get("allocation_count") is not None):
+        # v4 readers counted the ways of placing the metres the depths do not place on a whole-metre (or 0.1 m) grid. FD07
+        # (DDS Cl.23 p6, R3 p14, 25A p35, Sch 2 p17): no source fixes a metre granularity, so that count is replaced by the
+        # domain derived here from the same case inputs (charged and report depths, the reader's allowed metres, the
+        # Schedule 2 bands; B2's report caps and 25A excess): continuous, no step, no count, unresolved, owner G5. The
+        # reader's count stays in the row as evidence.
+        add("allocation_domain", {"reader_allocation_count": exp.get("allocation_count"), "source_domain": source_domain()},
+            {k: dom.get(k) for k in ("mode", "step_m", "count", "enumerable", "exhaustive", "sum_m", "state", "owner")}
+            | {"parts": [[p["band"], p["min_m"], p["max_m"]] for p in dom["parts"]]} if dom else None,
+            agree=source_domain() == ({k: dom.get(k) for k in ("mode", "step_m", "count", "enumerable", "exhaustive", "sum_m",
+                                                                "state", "owner")}
+                                      | {"parts": [[p["band"], p["min_m"], p["max_m"]] for p in dom["parts"]]} if dom else None))
+    elif "allocation_count" in exp:        # v4 lines without a domain on either side (none to compare)
+        add("allocation_count", exp.get("allocation_count"), None)
     rr = _d(exp.get("unit_rate"))
     if rr is not None and res.unit_rate is not None and (res.payable or exp.get("payable")):
         add("unit_rate", str(rr), str(res.unit_rate), agree=(rr == res.unit_rate))

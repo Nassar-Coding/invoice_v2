@@ -31,13 +31,13 @@ Usage::  python tools/verify_g3.py
 from __future__ import annotations
 
 import copy
-import itertools
 import json
 import math
 import re
 import subprocess
 import sys
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
+from fractions import Fraction
 from pathlib import Path
 
 import yaml
@@ -119,8 +119,9 @@ SCOPE = {
         ("CW-R25", "no_conditional_on:ground"), ("CW-S65", "conditional_on:ground"), ("CW-S66", "conditional_on:ground"),
         ("CW-S67", "conditional_on:ground"), ("CW-R24", "conditional_on:ground")],
     "B2 PD-210 crossing charge: the complete allocation domain (listed, or bounds with the domain stated)": [
-        ("DDS-S71", "domain:enumerated:2"), ("DDS-S72", "domain:enumerated:3"), ("DDS-S73", "domain:bounds:41"),
-        ("DDS-S74", "domain:enumerated:3"), ("DDS-S75", "domain:bounds:66"), ("DDS-S76", "domain:enumerated:16")],
+        ("DDS-S71", "domain:continuous:5067.35:5083.15:exact"), ("DDS-S72", "domain:continuous:4908.70:4940.30:exact"),
+        ("DDS-S73", "domain:continuous:1694.00:2326.00:exact"), ("DDS-S74", "domain:continuous:10134.70:10166.30:exact"),
+        ("DDS-S75", "domain:continuous:87648.49:87989.51:conservative"), ("DDS-S76", "domain:continuous:4937.77:4961.48:exact")],
 }
 
 
@@ -162,10 +163,12 @@ def _show(res, want: str, results: dict) -> bool:
         return arg not in {x.split(":", 1)[0] for k in res.alternatives for x in (k or "").split("|") if x} and \
             not any(c["dimension"] == arg for c in res.conditions)
     if kind == "domain":
-        mode, n = arg.split(":")
+        mode, lo, hi, bkind = arg.split(":")           # FD07: continuous, no step or count; its amount bounds
         dom = next((c.get("domain") for c in res.conditions if c.get("dimension") == "tolerance"), None) or {}
-        return dom.get("mode") == mode and dom.get("count") == int(n) and res.amount is None and \
-            len(res.alternatives) == (int(n) if mode == "enumerated" else 2)
+        b = dom.get("amount_bounds_usd") or {}
+        return dom.get("mode") == mode and dom.get("step_m") is None and dom.get("count") is None and \
+            dom.get("exhaustive") is False and (b.get("min"), b.get("max"), b.get("kind")) == (lo, hi, bkind) and \
+            res.amount is None and len(res.alternatives) >= 2
     if kind == "amount":
         return res.amount == D(arg)
     raise ValueError(want)
@@ -576,36 +579,79 @@ def pd210_part_errors(steps: list[dict], T) -> list[str]:
     return errs
 
 
-def _grid_exponent(*xs: Decimal) -> int:
-    """The finest decimal place the values need (98.00 = 98: the spelling never sets the domain; round 4 FD07)."""
-    return min(min(x.normalize().as_tuple().exponent for x in xs), 0)
+def _cent_from_below(v: Fraction) -> int:
+    """The cents a product approaching v from below rounds to (half to even; a half cent is not reached)."""
+    k = v * 100
+    return math.floor(k) if (k - Fraction(1, 2)).denominator == 1 else round(k)
 
 
-def _ie_count(widths: list[int], rest: int) -> int:
-    """Solutions of x_1 + ... + x_n = rest with 0 <= x_i <= widths[i] (inclusion-exclusion; independent of the engine's
-    dynamic programme)."""
-    n, total = len(widths), 0
-    for mask in range(1 << n):
-        left = rest - sum(widths[i] + 1 for i in range(n) if mask >> i & 1)
-        if left >= 0:
-            total += (-1) ** bin(mask).count("1") * math.comb(left + n - 1, n - 1)
-    return total
+def _cent_from_above(v: Fraction) -> int:
+    k = v * 100
+    return math.ceil(k) if (k - Fraction(1, 2)).denominator == 1 else round(k)
+
+
+def pd210_exact_bounds(r1: Fraction, r2: Fraction, a: Fraction, b: Fraction, A: Fraction) -> tuple[Decimal, Decimal]:
+    """Lowest and highest amount over every real x in [a, b] (band 1 carries x, band 2 A - x), each band in cents half
+    to even (DDS Cl.17) and then added (Cl.23). Independent of the engine's point sampling: it runs over the cent values
+    c1 band 1 can take, and for each takes the extreme band-2 cents over the (possibly half-open) set of x giving c1.
+    Only x within 0.02 / |r1 - r2| m of the linear extreme's vertex can attain a rounded extreme (each rounding moves an
+    amount by at most half a cent), so c1 runs over that window only."""
+    out = []
+    width = Fraction(1, 50) / abs(r1 - r2)
+    for lowest in (True, False):
+        at_b = (r1 < r2) == lowest
+        L, U = (max(a, b - width), b) if at_b else (a, min(b, a + width))
+        best = None
+        for c1 in range(round(L * r1 * 100), round(U * r1 * 100) + 1):
+            closed = c1 % 2 == 0                         # a half cent rounds to the even cent
+            x0, x1 = (c1 - Fraction(1, 2)) / 100 / r1, (c1 + Fraction(1, 2)) / 100 / r1
+            lo_in, hi_in = (x0, closed) if x0 >= L else (L, True), (x1, closed) if x1 <= U else (U, True)
+            if lo_in[0] > hi_in[0] or (lo_in[0] == hi_in[0] and not (lo_in[1] and hi_in[1])):
+                continue
+            if lowest:                                   # band 2 falls as x rises: its least at the right end
+                y, inc = hi_in
+                c2 = round((A - y) * r2 * 100) if inc else _cent_from_above((A - y) * r2)
+                best = c1 + c2 if best is None else min(best, c1 + c2)
+            else:
+                y, inc = lo_in
+                c2 = round((A - y) * r2 * 100) if inc else _cent_from_below((A - y) * r2)
+                best = c1 + c2 if best is None else max(best, c1 + c2)
+        out.append(Decimal(best).scaleb(-2))
+    return out[0], out[1]
+
+
+def pd210_enclosure(rates: list[Fraction], lo: list[Fraction], hi: list[Fraction], A: Fraction) -> tuple[Decimal, Decimal]:
+    """An enclosure of every rounded amount for any number of bands: the linear extremes (the cheapest or dearest bands
+    filled first) widened by half a cent per band, taken to whole cents."""
+    def lin(order):
+        qs, left = list(lo), A - sum(lo)
+        for i in order:
+            add = min(hi[i] - lo[i], left)
+            qs[i] += add
+            left -= add
+        return sum(q * r for q, r in zip(qs, rates))
+    order = sorted(range(len(rates)), key=lambda i: rates[i])
+    n = len(rates)
+    return (Decimal(math.ceil((lin(order) - Fraction(n, 200)) * 100)).scaleb(-2),
+            Decimal(math.floor((lin(order[::-1]) + Fraction(n, 200)) * 100)).scaleb(-2))
 
 
 def pd210_domain_errors(r, T) -> list[str]:
-    """B2: where the allowed metres differ from a charge interval that crosses band boundaries, the result must carry
-    the COMPLETE admissible allocation domain - every allocation (each admissible, all distinct, as many as the domain
-    holds) or, beyond 25, the lowest- and highest-amount allocations with the whole domain stated on the owned
-    condition. Recomputed here from the interval, the allowed metres and the verified band rates: the count by
-    inclusion-exclusion and the extremes over the vertices of the domain."""
+    """B2 and FD07: where the allowed metres differ from a charge interval that crosses band boundaries, the result must
+    carry the COMPLETE admissible allocation domain. No source fixes a metre granularity (DDS Cl.23 p6, R3 p14, 25A p35,
+    Sch 2 p17), so every real split within the coupled per-band bounds is admissible: a nondegenerate domain is stated
+    symbolically (no step, no count, not enumerable, not exhaustive, unresolved, owner G5) with amount bounds covering
+    every rounded outcome, and its traces are witnesses; a domain the constraints reduce to one allocation is that
+    allocation alone. Recomputed here from the parts' intervals and measured depths, the allowed metres and the verified
+    band rates: the constraints, each witness's membership and cents, and the bounds (exact by an independent method)."""
     if r.code != "PD-210" or not r.payable:
         return []
-    alts = [(k, a["trace"]) for k, a in r.alternatives.items() if a.get("trace") and any(s["op"] == "part" for s in a["trace"])]
-    sets = alts or [(None, r.trace)]
+    alts = [(k, a) for k, a in r.alternatives.items() if a.get("trace") and any(s["op"] == "part" for s in a["trace"])]
+    sets = alts or [(None, {"trace": r.trace, "amount": r.amount})]
     parsed, where = {}, {}
-    for k, t in sets:
+    for k, a in sets:
         ps = []
-        for s in t:
+        for s in a["trace"]:
             m = PART_LABEL.search(s.get("label", "")) if s["op"] == "part" else None
             if m:
                 ps.append((m.group(1), D(m.group(2)), D(m.group(3)), D(s["quantity"])))
@@ -625,59 +671,79 @@ def pd210_domain_errors(r, T) -> list[str]:
     if allowed is None:
         return ["PD-210 alternatives without a common allowed quantity"]
     total = sum(lens, Decimal(0))
+    tol = next((c for c in r.conditions if c.get("dimension") == "tolerance"), None)
+    dom = (tol or {}).get("domain")
     if len(iv) < 2 or (total == allowed and lens == [e - a for _b, a, e in iv]):
-        return errs
-    unit = Decimal(1).scaleb(_grid_exponent(allowed, *[x for _b, a, b in iv for x in (a, b)],
-                                            *[x for v in where.values() if v for x in v]))
+        return errs + (["PD-210 allocation domain stated where the depths place every metre"] if dom else [])
     if allowed <= total:
         bounds = [(max(Decimal(0), allowed - (total - x)), min(x, allowed)) for x in lens]
     else:
         bounds = [(x, x + allowed - total) for x in lens]
-    widths = [int((hi - lo) / unit) for lo, hi in bounds]
-    count = _ie_count(widths, int((allowed - sum(lo for lo, _hi in bounds)) / unit))
+    slo, shi = sum(lo for lo, _hi in bounds), sum(hi for _lo, hi in bounds)
+    bounds = [(max(lo, allowed - (shi - hi)), min(hi, allowed - (slo - lo))) for lo, hi in bounds]   # coupled by the sum
     rate = {b: rt for _lo, _hi, rt, b in T.depth_bands}
 
     def amount(qs):
         return sum(((q * rate[band]).quantize(CENT, rounding=ROUND_HALF_EVEN) for q, (band, _a, _b) in zip(qs, iv)), Decimal(0))
 
-    def admissible(qs):
-        return (sum(qs, Decimal(0)) == allowed and all(lo <= q <= hi and (q / unit) % 1 == 0 for q, (lo, hi) in zip(qs, bounds)))
-
-    got = [tuple(p[3] for p in ps) for ps in parsed.values()]
-    errs += [f"PD-210 allocation {g} is not admissible (sum {allowed}, bands {bounds}, step {unit})" for g in got if not admissible(g)]
-    n = len(iv)
-    verts = []
-    for j in range(n):
-        for pick in itertools.product((0, 1), repeat=n - 1):
-            others = [i for i in range(n) if i != j]
-            qs = [None] * n
-            for i, side in zip(others, pick):
-                qs[i] = bounds[i][side]
-            qs[j] = allowed - sum(qs[i] for i in others)
-            if bounds[j][0] <= qs[j] <= bounds[j][1]:
-                verts.append(tuple(qs))
-    lo_amt, hi_amt = min(map(amount, verts)), max(map(amount, verts))
-    dom = next((c.get("domain") for c in r.conditions if c.get("dimension") == "tolerance"), None)
-    listed = [k for k, _t in alts]
-    if alts and all(("lowest" in k or "highest" in k) for k in listed) and len(listed) == 2:
-        if count <= 2:
-            errs.append(f"PD-210 domain of {count} allocations given as bounds")
-        if sorted(amount(g) for g in got) != [lo_amt, hi_amt]:
-            errs.append(f"PD-210 bounds {sorted(amount(g) for g in got)} are not the domain's lowest and highest amounts "
-                        f"{[lo_amt, hi_amt]}")
-        want = {"mode": "bounds", "count": count, "step_m": str(unit),
-                "parts": [(str(lo), str(hi)) for lo, hi in bounds]}
-        have = dom and {"mode": dom.get("mode"), "count": dom.get("count"), "step_m": dom.get("step_m"),
-                        "parts": [(p["min_m"], p["max_m"]) for p in dom.get("parts", [])]}
-        if have != want:
-            errs.append(f"PD-210 bounds without the whole domain stated: condition states {have}, domain is {want}")
-        elif "unresolved" not in (dom.get("not_listed") or "") or not re.search(r"G[4-7]", dom.get("not_listed") or ""):
-            errs.append("PD-210 bounds: the allocations between them are not marked unresolved with an owner")
-    elif len(set(got)) != len(got) or len(got) != count:
-        errs.append(f"PD-210 allocation domain incomplete: {len(set(got))} distinct allocation(s) listed, the domain holds "
-                    f"{count} (step {unit}); amounts {lo_amt}..{hi_amt}")
-    if count > 1 and not any(c.get("dimension") == "tolerance" and re.fullmatch(r"G[4-7]", c.get("owner", "")) for c in r.conditions):
-        errs.append("PD-210 allocation domain without an owned 'tolerance' condition")
+    got = {k: tuple(p[3] for p in ps) for k, ps in parsed.items()}
+    for k, g in got.items():
+        if sum(g, Decimal(0)) != allowed:
+            errs.append(f"PD-210 allocation {g} does not sum to the allowed {allowed} m")
+        if not all(lo <= q <= hi for q, (lo, hi) in zip(g, bounds)):
+            errs.append(f"PD-210 allocation {g} is outside the domain's bounds {bounds} (sum {allowed})")
+        have = dict(sets)[k].get("amount")
+        if have is not None and D(have) != amount(g):
+            errs.append(f"PD-210 allocation {g}: amount {have}, band parts in cents half to even give {amount(g)}")
+    if all(lo == hi for lo, hi in bounds):              # the constraints force one allocation: exhaustive, no domain
+        if r.amount is None or dom:
+            errs.append(f"PD-210 allocation forced by the constraints ({[lo for lo, _hi in bounds]}) carried as an "
+                        f"unresolved domain")
+        return errs
+    if not tol or tol.get("owner") != "G5":
+        errs.append("PD-210 allocation domain without an owned 'tolerance' condition (G5)")
+    if r.amount is not None:
+        errs.append(f"PD-210 allocation domain of more than one allocation given the single amount {r.amount}")
+    if not dom:
+        return errs + ["PD-210 allocation domain not stated on its condition"]
+    finite = {k: dom.get(k) for k in ("mode", "step_m", "count", "enumerable", "exhaustive", "state", "owner")}
+    if finite != {"mode": "continuous", "step_m": None, "count": None, "enumerable": False, "exhaustive": False,
+                  "state": "unresolved", "owner": "G5"} or dom.get("not_listed") == "none":
+        errs.append(f"PD-210 allocation domain is continuous and unresolved (owner G5; no source fixes a metre step), "
+                    f"the result states {finite}" + (", nothing unlisted" if dom.get("not_listed") == "none" else ""))
+    try:
+        stated = [(D(p["min_m"]), D(p["max_m"])) for p in dom.get("parts", [])]
+        stated_sum = D(dom.get("sum_m"))
+        stated_rates = [D(p["rate"]) for p in dom.get("parts", [])]
+    except (KeyError, TypeError, ArithmeticError):
+        return errs + [f"PD-210 allocation domain without per-band bounds, rates or sum: {dom}"]
+    if stated_sum != allowed or stated != bounds:
+        errs.append(f"PD-210 allocation domain states {stated_sum} m in {stated}; the constraints give {allowed} m in {bounds}")
+    if stated_rates != [rate[b] for b, _a, _e in iv]:
+        errs.append(f"PD-210 allocation domain rates {stated_rates} are not the bands' {[rate[b] for b, _a, _e in iv]} (Sch 2)")
+    fr = [Fraction(rate[b]) for b, _a, _e in iv]
+    lo_f, hi_f = [Fraction(lo) for lo, _hi in bounds], [Fraction(hi) for _lo, hi in bounds]
+    exact = pd210_exact_bounds(fr[0], fr[1], lo_f[0], hi_f[0], Fraction(allowed)) if len(iv) == 2 and fr[0] != fr[1] else None
+    enclosing = exact or pd210_enclosure(fr, lo_f, hi_f, Fraction(allowed))
+    b = dom.get("amount_bounds_usd") or {}
+    try:
+        bmin, bmax = D(b["min"]), D(b["max"])
+    except (KeyError, TypeError, ArithmeticError):
+        return errs + [f"PD-210 allocation domain without amount bounds: {b}"]
+    if b.get("kind") == "exact":
+        if exact is None or (bmin, bmax) != exact:
+            errs.append(f"PD-210 exact amount bounds {bmin}..{bmax} are not the domain's lowest and highest rounded amounts "
+                        f"{exact[0]}..{exact[1]}" if exact else f"PD-210 bounds {bmin}..{bmax} called exact over {len(iv)} bands")
+    elif b.get("kind") == "conservative":
+        if not (bmin <= enclosing[0] and bmax >= enclosing[1]):
+            errs.append(f"PD-210 conservative bounds {bmin}..{bmax} do not enclose every admissible amount "
+                        f"{enclosing[0]}..{enclosing[1]}")
+    else:
+        errs.append(f"PD-210 amount bounds of kind {b.get('kind')!r} (exact or conservative)")
+    errs += [f"PD-210 bounds {bmin}..{bmax} exclude the admissible allocation {g} at {amount(g)}"
+             for g in got.values() if not bmin <= amount(g) <= bmax]
+    if len(set(got.values())) < 2:
+        errs.append("PD-210 allocation domain sampled by fewer than two allocations")
     return errs
 
 
