@@ -480,3 +480,21 @@ def test_x8_coverage_control():
     errs = ns.coverage({"CW family CW-MEAS": 1, "CW cell CW-MEAS|line|quantity": 2})
     assert "X8 coverage: CW line quantity never emptied on families ['CW-MEAS']" not in errs
     assert "X8 coverage: CW line unit never emptied on families ['CW-MEAS']" in errs
+
+
+def test_a_header_number_two_rows_carry_gives_no_header_fact(both):
+    """Two application rows with one number (G2's input assertion 'ids unique' then fails; G2 hands both over): the line
+    takes no fact from either and names both rows; the batch equals the direct evaluation. The engine before this fix took
+    the last row silently (control)."""
+    w, _ = both
+    row = next(x for x in w.claims.rows["cw_lines"] if x.ident == "PA-00001-01")
+    h = next(x for x in w.claims.rows["cw_headers"] if x.ident == row.values["application_no"])
+    sub = copy.copy(w)
+    sub.claims = copy.copy(w.claims)
+    sub.claims.rows = {**w.claims.rows, "cw_headers": list(w.claims.rows["cw_headers"]) + [ns._later_copy(h)]}
+    r = g3_cw.run(sub)["PA-00001-01"]
+    gap = next(c for c in r.checks if c.check == "input" and c.detail.startswith("application_no:"))
+    assert "carried by 2 application rows" in gap.detail and f"{h.source.path}:{h.source.line}" in gap.detail
+    assert not any(c.check == "window" and c.status in ("pass", "finding") for c in r.checks)      # no header fact used
+    old = old_module("g3_cw", "ed7ba60").run(sub)["PA-00001-01"]
+    assert any(c.check == "window" and c.status in ("pass", "finding") for c in old.checks)        # the last row, silently

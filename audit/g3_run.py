@@ -21,7 +21,7 @@ from decimal import Decimal
 
 from . import build, g3_cw, g3_dds
 from .common import ROOT
-from .g3_core import result_keys
+from .g3_core import headers_by_id, result_keys
 
 OUT = ROOT / "verification" / "g3"
 # G3-D1 scope: breaches of the submission rules (window, period, identity, one well per invoice) that the contract states
@@ -201,7 +201,7 @@ def decision_scopes(w, res) -> dict:
     grd = [r for r in cw.values() if "ground" in _dims(r)]
     pd210 = [r for r in dds.values() if r.code == "PD-210" and r.payable]
     both = [r for r in cw.values() if any("P11 rest-day alone" in x for x in r.readings)]
-    inv = {h.ident: h.values for h in w.claims.rows["dds_headers"]}
+    inv = {k: h.values for k, h in headers_by_id(w.claims.rows["dds_headers"])[0].items()}
     # reading A (the G3 reading before correction): the header's class; the application's ground class, else S4's G2
     proxy_cls = lambda r: _has("class", (inv.get(line(r).get("invoice_no")) or {}).get("well_class"))  # noqa: E731
     claimed_g = lambda r: _has("ground", ((line(r).get("ground_class") or "").split(" ")[0] or "G2"))  # noqa: E731

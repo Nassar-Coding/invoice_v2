@@ -48,7 +48,7 @@ sys.path.insert(0, str(ROOT))
 
 from audit import claims, g3_run, records_cw, records_dds  # noqa: E402
 from audit.common import SNAPSHOT, Queue, Unresolved  # noqa: E402
-from audit.g3_core import Inputs, result_keys  # noqa: E402
+from audit.g3_core import Inputs, headers_by_id, result_keys  # noqa: E402
 
 # the contract's own rule for an absent input (anything else that matters must stay unresolved or carry every value)
 REGISTERED = {
@@ -68,7 +68,8 @@ REGISTERED = {
 # line, and G3 never attributes it by its content: the result must still be explicit (named; unresolved, or the
 # contract's rule for an absent document), but 'nothing lost' does not apply - every probe is a state in which G2 does
 # attribute a document to the line, a state the empty key is not.
-JOIN_KEYS = {("CW", "line", "application_no"), ("DDS", "line", "invoice_no"), ("DDS", "doc", "Report")}
+JOIN_KEYS = {("CW", "line", "application_no"), ("DDS", "line", "invoice_no"), ("DDS", "doc", "Report"),
+             ("CW", "header", "application_no"), ("DDS", "header", "invoice_no")}
 KINDS = {"CW": ("cw_lines", "cw_headers"), "DDS": ("dds_lines", "dds_headers")}
 HKEY = {"CW": "application_no", "DDS": "invoice_no"}
 REF = {"CW": "record_ref", "DDS": "report_ref"}
@@ -429,6 +430,12 @@ def sweep(w, res, eng: Engines) -> tuple[list[str], dict]:
             for ev in empties(lk, hkey):          # the join key: the line's header is not found
                 judge("line", hkey, ev, lambda ev=ev: eng.evaluate(c, {**line, hkey: ev}, None, doc, doc is not None, inputs),
                       [lambda: eng.evaluate(c, line, header, doc, doc is not None, inputs)])
+            # the header number carried by a second, later-dated row: G2 hands both over; which applies is not established
+            later = _later_copy(hdrs[line[hkey]])
+            two = (f"{hdrs[line[hkey]].source.path}:{hdrs[line[hkey]].source.line}", f"{later.source.path}:{later.source.line}")
+            both = replace(inputs or Inputs(), header_src=None, header_copies=two) if eng.takes_inputs[c] else None
+            judge("header", hkey, "repeated", lambda _b=both: eng.evaluate(c, line, None, doc, doc is not None, _b),
+                  [lambda _h=later.values: eng.evaluate(c, line, _h, doc, doc is not None, inputs)])
             for where, kind, cur in (("line", lk, line), ("header", hk, header)):
                 for field in claim_fields(kind):
                     if field == hkey and where == "line":
@@ -488,6 +495,14 @@ def sweep(w, res, eng: Engines) -> tuple[list[str], dict]:
 
 
 # ----------------------------------------------------------------------------------------------- the batch
+def _later_copy(h):
+    """A second header row with the same number, every date 40 days later (another submission under the same number)."""
+    h2 = copy.copy(h)
+    h2.values = {k: (v + dt.timedelta(days=40) if isinstance(v, dt.date) else v) for k, v in h.values.items()}
+    h2.source = replace(h.source, line=h.source.line + 100000)
+    return h2
+
+
 def _sub_world(w, c, rows, docs=None, queue_items=(), unindex=(), others=None, files=None):
     """A copy of the world whose claim lines are `rows` (every other line of that contract left out; `others`: the other
     contract's lines, likewise), with documents replaced by `docs` (and G2's by-file report index by `files`) and G2
@@ -522,12 +537,16 @@ def _batch_once(eng: Engines, c, sub, label: str, errs: list) -> None:
         errs.append(f"{c} batch {label}: engine_error on {bad[:3]}")
         return
     ctx = eng.context(c, sub)
-    hdrs = {h.ident: h.values for h in sub.claims.rows[hk]}
+    hdrs = {k: h.values for k, h in headers_by_id(sub.claims.rows[hk])[0].items()}   # a number two rows carry: no header
     for key, row in zip(result_keys(rows), rows):
         v = row.values
         ref = v.get(REF[c])
         doc = (sub.cw if c == "CW" else sub.ddr).get(ref) if ref else None
-        direct = eng.evaluate(c, v, hdrs.get(v.get(HKEY[c])), doc, doc is not None, ctx.get(key) if eng.takes_inputs[c] else None)
+        try:
+            direct = eng.evaluate(c, v, hdrs.get(v.get(HKEY[c])), doc, doc is not None, ctx.get(key) if eng.takes_inputs[c] else None)
+        except Exception as e:  # noqa: BLE001
+            errs.append(f"{c} batch {label}: the direct evaluation of {key} raised {type(e).__name__}: {e}")
+            return
         got = out.get(key)
         a = {k: x for k, x in direct.to_json().items() if k != "ctx"}
         b = {k: x for k, x in got.to_json().items() if k != "ctx"} if got is not None else None
@@ -632,6 +651,12 @@ def batch(w, res, eng: Engines, fields=None) -> tuple[list[str], int]:
             continue
         # header fields: emptied on the headers of the sample lines
         hids = {r.values[hkey] for r in base_rows}
+        # a header number two rows carry (G2's input assertion 'ids unique' fails): the second row a later-dated copy
+        hrows = list(w.claims.rows[hk]) + [_later_copy(h) for h in w.claims.rows[hk] if h.ident in hids]
+        sub = _sub_world(w, c, base_rows, others=others)
+        sub.claims.rows = {**sub.claims.rows, hk: hrows}
+        _batch_once(eng, c, sub, "with header number repeated", errs)
+        runs += 1
         for field in claim_fields(hk):
             if field == hkey:
                 continue

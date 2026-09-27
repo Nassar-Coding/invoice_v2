@@ -28,7 +28,7 @@ import itertools
 from decimal import Decimal
 
 from . import terms
-from .g3_core import Inputs, LineResult, Trace, empty, result_keys
+from .g3_core import Inputs, LineResult, Trace, empty, headers_by_id, result_keys
 
 CONTRACT_REF = "CW-2025-0417-CIV"
 SUBCONTRACTOR = "RIDGEWAY CIVIL ENGINEERING LLC"      # agreement particulars (p1)
@@ -118,6 +118,9 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
                         "established (G2)", D)
     if app is None:
         r.input_gap("application_no", "unresolved", "input_unresolved", "Cl.40 (p8)",
+                    f"the line's application {line.get('application_no')!r} is carried by {len(inputs.header_copies)} application "
+                    f"rows ({', '.join(inputs.header_copies)}): which one the line belongs to is not established, and no header "
+                    "fact is taken from either" if inputs.header_copies else
                     f"the line's application {line.get('application_no')!r} is not among the applications G2 loaded: its header "
                     "facts are unknown", L)
         app = {}
@@ -576,7 +579,7 @@ def band_split(code: str, quantity: Decimal, amount: Decimal, priced: dict, T) -
 
 def inputs_from_world(w):
     """(line, app, record, record_exists) for every civil line of the G2 world (app None: its header is not found)."""
-    apps = {h.ident: h.values for h in w.claims.rows["cw_headers"]}
+    apps = {k: h.values for k, h in headers_by_id(w.claims.rows["cw_headers"])[0].items()}
     for row in w.claims.rows["cw_lines"]:
         v = row.values
         ref = v.get("record_ref")
@@ -587,7 +590,7 @@ def inputs_from_world(w):
 def input_context(w) -> dict[str, Inputs]:
     """Per line (keyed as the batch keys its result, g3_core.result_keys): provenance of the line, its application and
     its record, and the record's fields in G2's queue."""
-    apps = {h.ident: h for h in w.claims.rows["cw_headers"]}
+    apps, copies = headers_by_id(w.claims.rows["cw_headers"])
     gaps, repeated = {}, {}
     for u in w.queue.items:
         if u.kind == "cw_record":
@@ -600,9 +603,10 @@ def input_context(w) -> dict[str, Inputs]:
         h = apps.get(v.get("application_no"))
         rec = w.cw.get(v["record_ref"]) if v.get("record_ref") else None
         out[key] = Inputs(f"{row.source.path}:{row.source.line}", f"{h.source.path}:{h.source.line}" if h else None,
-                                rec.path if rec is not None else None,
-                                frozenset(gaps.get(rec.ticket, ())) if rec is not None else frozenset(), False,
-                                frozenset(repeated.get(rec.ticket, ())) if rec is not None else frozenset())
+                          rec.path if rec is not None else None,
+                          frozenset(gaps.get(rec.ticket, ())) if rec is not None else frozenset(), False,
+                          frozenset(repeated.get(rec.ticket, ())) if rec is not None else frozenset(),
+                          header_copies=copies.get(v.get("application_no"), ()))
     return out
 
 

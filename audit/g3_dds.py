@@ -25,7 +25,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from . import links, records_dds, terms
-from .g3_core import Inputs, LineResult, Trace, empty, result_keys
+from .g3_core import Inputs, LineResult, Trace, empty, headers_by_id, result_keys
 from .g3_core import q as to_cents
 
 CONTRACT_REF = "DDS-2025-118"
@@ -129,6 +129,9 @@ def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict 
     payable, reasons = True, []
     if inv is None:
         r.input_gap("invoice_no", "unresolved", "input_unresolved", "Cl.32 (p8)",
+                    f"the charge's invoice {line.get('invoice_no')!r} is carried by {len(inputs.header_copies)} invoice rows "
+                    f"({', '.join(inputs.header_copies)}): which one the charge belongs to is not established, and no header fact "
+                    "is taken from either" if inputs.header_copies else
                     f"the charge's invoice {line.get('invoice_no')!r} is not among the invoices G2 loaded: its header facts are unknown", L)
         inv = {}
     # 1 identity --------------------------------------------------------------------------------------------
@@ -977,7 +980,7 @@ def loss_value(code, sd, hours: Decimal, T, tr: Trace, basis: str, reading: str)
 
 def inputs_from_world(w):
     """(line, invoice, report) for every drilling line of the G2 world (invoice None: its header is not found)."""
-    invs = {h.ident: h.values for h in w.claims.rows["dds_headers"]}
+    invs = {k: h.values for k, h in headers_by_id(w.claims.rows["dds_headers"])[0].items()}
     for row in w.claims.rows["dds_lines"]:
         v = row.values
         yield v, invs.get(v.get("invoice_no")), w.ddr.get(v["report_ref"]) if v.get("report_ref") else None
@@ -986,7 +989,7 @@ def inputs_from_world(w):
 def input_context(w) -> dict[str, Inputs]:
     """Per line (keyed as the batch keys its result, g3_core.result_keys): provenance of the line, its invoice and its
     report, and the report's fields in G2's queue."""
-    invs = {h.ident: h for h in w.claims.rows["dds_headers"]}
+    invs, hcopies = headers_by_id(w.claims.rows["dds_headers"])
     gaps, repeated = {}, {}
     for u in w.queue.items:
         if u.kind == "ddr":
@@ -1007,7 +1010,8 @@ def input_context(w) -> dict[str, Inputs]:
         out[key] = Inputs(f"{row.source.path}:{row.source.line}", f"{h.source.path}:{h.source.line}" if h else None,
                           ddr.path if ddr is not None else None,
                           frozenset(gaps.get(ddr.file, ())) if ddr is not None else frozenset(), unindexed,
-                          frozenset(repeated.get(ddr.file, ())) if ddr is not None else frozenset(), copies)
+                          frozenset(repeated.get(ddr.file, ())) if ddr is not None else frozenset(), copies,
+                          hcopies.get(v.get("invoice_no"), ()))
     return out
 
 

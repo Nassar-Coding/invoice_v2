@@ -87,11 +87,22 @@ class Inputs:
     unindexed_reports: bool = False         # some report file has no indexable Report number (G2 queue)
     doc_repeated: frozenset = frozenset()   # of those, fields written twice: G2 keeps a value, but which is right is open
     report_copies: tuple = ()               # other delivered files carrying the cited Report number (G2 indexes one)
+    header_copies: tuple = ()               # "file:line" of each header row carrying the line's header number, when
+    #                                         more than one does (G2's input assertion: ids unique)
 
 
 def empty(v) -> bool:
     """A value G2 left empty: None (typed fields, unparsed evidence) or a blank string (untyped claim fields)."""
     return v is None or (isinstance(v, str) and not v.strip())
+
+
+def headers_by_id(rows) -> tuple[dict, dict]:
+    """(header number -> its row, for numbers one row carries; header number -> the "file:line" of each row, for numbers
+    several rows carry). A line whose number several headers carry takes no fact from any of them (round 3): which one
+    it belongs to is not established."""
+    n = Counter(h.ident for h in rows)
+    return ({h.ident: h for h in rows if n[h.ident] == 1},
+            {k: tuple(f"{h.source.path}:{h.source.line}" for h in rows if h.ident == k) for k, c in n.items() if c > 1})
 
 
 def result_keys(rows) -> list[str]:
