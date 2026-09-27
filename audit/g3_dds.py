@@ -246,6 +246,8 @@ def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict 
                     "established (G2)", D)
 
     def gap(field, why):
+        if field in unknown:
+            return
         unknown.append(field)
         r.input_gap(field, "unresolved", "input_unresolved", "Cl.15 (p5); App G (p36)", f"report {why} (G2)", D)
         unresolved.append(f"report {field}: {why}")
@@ -284,9 +286,29 @@ def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict 
             payable = False
             reasons.append("Schedule 5 document not delivered in signed form (Cl.15, Cl.37; Q3 reading A)")
             r.readings.append("Q3:A")
+        elif part_needed == "D" and ddr.parts["D"].get("Source handling certified") is False \
+                and "D.Source handling certified" not in twice:
+            # Sch 5 Part D is 'the sources handled and their certification'; H6 (p13) requires the source-handling
+            # certificate: a Part D stating the handling is not certified is not the completed Part (Cl.37)
+            r.add("evidence", "finding", "DDS-R05", "Cl.37 (p8); Sch 5 Part D (p24); H6 (p13)", "source_handling_not_certified",
+                  "Part D states 'Source handling certified: No'")
+            payable = False
+            reasons.append("Schedule 5 Part D not completed: source handling not certified (Cl.37, H6; Q3 reading A)")
+            r.readings.append("Q3:A")
         elif sig_unknown:              # whether the condition-of-payment document is signed is not established
             unknown.append("signature")
             unresolved.append("report signature: " + ", ".join(sig_unknown) + " does not establish a signature (Cl.15, Cl.37)")
+    if part_needed and part_needed in ddr.parts and payable:
+        # FD04: the required Part must be COMPLETED (Cl.37; Sch 5 p24 states each Part's contents): every content line is
+        # checked whether or not this service's price uses it; a content line missing, unreadable or written twice
+        # differently leaves the condition of payment unresolved (owner G5)
+        content = ddr.parts[part_needed]
+        for k in records_dds.part_keys(part_needed):
+            f = f"{part_needed}.{k}"
+            v = content.get(k)
+            listed = k == "Tools in run" and any(ddr.tools_in_run.values())      # recognised tools are recorded
+            if f in twice or v is None or v == "" or v == [] or (f in gaps and not listed):
+                gap(f, f"Schedule 5 Part {part_needed} content '{k}' is not established (Cl.37; Sch 5 p24)")
     if not any(c.check == "evidence" and c.status == "finding" for c in r.checks):
         r.add("evidence", "pass" if not unknown else "unresolved", "DDS-R05", "Cl.15 (p5); Cl.37 (p8); Sch 5 (p24)")
     if "A" not in ddr.parts:           # recorded; each fact of Part A a service needs then blocks it below

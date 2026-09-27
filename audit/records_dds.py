@@ -86,6 +86,8 @@ def _typed(part: str, key: str, value: str, ident: str, src: Source, q: Queue):
             if value not in ENUMS[s["enum_keys"][key]]:
                 raise ValueError(value)
             return value
+        if key in s.get("text_keys", []) and not re.search(r"[A-Za-z]{2,}", value):
+            raise ValueError(value)                # no word: the content is not readable (round 4 FD04)
     except ValueError:
         return q.add("ddr", ident, f"{part}.{key}", f"unparseable or unknown value {value!r}", src)
     return value

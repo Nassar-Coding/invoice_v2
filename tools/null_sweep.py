@@ -28,7 +28,12 @@ billed line (codes outside Schedule 1) gets a line built from a real one with it
      other contract's sample lines alongside, completes; the summary counts every line once by status and compares no
      rate for a line with no value at G3; and a decision scope that reaches such a line lists it as not valued rather
      than counting it (its line count falls when those lines are removed, so it must list at least as many);
-  6. coverage - every claim field (line and header) is emptied on at least one line of every code family.
+  6. coverage - every claim field (line and header) is emptied on at least one line of every code family;
+  7. evidence obligations (round 4) - for an input the contract makes a condition of payment of the line's service
+     (obligations(): Schedule 5 Part content, the Part, its heading and signatures for drilling; the Schedule 5 record's
+     required lines, narrative, title and signatures for civil - from the specs, never from the engine), emptying it,
+     making it unreadable or writing it twice differently must leave a payable line unresolved and named, or apply the
+     contract's own consequence; the 'nothing lost' test applies only to inputs without such an obligation.
 """
 from __future__ import annotations
 
@@ -62,7 +67,33 @@ REGISTERED = {
     ("DDS", "part", "C"): {"required_part_missing"},
     ("DDS", "part", "D"): {"required_part_missing"},
     ("DDS", "part", "E"): {"required_part_missing"},
+    ("DDS", "doc", "D.Source handling certified"): {"source_handling_not_certified"},
 }
+
+
+def obligations(contract: str, code: str | None) -> set[tuple[str, str]]:
+    """Source-derived evidence obligations of a line (round 4, audit FD04 note): the inputs the contract makes a condition
+    of payment for this service, whether or not its price uses them. Taken from the specs, never from the engine:
+      drilling - Cl.37 (p8), Sch 5 (p24; spec/terms_dds.yaml DDS.T17/T18): the service's Schedule 5 Part completed (every
+                 content line of spec/evidence_dds.yaml for that Part, the Part and its heading) in signed form (Cl.15:
+                 both signatures);
+      civil    - Cl.46-47 (p8), Sch 5 (p27): the Schedule 5 record of the item's series with the lines the record layout
+                 requires (spec/evidence_cw.yaml record_layout), its narrative (the item basis), its title (its type) and
+                 both signatures.
+    An obligated input emptied, unreadable or written twice differently may never leave a payable value standing."""
+    if contract == "DDS":
+        from audit import g3_dds
+        part = g3_dds.terms.dds().sch5.get(code or "")
+        if not part:
+            return set()
+        return ({("doc", f"{part}.{k}") for k in records_dds.part_keys(part)} | {("part", part), ("heading", part)}
+                | {("doc", k) for k in records_dds.SIG.values()})
+    from audit import g3_cw
+    if not g3_cw.terms.cw().records.get(code or ""):
+        return set()
+    lay = records_cw.SPEC["record_layout"]
+    keys = set(lay["required_daily"]) | set(lay["required_weekly"])
+    return {("doc", k) for k in keys - {"Ticket", "Job"}} | {("doc", "narrative"), ("doc", "title")}
 # the keys by which G2 joins a line to its header or a report to the lines citing it (G2 joins by nothing else: plan §4;
 # records_dds.load indexes by the Report line). Emptied or repeated, the joined document is no longer attributed to the
 # line, and G3 never attributes it by its content: the result must still be explicit (named; unresolved, or the
@@ -378,6 +409,7 @@ def sweep(w, res, eng: Engines) -> tuple[list[str], dict]:
             doc = (w.cw if c == "CW" else w.ddr).get(line.get(REF[c]) or "")
             inputs = ctx.get(ref.split("#")[0]) if eng.takes_inputs[c] else None
             base = eng.evaluate(c, line, header, doc, doc is not None, inputs)
+            obs = obligations(c, line.get(UNSCHEDULED[c][0]))
             family = base.family
             stats[f"{c} family {family}"] += 1
 
@@ -400,7 +432,10 @@ def sweep(w, res, eng: Engines) -> tuple[list[str], dict]:
                     errs.append(f"{tag}: exception on an admissible other value: {type(e).__name__}: {e}")
                     stats["exceptions"] += 1
                     return
-                relevant = any(value_of(o) != value_of(base) for o in others)
+                # an unrecognisable entry appended to a list leaves the required line and its readable entries in place:
+                # whether they meet the condition is the relevance probe's question, not an unestablished obligation
+                obligated = base.payable is True and (where, field) in obs and empty_val != "append"
+                relevant = obligated or any(value_of(o) != value_of(base) for o in others)
                 changed = value_of(m) != value_of(base)
                 token = field.split(".", 1)[-1] if where == "doc" else field
                 said = token in names(m) or (where in ("part", "heading") and (f"Part {field}" in names(m) or "part heading" in names(m)))
@@ -411,6 +446,12 @@ def sweep(w, res, eng: Engines) -> tuple[list[str], dict]:
                     errs.append(f"{tag}: no admissible value of it changes the value, but the empty input changed it "
                                 f"({m.amount_status}): a known value lost")
                     stats["lost"] += 1
+                elif obligated and (m.payable is True or not said or (m.amount_status == "not_payable" and not registered)):
+                    # a condition of payment the source states is not established, yet the line keeps a value
+                    errs.append(f"{tag}: a source evidence obligation of this service is not established, but the result "
+                                f"({m.amount_status}{', not named' if not said else ''}) does not leave it unresolved or apply "
+                                f"the contract's consequence")
+                    stats["obligation_ignored"] += 1
                 elif relevant or changed:
                     if not said:
                         errs.append(f"{tag}: the value depends on it but the result does not name it (silent)")

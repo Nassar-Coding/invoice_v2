@@ -61,6 +61,16 @@ def _cw_line(w, ref):
     return row.values, app, w.cw[row.values["record_ref"]]
 
 
+_CTX = {}
+
+
+def _ctx(w, c):
+    """G2's input context for the world (computed once per world and contract)."""
+    if (id(w), c) not in _CTX:
+        _CTX[(id(w), c)] = (g3_dds if c == "DDS" else g3_cw).input_context(w)
+    return _CTX[(id(w), c)]
+
+
 def dds_eval(w, ref, text_fn, engine=g3_dds, parser=records_dds):
     """The line evaluated on its report after text_fn(report text), re-parsed by `parser` with a fresh G2 queue."""
     line, inv, ddr = _dds_line(w, ref)
@@ -69,7 +79,7 @@ def dds_eval(w, ref, text_fn, engine=g3_dds, parser=records_dds):
     mine = [u for u in q.items if u.ident == d2.file]
     indexed = d2 if d2.report == line.get("report_ref") else None       # G2 indexes reports by their Report number
     if engine is g3_dds:
-        ctx = g3_dds.input_context(w)[ref]
+        ctx = _ctx(w, "DDS")[ref]
         inp = replace(ctx, doc_gaps=frozenset(u.field for u in mine), unindexed_reports=d2.report is None,
                       doc_repeated=frozenset(u.field for u in mine if u.reason == "key repeated"))
         return engine.evaluate(line, inv, indexed, inputs=inp), q
@@ -83,7 +93,7 @@ def cw_eval(w, ref, text_fn, engine=g3_cw, parser=records_cw, line_patch=None):
     r2 = parser.parse_file(rec.path, text_fn(ns.doc_text(rec)), q)
     mine = [u for u in q.items if u.ident == r2.ticket]
     if engine is g3_cw:
-        ctx = g3_cw.input_context(w)[ref]
+        ctx = _ctx(w, "CW")[ref]
         inp = replace(ctx, doc_gaps=frozenset(u.field for u in mine),
                       doc_repeated=frozenset(u.field for u in mine if u.reason == "key repeated"))
         return engine.evaluate(line, app, r2, True, inputs=inp), q
@@ -323,3 +333,78 @@ def test_fd03_control_gate3_r3_ignores_the_specification(world, r3):
         base, _ = cw_eval(world, ref, lambda t: t, engine=r3.g3_cw, parser=r3.records_cw)
         r, q = cw_eval(world, ref, _narrative(world, ref, same, other), engine=r3.g3_cw, parser=r3.records_cw)
         assert (r.amount_status, r.amount, r.findings) == (base.amount_status, base.amount, base.findings) and not q.items
+
+
+# ============================================================================================ FD04 required Parts
+SCH5_LINES = {'DD-130': 'MDS-00001-013', 'DD-111': 'MDS-00001-021', 'RM-510': 'MDS-00018-026', 'LH-712': 'MDS-00018-033',
+              'LW-410': 'MDS-00043-053', 'LW-411': 'MDS-00043-054', 'LW-412': 'MDS-00043-055', 'LW-413': 'MDS-00043-056',
+              'LW-420': 'MDS-00043-057', 'LH-711': 'MDS-00251-033', 'LH-713': 'MDS-00282-016', 'LH-714': 'MDS-00383-050'}
+FD04_CASES = [(code, ref, k) for code, ref in SCH5_LINES.items()
+              for k in records_dds.part_keys(g3_dds.terms.dds().sch5[code])]
+
+
+def _drop(key):
+    return lambda t: "\n".join(x for x in t.split("\n") if not x.startswith(key + ":"))
+
+
+@pytest.mark.parametrize("code, ref, key", FD04_CASES)
+def test_fd04_every_required_content_line_missing_or_unreadable(world, code, ref, key):
+    """Every Schedule 5 service, every content line of its Part (priced or not): missing -> unresolved; unreadable ->
+    unresolved; the line's value is never kept on a Part that is not shown complete."""
+    base, _ = dds_eval(world, ref, lambda t: t)
+    assert base.payable is True and base.code == code
+    part = g3_dds.terms.dds().sch5[code]
+    for fn in (_drop(key), swap(key, "??")):
+        r, q = dds_eval(world, ref, fn)
+        assert r.amount_status == "unresolved" and r.amount is None and not r.alternatives, (code, key)
+        assert any(c.check == "input" and c.detail.startswith(f"{part}.{key}") for c in r.checks)
+
+
+def test_fd04_known_failure_takes_the_contractual_consequence(world):
+    r, q = dds_eval(world, "MDS-00043-057", swap("Source handling certified", "No"))
+    assert r.amount_status == "not_payable" and "source_handling_not_certified" in r.findings and not q.items
+
+
+def test_fd04_unrelated_services_on_the_report_are_unaffected(world):
+    """DD-101, DD-102, DD-120, HC-620, LW-401 on the same report as LW-420: Part D is not their condition of payment."""
+    for ref in ("MDS-00043-048", "MDS-00043-049", "MDS-00043-050", "MDS-00043-051", "MDS-00043-052"):
+        base, _ = dds_eval(world, ref, lambda t: t)
+        for fn in (_drop("Sources handled"), swap("Source handling certified", "No"), swap("Source handling certified", "??")):
+            r, _ = dds_eval(world, ref, fn)
+            assert (r.amount_status, r.amount) == (base.amount_status, base.amount), ref
+
+
+def test_fd04_control_gate3_r3_accepts_an_incomplete_or_negative_part(world, r3):
+    for fn in (swap("Source handling certified", "No"), swap("Source handling certified", "??"),
+               swap("Source handling certified", ""), _drop("Sources handled")):
+        r, _ = dds_eval(world, "MDS-00043-057", fn, engine=r3.g3_dds, parser=r3.records_dds)
+        assert (r.amount_status, r.amount, r.findings) == ("determined", Decimal("2746.55"), [])
+    r, _ = dds_eval(world, "MDS-00001-021", _drop("Run circulating hours"), engine=r3.g3_dds, parser=r3.records_dds)
+    assert (r.amount_status, r.amount) == ("determined", Decimal("3589.45"))
+    r, _ = dds_eval(world, "MDS-00043-053", _drop("Run last day"), engine=r3.g3_dds, parser=r3.records_dds)
+    assert r.amount_status == "conditional" and not any(c.check == "input" for c in r.checks)
+
+
+# ============================================================================================ X8 evidence obligations
+def test_x8_obligations_are_source_derived():
+    """The obligation set comes from the specs (Sch 5 Part per code; the civil record layout), not from the engine."""
+    ob = ns.obligations("DDS", "LW-420")
+    assert {("doc", "D.Sources handled"), ("doc", "D.Source handling certified"), ("doc", "D.Source run"), ("part", "D")} <= ob
+    assert ("doc", "B.Metres logged") in ns.obligations("DDS", "DD-111") and ns.obligations("DDS", "DD-101") == set()
+    assert {("doc", "Date"), ("doc", "narrative"), ("doc", "Countersigned (Engineer's representative)")} <= ns.obligations("CW", "B.21.040")
+    assert ns.obligations("CW", "A.12.020") == set()                     # no Schedule 5 record required
+
+
+@pytest.fixture(scope="module")
+def x8_r3_engine(world, r3):
+    res = {"CW": g3_cw.run(world), "DDS": g3_dds.run(world)}
+    return ns.x8(world, res, ns.Engines(r3.g3_cw, r3.g3_dds))
+
+
+def test_x8_control_gate3_r3_engine_ignores_obligations(x8_r3_engine):
+    """X8 on the gate3-r3 engines (G2 as now): required Part content removed or unreadable leaves a payable value -
+    rejected as an ignored obligation (the audit's FD04 note: an engine-derived relevance test would have accepted it)."""
+    errs, stats = x8_r3_engine
+    assert stats["obligation_ignored"] > 50
+    assert any("B.Run circulating hours" in e and "source evidence obligation" in e for e in errs)
+    assert any("D.Sources handled" in e and "source evidence obligation" in e for e in errs)
