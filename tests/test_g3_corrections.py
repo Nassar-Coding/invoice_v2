@@ -141,7 +141,8 @@ def test_f3_split_line_is_unresolved_and_the_rest_reproduce(res):
     r = res["CW"]["PA-00076-08"]
     assert "amount_arithmetic" in r.unresolved and "amount_arithmetic" not in r.findings
     detail = next(c.detail for c in r.checks if c.check == "arithmetic")
-    assert "207 x 34.56 (band 1) + 51 x 32.83 (band 2)" in detail
+    # round 4 FD07: the admissible range, never a division selected from the billed amount (the earlier detail named one)
+    assert "the amount lies between SAR" in detail and "(band 1) +" not in detail
     unresolved = [x for x in res["CW"].values() if "amount_arithmetic" in x.unresolved]
     established = [x for x in res["CW"].values() if "amount_arithmetic" in x.findings]
     assert len(unresolved) == 29 and len(established) == 3

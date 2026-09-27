@@ -577,7 +577,8 @@ def pd210_part_errors(steps: list[dict], T) -> list[str]:
 
 
 def _grid_exponent(*xs: Decimal) -> int:
-    return min(min(x.as_tuple().exponent for x in xs), 0)
+    """The finest decimal place the values need (98.00 = 98: the spelling never sets the domain; round 4 FD07)."""
+    return min(min(x.normalize().as_tuple().exponent for x in xs), 0)
 
 
 def _ie_count(widths: list[int], rest: int) -> int:

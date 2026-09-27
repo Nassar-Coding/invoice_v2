@@ -517,3 +517,81 @@ def test_fd06_other_findings_are_kept(world):
 def test_fd06_control_gate3_r3_flags_a_correctly_rounded_amount(world, r3):
     for qty, amount in (("152.5", "8867.88"), ("152.3", "8856.24")):
         assert "amount_arithmetic" in _pd210_charge(world, qty, amount, engine=r3.g3_dds).findings
+
+
+# ============================================================================================ FD07 allocation granularity
+import verify_g3 as vg  # noqa: E402
+
+
+def _cw_q(w, ref, qty, amount, engine=g3_cw):
+    line, app, rec = _cw_line(w, ref)
+    return engine.evaluate({**line, "quantity": Decimal(qty), "amount": Decimal(amount)}, app, rec, True)
+
+
+def _arith(r):
+    c = next(c for c in r.checks if c.check == "arithmetic")
+    return c.status, c.finding
+
+
+@pytest.mark.parametrize("amount, status", [("14894.14", "unresolved"), ("16051.20", "unresolved"), ("14768.64", "unresolved"),
+                                            ("14000.00", "finding"), ("16100.00", "finding")])
+def test_fd07_civil_status_is_independent_of_the_quantitys_spelling(world, amount, status):
+    """PA-00008-06 (D.41.010, band state unknown): 384, 384.0 and 384.00 m2 are one quantity. An amount inside the range
+    a division at the band edges gives (SAR 14,768.64-16,051.20 over every cumulative start) is unresolved, none selected;
+    an amount outside it is a finding."""
+    got = {_arith(_cw_q(world, "PA-00008-06", q, amount)) for q in ("384", "384.0", "384.00")}
+    assert got == {(status, "amount_arithmetic")}
+
+
+def test_fd07_civil_fractional_division_constructed_independently(world):
+    """100.4 m2 at band 2 (39.71) + 283.6 m2 at band 3 (38.46) = 14,894.14: admissible (an earlier cumulative quantity of
+    17,899.6 m2), so unresolved - and the reading names the range, not that division."""
+    assert Decimal("100.4") * Decimal("39.71") + Decimal("283.6") * Decimal("38.46") == Decimal("14894.14")
+    r = _cw_q(world, "PA-00008-06", "384", "14894.14")
+    det = next(c.detail for c in r.checks if c.check == "arithmetic")
+    assert "between SAR 14768.64 and SAR 16051.20" in det and "100.4" not in det
+
+
+DDS_Q = ["98", "98.0", "98.00"]
+
+
+def _s72(q, depths=None):
+    c = copy.deepcopy(gcc.load_cases()["DDS-S72"])
+    c["line"]["quantity"] = q
+    if depths:
+        c["line"]["depth_from_m"], c["line"]["depth_to_m"] = depths
+    return c
+
+
+def _domain(r):
+    return next((x["domain"] for x in r.conditions if x.get("domain")), {})
+
+
+def test_fd07_dds_domain_is_independent_of_spelling():
+    rs = [gcc.engine_result(_s72(q)) for q in DDS_Q]
+    doms = [(_domain(r)["step_m"], _domain(r)["count"], _domain(r)["mode"]) for r in rs]
+    assert len(set(doms)) == 1 and doms[0] == ("1", 3, "enumerated")
+    amts = [sorted({a["amount"] for a in r.alternatives.values()}) for r in rs]
+    assert all(a == amts[0] for a in amts) and (amts[0][0], amts[0][-1]) == (Decimal("4908.70"), Decimal("4940.30"))
+    for r in rs:
+        assert vg.x3({"DDS": {"case": r}}) == []
+
+
+def test_fd07_dds_fractional_charge_constructed_independently():
+    """98.5 m charged on 1,450-1,550 m (band edge 1,500): listed at 0.1 m; the bounds are 48.5 m / 50 m in either band's
+    extreme: the lowest amount puts every movable metre in band 1 (42.35), the highest in band 2 (58.15)."""
+    r = gcc.engine_result(_s72("98.5"))
+    dom = _domain(r)
+    assert dom["step_m"] == "0.1" and vg.x3({"DDS": {"case": r}}) == []
+    amts = sorted({a["amount"] for a in r.alternatives.values()})
+    lo = (Decimal("50") * Decimal("42.35")).quantize(Decimal("0.01")) + (Decimal("48.5") * Decimal("58.15")).quantize(Decimal("0.01"))
+    hi = (Decimal("48.5") * Decimal("42.35")).quantize(Decimal("0.01")) + (Decimal("50") * Decimal("58.15")).quantize(Decimal("0.01"))
+    assert (amts[0], amts[-1]) == (lo, hi)
+    same = gcc.engine_result(_s72("98.50"))
+    assert _domain(same)["step_m"] == "0.1" and sorted({a["amount"] for a in same.alternatives.values()}) == amts
+
+
+def test_fd07_control_gate3_r3_depends_on_spelling(world, r3):
+    assert {_arith(_cw_q(world, "PA-00008-06", q, "14894.14", engine=r3.g3_cw)) for q in ("384", "384.0")} == {
+        ("finding", "amount_arithmetic"), ("unresolved", "amount_arithmetic")}
+    assert [str(r3.g3_dds.pd210_step(Decimal(q))) for q in DDS_Q] == ["1", "0.1", "0.01"]

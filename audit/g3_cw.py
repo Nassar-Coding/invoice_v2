@@ -473,12 +473,11 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
         split = band_split(code, billed, amt, priced, T) if band_unknown and priced else None
         if split:
             r.add("arithmetic", "unresolved", "CW-R20", "Cl.28 (p6); Sch 4 Part 3 (pp24-25)", "amount_arithmetic",
-                  f"{billed} x {ra} = {billed * ra}, billed {amt}; the amount equals "
-                  f"a division at a band edge ({split}); whether that division is the right one is G4 state")
+                  f"{billed} x {ra} = {billed * ra}, billed {amt}; the amount lies {split}")
         else:
             r.add("arithmetic", "finding", "CW-R20", "Cl.28 (p6); Cl.43 (p8)", "amount_arithmetic",
                   f"{billed} x {ra} = {billed * ra}, billed {amt}"
-                  + ("; no division at a band edge at the contract's band rates reproduces it" if band_unknown else ""))
+                  + ("; no division at the band edges at the contract's band rates gives it" if band_unknown else ""))
     # amount --------------------------------------------------------------------------------------------------
     if payable and allowed == 0:
         payable = False
@@ -570,32 +569,36 @@ def record_applies(record, line: dict, code: str) -> tuple[bool, str]:
 
 
 def band_split(code: str, quantity: Decimal, amount: Decimal, priced: dict, T) -> str | None:
-    """A division of the quantity at a band edge (Cl.28; Sch 4 Part 3) that reproduces the billed amount exactly at the
-    contract's own band rates (per ground alternative), with each part at the quantity's precision; None if none does.
-    Two adjacent bands, or all three where the quantity exceeds band 2's width. It does not say the division is right:
-    which part lies in which band follows the cumulative quantity (G4)."""
-    unit = Decimal(1).scaleb(min(quantity.as_tuple().exponent, 0))
+    """Whether the billed amount is one a division of the quantity at the band edges can give (Cl.28; Sch 4 Part 3,
+    pp24-25): the band follows the cumulative quantity in the Contract Year, which is G4 state and can be any quantity
+    (earlier applications need not be whole units), so the quantity may start anywhere. The amount as a function of
+    that start is continuous and piecewise linear, changing slope only where an edge meets either end of the quantity;
+    its range over every start is [lowest, highest] of those points, and every amount in between is reached (FD07: the
+    admissible divisions are real numbers - never inferred from how the quantity is written). Returns the range
+    reached for the first ground alternative containing the amount, or None when no division gives it. It never
+    selects a division from the billed amount: which one is right is G4 state."""
     by_ground = {}
     for k, (rt, _t, _r) in priced.items():
         dims = dict(x.split(":", 1) for x in k.split("|") if x)
         by_ground.setdefault(dims.get("ground"), {})[int(dims["band"])] = rt
-    b1_to, b2_to = T.band_edges[code]
-    width2 = b2_to - b1_to
+    e1, e2 = (Decimal(x) for x in T.band_edges[code])
+
+    def value(start, rates):
+        """Amount of `quantity` placed from cumulative `start` onwards, each part at its band's rate."""
+        pieces = [(Decimal(0), e1, rates[1]), (e1, e2, rates[2]), (e2, None, rates[3])]
+        end = start + quantity
+        return sum(((min(end, b) if b is not None else end) - max(start, a)) * rt
+                   for a, b, rt in pieces if (b is None or start < b) and end > a)
+
     for g, rates in by_ground.items():
         if len(rates) != 3:
             continue
-        for lo, hi in ((1, 2), (2, 3)):
-            ra, rb = rates[lo], rates[hi]
-            if ra == rb:
-                continue
-            q = (amount - quantity * rb) / (ra - rb)
-            if 0 < q < quantity and q % unit == 0:
-                return f"{q} x {ra} (band {lo}) + {quantity - q} x {rb} (band {hi})" + (f", ground {g}" if g else "")
-        if quantity > width2 and rates[1] != rates[3]:
-            q1 = (amount - width2 * rates[2] - (quantity - width2) * rates[3]) / (rates[1] - rates[3])
-            if 0 < q1 < quantity - width2 and q1 % unit == 0:
-                return (f"{q1} x {rates[1]} (band 1) + {width2} x {rates[2]} (band 2) + {quantity - width2 - q1} x {rates[3]} (band 3)"
-                        + (f", ground {g}" if g else ""))
+        starts = {x for x in (Decimal(0), e1 - quantity, e1, e2 - quantity, e2) if x >= 0}
+        vals = [value(x, rates) for x in starts]
+        lo, hi = min(vals), max(vals)
+        if lo <= amount <= hi and lo != hi:
+            return (f"between SAR {lo} and SAR {hi}, the amounts a division at the band edges gives for this quantity"
+                    + (f", ground {g}" if g else "") + "; which division applies follows the cumulative quantity (G4)")
     return None
 
 

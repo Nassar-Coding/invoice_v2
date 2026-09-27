@@ -886,8 +886,12 @@ ENUMERATE_MAX = 25        # allocations listed one by one up to this many; beyon
 
 
 def pd210_step(*xs: Decimal) -> Decimal:
-    """The finest decimal place used by the charged quantity and the depths (whole metres when all are whole)."""
-    return Decimal(1).scaleb(min(min(x.as_tuple().exponent for x in xs), 0))
+    """The resolution at which admissible allocations are listed: the finest decimal place the VALUES of the charged
+    quantity and depths need - 98, 98.0 and 98.00 are one number and give one domain (FD07); whole metres when all are
+    whole (report depths are whole metres, R3 p14). It only sets how the domain is listed: each allocation's amount is
+    linear in the metres placed in each band (Cl.23), so the lowest and highest listed amounts bound every allocation
+    at any finer resolution as well."""
+    return Decimal(1).scaleb(min(min(x.normalize().as_tuple().exponent for x in xs), 0))
 
 
 def pd210_domain(parts, allowed: Decimal, cap: list | None = None) -> tuple[list, list]:
