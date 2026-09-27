@@ -91,6 +91,15 @@ class _Base:
                                   + ("" if m == month else f" (carried forward to {month})")))
         return cands
 
+    def submission_regimes(self) -> list:
+        """Every admissible submission regime when the submission date is not stated (round 4 FD08): an instrument
+        substituting a rate retrospectively is ignored for a submission before its issue (CW 31A, DDS 36A), so what the
+        date decides is how many retrospective issue dates follow it. One representative submission per regime: the
+        day before each retrospective issue date, and None (after every issue). An early submission is admissible:
+        G3-D1 keeps a line's local value whatever its submission timing."""
+        issues = sorted({ins.issued for ins in self.instruments if ins.retrospective})
+        return [d - dt.timedelta(days=1) for d in issues] + [None]
+
     def discount(self, code: str, date: dt.date):
         """The selected-item discount in force on `date`: the latest-issued instrument whose discount covers it."""
         best = None

@@ -595,3 +595,80 @@ def test_fd07_control_gate3_r3_depends_on_spelling(world, r3):
     assert {_arith(_cw_q(world, "PA-00008-06", q, "14894.14", engine=r3.g3_cw)) for q in ("384", "384.0")} == {
         ("finding", "amount_arithmetic"), ("unresolved", "amount_arithmetic")}
     assert [str(r3.g3_dds.pd210_step(Decimal(q))) for q in DDS_Q] == ["1", "0.1", "0.01"]
+
+
+# ============================================================================================ FD08 missing submission date
+import datetime as dt  # noqa: E402
+
+A3 = {"DDS": dt.date(2026, 8, 17), "CW": dt.date(2026, 5, 12)}       # retrospective A3 issue dates (DDS p42; CW p43)
+FD08_LINES = {"DDS": {"after": "MDS-01650-048", "window": "MDS-01092-036", "unaffected": "MDS-01650-039"},
+              "CW": {"after": "PA-00041-01", "window": "PA-00003-06", "unaffected": "PA-00005-03", "audit": "PA-00015-04"}}
+
+
+def _with_submission(w, c, ref, sub, engine=None):
+    if c == "DDS":
+        line, inv, ddr = _dds_line(w, ref)
+        eng = engine or g3_dds
+        kw = {"inputs": _ctx(w, "DDS")[ref]} if eng is g3_dds else {}
+        return eng.evaluate(line, {**inv, "invoice_date": sub}, ddr, **kw)
+    row = next(x for x in w.claims.rows["cw_lines"] if x.ident == ref).values
+    app = {h.ident: h.values for h in w.claims.rows["cw_headers"]}[row["application_no"]]
+    rec = w.cw.get(row.get("record_ref") or "")
+    eng = engine or g3_cw
+    kw = {"inputs": _ctx(w, "CW")[ref]} if eng is g3_cw else {}
+    return eng.evaluate(row, {**app, "application_date": sub}, rec, rec is not None, **kw)
+
+
+def _a3(r):
+    return any(x.startswith("a3_adjustment") for x in r.g4_dependencies)
+
+
+@pytest.mark.parametrize("c, case", [(c, k) for c, d in FD08_LINES.items() for k in d])
+def test_fd08_every_regime_before_on_after_and_missing(world, c, case):
+    ref, issue = FD08_LINES[c][case], A3[c]
+    before = _with_submission(world, c, ref, issue - dt.timedelta(days=1))
+    on = _with_submission(world, c, ref, issue)
+    after = _with_submission(world, c, ref, issue + dt.timedelta(days=30))
+    missing = _with_submission(world, c, ref, None)
+    v = ns.value_of                                                    # amount or every band alternative's amount
+    assert v(on) == v(after) and not _a3(on)                           # on the issue day the instrument applies
+    if case == "unaffected":
+        assert v(before) == v(on) == v(missing) and missing.amount_status != "unresolved"
+        return
+    assert v(before) != v(on) and _a3(before)                          # submitted before issue: protected, adjustment later
+    assert missing.amount_status == "unresolved" and missing.amount is None and _a3(missing)
+    date = "invoice_date" if c == "DDS" else "application_date"
+    assert any(x.startswith(date) for x in missing.reasons)
+
+
+def _blank_date(field, ident_field, ident):
+    def f(text):
+        rows = list(csv.DictReader(io.StringIO(text)))
+        for r in rows:
+            if r[ident_field] == ident:
+                r[field] = ""
+        out = io.StringIO()
+        wr = csv.DictWriter(out, fieldnames=list(rows[0]), lineterminator="\n")
+        wr.writeheader()
+        wr.writerows(rows)
+        return out.getvalue()
+    return f
+
+
+@pytest.mark.parametrize("c, rel, field, ref", [
+    ("DDS", "drilling_services/invoices/invoices.csv", "invoice_date", "MDS-01650-048"),
+    ("CW", "civilwork/invoices/applications.csv", "application_date", "PA-00015-04")])
+def test_fd08_missing_date_through_the_csv_loader(world, tmp_path, c, rel, field, ref):
+    lk, hk = ("dds_lines", "invoice_no") if c == "DDS" else ("cw_lines", "application_no")
+    head = next(x for x in world.claims.rows[lk] if x.ident == ref).values[hk]
+    snap = r3t.snapshot_with(tmp_path, rel, _blank_date(field, hk, head))
+    w = build.build(snap)
+    r = (g3_dds if c == "DDS" else g3_cw).run(w)[ref]
+    assert any(u.field == field for u in w.queue.items if u.ident == head)
+    assert r.amount_status == "unresolved" and _a3(r)
+
+
+def test_fd08_control_gate3_r3_fixes_the_post_amendment_rate(world, r3):
+    for c, ref, amount in (("DDS", "MDS-01650-048", Decimal("3634.44")), ("CW", "PA-00041-01", Decimal("10951.68"))):
+        r = _with_submission(world, c, ref, None, engine=r3.g3_dds if c == "DDS" else r3.g3_cw)
+        assert (r.amount_status, r.amount) == ("determined", amount) and not _a3(r)

@@ -408,7 +408,7 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
     if not empty(wd) and not (zoned and not zone):
         # a submission date or a night statement the application omits is never assumed: the rate is built only where
         # every admissible value gives the same rate (31A protection; Cl.7 night uplift), else the value waits on it
-        subs = [adate] if not empty(adate) else [None, wd]          # submitted after every issue, or on the work date
+        subs = [adate] if not empty(adate) else T.submission_regimes()   # every admissible regime (FD08)
         nights = [line.get("night_work") == "Y"] if not night_unknown else [False, True]
         try:
             for (gl, g), (bl, pct) in itertools.product(ground_opts, band_opts):
@@ -416,10 +416,11 @@ def evaluate(line: dict, app: dict, record, record_exists: bool, band_pct: Decim
                 rate_k, tr_k, rd_k = built[0]
                 if any(b[0] != rate_k for b in built[1:]):
                     priced = {}
-                    if empty(adate) and any(price(code, wd, None, zone, g, n_, pct, T)[0] != price(code, wd, wd, zone, g, n_, pct, T)[0]
-                                            for n_ in nights):
+                    if empty(adate) and any(len({price(code, wd, s_, zone, g, n_, pct, T)[0] for s_ in subs}) > 1 for n_ in nights):
                         blocked.append("application_date: a retrospective instrument changes this rate for applications "
                                        "submitted before its issue (31A), and the application date is not stated")
+                        r.g4_dependencies.append("a3_adjustment (CW-R22): if the application was submitted before the "
+                                                 "retrospective instrument's issue, the difference is posted once later")
                     if night_unknown and any(price(code, wd, s_, zone, g, False, pct, T)[0] != price(code, wd, s_, zone, g, True, pct, T)[0]
                                              for s_ in subs):
                         blocked.append("night_work: this item attracts the night uplift (Cl.7; Sch 4) and the line does not say "

@@ -522,7 +522,7 @@ def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict 
         if classed:
             r.readings.append(f"well class not evidenced: no call-off supplied (Cl.4; P2, P3); the invoice header states "
                               f"{well_class} (the claim, not authority); every class priced")
-        subs = [idate] if not empty(idate) else [None, sd]          # submitted after every issue, or on the service date
+        subs = [idate] if not empty(idate) else T.submission_regimes()   # every admissible regime (FD08)
         try:
             for cls in (list(T.class_factor) if classed else [None]):
                 built = []
@@ -536,6 +536,8 @@ def evaluate(line: dict, inv: dict | None, ddr, T=None, question_readings: dict 
                 if any(x[0] != built[0][0] for x in built[1:]):
                     unresolved.append("invoice_date: a retrospective instrument changes this rate for invoices submitted before "
                                       "its issue (36A), and the invoice date is not stated")
+                    r.g4_dependencies.append("a3_adjustment (DDS-R21): if the invoice was submitted before the "
+                                             "retrospective instrument's issue, the difference is posted once later")
                     rates = {}
                     break
                 rates[f"class:{cls}" if cls else None] = (built[0][0], built[0][1])
