@@ -26,7 +26,7 @@ The round's goal added a second fix. Every field G2 can leave None or unresolved
 | `b3a39e4` | Fix 2 follow-up: a header number that two rows carry |
 | `89d3202` | this report, first version; task list |
 | `cdcd355` | the case-path control corrected (section 3, item 9); this report updated |
-| (final commit) | T3 ticked after the fresh-clone run of `cdcd355` passed; report wording |
+| `78f3ae6`, `bc61a20`, `f39f862`, and the final commit | T3 ticked after the fresh-clone run of `cdcd355` passed; report wording and corrections (a run time, test counts, this table). These change only this report and the task list. |
 
 **Result.**
 - **Fix 1.** A PD-210 charge missing its start depth, its end depth or both returns an explicit `depths_missing` finding. The result is unresolved, with its source line, reason and owner (G5). This holds on the case path, through the typed G2 loader and in the batch. Facts that hold for every possible interval are kept. The gate3-r2 engine raises `TypeError` on the same probes.
@@ -300,6 +300,7 @@ These found the defects below. Items 1–8 are fixed in `ed7ba60` and `b3a39e4`,
 | Report, first version (`89d3202`) | 08:53 |
 | Control corrected (`cdcd355`) | 08:58 |
 | Fresh clone of `cdcd355`: `check_g3.sh` passed (272 tests, X1–X8) | 08:58–09:08, 605 s |
+| Task list and report corrections (`78f3ae6`, `bc61a20`, `f39f862`) | 09:08–09:11 |
 | Final commit; fresh-clone run at the final SHA | in the conversation |
 
 Each local `check_g3.sh` run takes about 9 minutes, of which the full test suite is 8 minutes 17 seconds. X8 takes about 35 seconds.
