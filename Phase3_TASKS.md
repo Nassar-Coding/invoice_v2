@@ -157,7 +157,8 @@ G5-owned item decided from source or resolved by the ambiguity rule. Boundary: s
 artifact; no G6/G7; no tag moves.
 - [x] G5.0 Preflight (clean, main = origin/main = gate4 9fa5514); README, template, plan §§8, 11; header arithmetic profile.
 - [x] G5.1 Q9 rule and decisions: spec/g5_decisions.yaml (Q9-1..6; Q1, Q2, Q4, Q5, D8-I1, Q6 A/B/D, Q7 C, Q8 class/ground/nomination, Q10, Q11, Q12, Q14, G3-D1..D3, totals, retention).
-- [ ] G5.2 Independent expected outcomes: sample packets (inputs only) and reader prompt committed before any G5 code; isolated readers compute outcomes from contracts and records.
-- [ ] G5.3 Outcome engine (audit/g5_*.py): per invoice checks coverage, findings, scenarios, flag, category, expected total, confidence; submission.csv; effects per alternative.
-- [ ] G5.4 tools/verify_g5.py exit checks, each with a negative control; falsification; regression vs gate4.
-- [ ] G5.5 Phase3_G5.md; all G0-G5 checks in a fresh clone; gate5 SHA and annotation.
+- [x] G5.2 Independent expected outcomes: sample packets (inputs only) and reader prompt committed before any G5 code; isolated readers compute outcomes from contracts and records.
+- [x] G5.3 Outcome engine (audit/g5_*.py): per invoice checks coverage, findings, scenarios, flag, category, expected total, confidence; submission.csv; effects per alternative.
+- [x] G5.4 tools/verify_g5.py exit checks, each with a negative control; falsification; regression vs gate4.
+- [x] G5.5 Phase3_G5.md; all G0-G5 checks in a fresh clone; gate5 SHA and annotation.
+  - Done: 2,806 outcomes (CW 88 / 900 flagged, DDS 125 / 1,906); 25 sampled invoices, 8 isolated readers, 48/50 agree, 2 settled; verify_g5 Z1-Z9 PASS; 20 negative controls, 10 falsification invoices; fixes: bill-dependent expected total on reading-disagreement invoices (Z4), check 6 coverage, Q9-4, category attribution, Q7 C same-day tie, g5_decisions YAML. Report: Phase3_G5.md.
