@@ -1,0 +1,582 @@
+{
+ "adopted": {
+  "flags": {
+   "CW": 88,
+   "DDS": 125
+  }
+ },
+ "Q9": {
+  "B_only_changed_total": {
+   "flags": {
+    "CW": 77,
+    "DDS": 110
+   },
+   "invoices_changed": 26,
+   "changed": [
+    "MDS-00038",
+    "MDS-00199",
+    "MDS-00340",
+    "MDS-00537",
+    "MDS-00645",
+    "MDS-00672",
+    "MDS-00828",
+    "MDS-00842",
+    "MDS-00988",
+    "MDS-01258",
+    "MDS-01585",
+    "MDS-01625",
+    "MDS-01631",
+    "MDS-01645",
+    "MDS-01799",
+    "PA-00006",
+    "PA-00023",
+    "PA-00125",
+    "PA-00154",
+    "PA-00380",
+    "PA-00443",
+    "PA-00560",
+    "PA-00699",
+    "PA-00700",
+    "PA-00708",
+    "PA-00711"
+   ]
+  }
+ },
+ "Q2": {
+  "scope": "the A3 recipients",
+  "B_inside_judged_total": {
+   "flags": {
+    "CW": 88,
+    "DDS": 125
+   },
+   "invoices_changed": 8,
+   "changed": [
+    "MDS-01585",
+    "MDS-01625",
+    "MDS-01631",
+    "MDS-01645",
+    "PA-00006",
+    "PA-00023",
+    "PA-00380",
+    "PA-00443"
+   ]
+  }
+ },
+ "Q1": {
+  "recipients": {
+   "CW": {
+    "Q1:A": [
+     "PA-00006",
+     "PA-00023",
+     "PA-00380"
+    ],
+    "Q1:B": [
+     "PA-00443"
+    ]
+   },
+   "DDS": {
+    "Q1:A": [
+     "MDS-01625"
+    ],
+    "Q1:B": [
+     "MDS-01585",
+     "MDS-01631",
+     "MDS-01645"
+    ]
+   }
+  },
+  "A_only": {
+   "flags": {
+    "CW": 87,
+    "DDS": 122
+   },
+   "invoices_changed": 4,
+   "changed": [
+    "MDS-01585",
+    "MDS-01631",
+    "MDS-01645",
+    "PA-00443"
+   ]
+  },
+  "B_only": {
+   "flags": {
+    "CW": 85,
+    "DDS": 124
+   },
+   "invoices_changed": 4,
+   "changed": [
+    "MDS-01625",
+    "PA-00006",
+    "PA-00023",
+    "PA-00380"
+   ]
+  }
+ },
+ "Q7C": {
+  "lines": 6,
+  "invoices": {
+   "DDS": 3
+  },
+  "open_either_stands": {
+   "flags": {
+    "CW": 88,
+    "DDS": 125
+   },
+   "invoices_changed": 0,
+   "changed": []
+  }
+ },
+ "Q12": {
+  "lines": 270,
+  "invoices": {
+   "CW": 181
+  },
+  "B": {
+   "flags": {
+    "CW": 248,
+    "DDS": 125
+   },
+   "invoices_changed": 180,
+   "changed": [
+    "PA-00003",
+    "PA-00005",
+    "PA-00006",
+    "PA-00008",
+    "PA-00015",
+    "PA-00016",
+    "PA-00021",
+    "PA-00026",
+    "PA-00029",
+    "PA-00030",
+    "PA-00044",
+    "PA-00046",
+    "PA-00049",
+    "PA-00052",
+    "PA-00062",
+    "PA-00072",
+    "PA-00076",
+    "PA-00077",
+    "PA-00086",
+    "PA-00087",
+    "PA-00088",
+    "PA-00090",
+    "PA-00091",
+    "PA-00099",
+    "PA-00101",
+    "PA-00134",
+    "PA-00138",
+    "PA-00145",
+    "PA-00149",
+    "PA-00152",
+    "PA-00159",
+    "PA-00177",
+    "PA-00178",
+    "PA-00180",
+    "PA-00185",
+    "PA-00188",
+    "PA-00191",
+    "PA-00192",
+    "PA-00197",
+    "PA-00199"
+   ]
+  }
+ },
+ "Q14": {
+  "lines": 0,
+  "invoices": {},
+  "B": {
+   "flags": {
+    "CW": 88,
+    "DDS": 125
+   },
+   "invoices_changed": 0,
+   "changed": []
+  }
+ },
+ "Q6": {
+  "lines": 0,
+  "invoices": {},
+  "B": {
+   "flags": {
+    "CW": 88,
+    "DDS": 125
+   },
+   "invoices_changed": 0,
+   "changed": []
+  }
+ },
+ "Q11": {
+  "lines": 0,
+  "invoices": {},
+  "B": {
+   "flags": {
+    "CW": 88,
+    "DDS": 125
+   },
+   "invoices_changed": 0,
+   "changed": []
+  }
+ },
+ "Q6-day0": {
+  "lines": 1,
+  "invoices": {
+   "CW": 1
+  },
+  "only A": {
+   "flags": {
+    "CW": 88,
+    "DDS": 125
+   },
+   "invoices_changed": 0,
+   "changed": []
+  },
+  "only B": {
+   "flags": {
+    "CW": 87,
+    "DDS": 125
+   },
+   "invoices_changed": 1,
+   "changed": [
+    "PA-00801"
+   ]
+  }
+ },
+ "Q4": {
+  "lines": 7,
+  "invoices": {
+   "DDS": 7
+  },
+  "only A": {
+   "flags": {
+    "CW": 88,
+    "DDS": 125
+   },
+   "invoices_changed": 0,
+   "changed": []
+  },
+  "only B": {
+   "flags": {
+    "CW": 88,
+    "DDS": 125
+   },
+   "invoices_changed": 0,
+   "changed": []
+  },
+  "only C": {
+   "flags": {
+    "CW": 88,
+    "DDS": 122
+   },
+   "invoices_changed": 7,
+   "changed": [
+    "MDS-00856",
+    "MDS-01338",
+    "MDS-01604",
+    "MDS-01651",
+    "MDS-01670",
+    "MDS-01877",
+    "MDS-01900"
+   ]
+  },
+  "only counts": {
+   "flags": {
+    "CW": 88,
+    "DDS": 123
+   },
+   "invoices_changed": 7,
+   "changed": [
+    "MDS-00856",
+    "MDS-01338",
+    "MDS-01604",
+    "MDS-01651",
+    "MDS-01670",
+    "MDS-01877",
+    "MDS-01900"
+   ]
+  }
+ },
+ "Q5-DD120": {
+  "lines": 1,
+  "invoices": {
+   "DDS": 1
+  },
+  "only circulating (Cl.21, Sch 1)": {
+   "flags": {
+    "CW": 88,
+    "DDS": 125
+   },
+   "invoices_changed": 0,
+   "changed": []
+  },
+  "only circulating or back-reaming (Sch 8 row)": {
+   "flags": {
+    "CW": 88,
+    "DDS": 124
+   },
+   "invoices_changed": 1,
+   "changed": [
+    "MDS-01651"
+   ]
+  }
+ },
+ "Q5-RM530": {
+  "lines": 2,
+  "invoices": {
+   "DDS": 2
+  },
+  "only back-reaming (Cl.30, Sch 1)": {
+   "flags": {
+    "CW": 88,
+    "DDS": 125
+   },
+   "invoices_changed": 0,
+   "changed": []
+  },
+  "only circulating or back-reaming (Sch 8 row)": {
+   "flags": {
+    "CW": 88,
+    "DDS": 123
+   },
+   "invoices_changed": 2,
+   "changed": [
+    "MDS-00856",
+    "MDS-01338"
+   ]
+  }
+ },
+ "Q5-HC630": {
+  "lines": 0,
+  "invoices": {}
+ },
+ "order": {
+  "lines": 8,
+  "invoices": {
+   "CW": 8
+  },
+  "only Cl.30 wording (application number, then line)": {
+   "flags": {
+    "CW": 80,
+    "DDS": 125
+   },
+   "invoices_changed": 8,
+   "changed": [
+    "PA-00140",
+    "PA-00155",
+    "PA-00303",
+    "PA-00382",
+    "PA-00459",
+    "PA-00506",
+    "PA-00611",
+    "PA-00778"
+   ]
+  },
+  "only PA-00459-09 then PA-00140-04": {
+   "flags": {
+    "CW": 88,
+    "DDS": 125
+   },
+   "invoices_changed": 6,
+   "changed": [
+    "PA-00155",
+    "PA-00303",
+    "PA-00382",
+    "PA-00506",
+    "PA-00611",
+    "PA-00778"
+   ]
+  },
+  "only PA-00506-06 then PA-00155-12": {
+   "flags": {
+    "CW": 88,
+    "DDS": 125
+   },
+   "invoices_changed": 6,
+   "changed": [
+    "PA-00140",
+    "PA-00303",
+    "PA-00382",
+    "PA-00459",
+    "PA-00611",
+    "PA-00778"
+   ]
+  },
+  "only PA-00611-04 then PA-00382-07": {
+   "flags": {
+    "CW": 88,
+    "DDS": 125
+   },
+   "invoices_changed": 6,
+   "changed": [
+    "PA-00140",
+    "PA-00155",
+    "PA-00303",
+    "PA-00459",
+    "PA-00506",
+    "PA-00778"
+   ]
+  },
+  "only PA-00778-01 then PA-00303-03": {
+   "flags": {
+    "CW": 88,
+    "DDS": 125
+   },
+   "invoices_changed": 6,
+   "changed": [
+    "PA-00140",
+    "PA-00155",
+    "PA-00382",
+    "PA-00459",
+    "PA-00506",
+    "PA-00611"
+   ]
+  }
+ },
+ "earlier": {
+  "lines": 0,
+  "invoices": {}
+ },
+ "Q8-class": {
+  "lines": 24215,
+  "invoices": {
+   "DDS": 1906
+  },
+  "B_query": {
+   "flags": {
+    "CW": 386,
+    "DDS": 1906
+   },
+   "invoices_changed": 2079,
+   "changed": [
+    "MDS-00001",
+    "MDS-00002",
+    "MDS-00003",
+    "MDS-00004",
+    "MDS-00005",
+    "MDS-00006",
+    "MDS-00007",
+    "MDS-00008",
+    "MDS-00009",
+    "MDS-00010",
+    "MDS-00011",
+    "MDS-00012",
+    "MDS-00013",
+    "MDS-00014",
+    "MDS-00015",
+    "MDS-00016",
+    "MDS-00017",
+    "MDS-00018",
+    "MDS-00019",
+    "MDS-00020",
+    "MDS-00021",
+    "MDS-00022",
+    "MDS-00023",
+    "MDS-00024",
+    "MDS-00025",
+    "MDS-00026",
+    "MDS-00027",
+    "MDS-00028",
+    "MDS-00029",
+    "MDS-00030",
+    "MDS-00031",
+    "MDS-00032",
+    "MDS-00033",
+    "MDS-00034",
+    "MDS-00035",
+    "MDS-00036",
+    "MDS-00037",
+    "MDS-00039",
+    "MDS-00040",
+    "MDS-00041"
+   ]
+  },
+  "C_default": {
+   "flags": {
+    "CW": 359,
+    "DDS": 883
+   },
+   "invoices_changed": 1112,
+   "changed": [
+    "MDS-00003",
+    "MDS-00004",
+    "MDS-00010",
+    "MDS-00011",
+    "MDS-00013",
+    "MDS-00014",
+    "MDS-00017",
+    "MDS-00019",
+    "MDS-00020",
+    "MDS-00021",
+    "MDS-00023",
+    "MDS-00024",
+    "MDS-00028",
+    "MDS-00029",
+    "MDS-00030",
+    "MDS-00034",
+    "MDS-00035",
+    "MDS-00036",
+    "MDS-00038",
+    "MDS-00039",
+    "MDS-00040",
+    "MDS-00045",
+    "MDS-00046",
+    "MDS-00047",
+    "MDS-00048",
+    "MDS-00049",
+    "MDS-00051",
+    "MDS-00052",
+    "MDS-00056",
+    "MDS-00058",
+    "MDS-00061",
+    "MDS-00063",
+    "MDS-00064",
+    "MDS-00065",
+    "MDS-00069",
+    "MDS-00071",
+    "MDS-00073",
+    "MDS-00075",
+    "MDS-00076",
+    "MDS-00077"
+   ]
+  }
+ },
+ "Q8-ground": {
+  "lines": 649,
+  "invoices": {
+   "CW": 335
+  },
+  "note": "B and C are computed together with Q8-class (facts policy)"
+ },
+ "PD210-nomination": {
+  "lines": 2390,
+  "invoices": {
+   "DDS": 638
+  },
+  "B_query": "counted in Q8-class B_query (facts policy covers nomination)",
+  "C_not_chargeable": "every PD-210 line not chargeable: every invoice listed above is wrong"
+ },
+ "G3-D1": {
+  "lines": 471,
+  "invoices": {
+   "CW": 8,
+   "DDS": 12
+  },
+  "note": "alternative 'not payable now' values these lines 0.00: every such invoice is already flagged under Q9-1 A (procedural breach); under Q9 B it would be flagged for the changed total"
+ },
+ "G3-D2": {
+  "lines": 33,
+  "invoices": {
+   "DDS": 3
+  },
+  "note": "alternative 'every line on an unsigned report not payable': these invoices are already flagged (signature); only their expected totals change"
+ },
+ "G3-D3": {
+  "lines": 7746,
+  "invoices": {
+   "CW": 900
+  },
+  "note": "zone and night work accepted as stated on every civil line (verification/g3/decision_scopes.json G3-D3: 6,978 zone lines, 167 night lines); the alternatives (every zone; no night uplift) would make the value of nearly every civil line conditional - not computed per invoice here"
+ },
+ "D8-I1": {
+  "note": "resolved through Q5 (entries Q5-DD120, Q5-RM530, Q5-HC630)"
+ }
+}

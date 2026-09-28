@@ -53,9 +53,9 @@ q9_rule:
     Q9-5_confidence: >-
       Row confidence (README: 'how sure you are of this row', the amount included; plan §11): 0.95 when the outcome and
       the amount are the same under every admissible reading and input and every applicable check was made; 0.80 when
-      they rest on a stated fact the contract assigns to a document not supplied (Q9-3), on a G3/G4 decided reading with
-      a recorded alternative that would change this row, or on a reporting interpretation (Q9-1 procedural or payment-only
-      flag); 0.60 when readings agree the invoice is wrong but disagree on its total; 0.50 when readings disagree on
+      they rest on a stated fact the contract assigns to a document not supplied (Q9-3), on the owner's Q7 C allocation,
+      or on a reporting interpretation (a flag resting only on procedural or payment-only findings, Q9-1); 0.60 when
+      readings agree the invoice is wrong but disagree on its total; 0.50 when readings disagree on
       whether it is wrong; 0.30 when the total cannot be formed (Q9-4). Judgment conventions, not calibrated probabilities.
     Q9-6_category: >-
       error_category = the ordered, de-duplicated root categories of the invoice's established findings (identity,
@@ -83,16 +83,16 @@ decisions:
     alternatives: {stands_either: "each charge carried as the one that stands (G4)"}
     effect_key: Q7C
   - id: Q6D
-    status: open (owner: ambiguity rule)
+    status: "open (owner: ambiguity rule)"
     reading: "Both readings kept (owner). PA-00801-05 is decided by the ambiguity rule (Q9-2). Working reading for its total: A (P19 'within two days of': the specific provision on A.14.020)."
     decided_by: owner
     alternatives: {A: "the day of the A.14.010 measurement is excluded (P19)", B: "only the days following (Cl.32, Sch 4 Part 5)"}
-    effect_key: Q6D
+    effect_key: Q6-day0
   - id: Q6AB
     status: decided (source)
     reading: "A: Sch 4 Part 3 (p24) counts 'the quantity measured'; a measurement not payable for want of its record (Cl.46: 'not payable ... until that record has been delivered') is measured. No line of the pinned data changes between A and B."
     alternatives: {B: "payable quantity only"}
-    effect_key: Q6AB
+    effect_key: Q6
   - id: Q12
     status: decided (source)
     reading: "A: CW 3A (p32) 'Each following Contract Year runs from that anniversary' is unconditional; 'an extension of time does not begin a new Contract Year' says the extension is not itself a boundary; 'the final Contract Year ends on the Date for Completion as extended, however long that leaves it' fixes the END of whichever Contract Year is final - the one running from 5 January 2026 - and allows it to be short or long. Reading B needs 'final' to mean the Contract Year final under the as-let completion, which the clause does not say. Plan §6 states the 5 January reset."
