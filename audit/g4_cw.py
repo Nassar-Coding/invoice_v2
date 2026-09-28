@@ -28,7 +28,6 @@ Nothing here totals an application for the judged field, flags or classifies (G5
 """
 from __future__ import annotations
 
-import dataclasses
 import datetime as dt
 import itertools
 from dataclasses import dataclass, field
@@ -257,14 +256,13 @@ def run(w, g3res: dict, T=None, a3_rerun: bool = True) -> CwState:
     lines = [Line(k, row.values, apps[row.values["application_no"]].values if row.values.get("application_no") in apps else None,
                   G4Line(k, g3res[k]), i) for i, (k, row) in enumerate(zip(keys, rows))]
     st = CwState({ln.key: ln.g for ln in lines})
-    by_key = {ln.key: ln for ln in lines}
     dup = duplicates(lines, w, T, st)
     exc = exclusions(lines, T, dup, st)
     # per line and scenario: the state outcome, then its value from the G3 rates
     outcome = {}
     for ln in lines:
         outcome[ln.key] = _local_outcome(ln, dup, exc, T, st)
-    ledgers = _bands(lines, outcome, T, st)
+    ledgers = _bands(lines, outcome, T, st, dup)
     for ln in lines:
         _value(ln, outcome[ln.key], ledgers.get(ln.key), T, dup, exc)
     if a3_rerun:
@@ -293,7 +291,6 @@ def _local_outcome(ln: Line, dup: dict, exc: dict, T, st: CwState) -> dict:
     """The state outcome of a line apart from the bands, per scenario label: {'rejected': reason} or {'qty': allowed}.
     Scenario dimensions here: 'earlier' (a same-day tie in a duplicate group) and Q6 (an exclusion trigger unpaid for
     want of its record)."""
-    r, g = ln.g.g3, ln.g
     out = {}
     d = dup.get(ln.key)
     e = exc.get(ln.key)
@@ -363,7 +360,7 @@ def _counted(ln: Line, oc: dict, q6: str, T) -> tuple[Decimal, Decimal]:
     return Decimal(0), Decimal(0)
 
 
-def _bands(lines: list[Line], outcome: dict, T, st: CwState) -> dict:
+def _bands(lines: list[Line], outcome: dict, T, st: CwState, dup: dict | None = None) -> dict:
     """Band ledgers per item and Contract Year under Q12 x Q6 (x the order of one date where it changes a division).
     Returns {line key: {(q12, q6): {order label or None: {'start': (lo, hi), 'parts': [...] or None}}}}."""
     res = {}
@@ -387,21 +384,36 @@ def _bands(lines: list[Line], outcome: dict, T, st: CwState) -> dict:
                     while j < len(members) and members[j].date == members[i].date:
                         j += 1
                     grp = members[i:j]
-                    cnt = {m.key: _counted(m, _any_outcome(outcome[m.key], q6), q6, T) for m in grp}
+                    cnt = {m.key: _count_range(m, outcome[m.key], q6, T) for m in grp}
+                    _tie_counts(grp, cnt, outcome, q6, T, dup or {})
                     tot_lo = sum(c[0] for c in cnt.values())
                     tot_hi = sum(c[1] for c in cnt.values())
                     straddle = len(grp) > 1 and any(lo < e < hi + tot_hi for e in edges)
-                    orders = [grp] + ([list(p) for p in itertools.permutations(grp) if list(p) != grp] if straddle and len(grp) <= 6 else [])
+                    has_tie = any((dup or {}).get(m.key, {}).get("ties") for m in grp)
+                    # only measurements that add to the count can change a division by their order (a rejected one adds
+                    # nothing); more than 6 of them are not enumerated, and a same-day duplicate tie inside a group whose
+                    # order matters is not combined with the orders: in both cases the division stays unresolved
+                    movers = [m for m in grp if cnt[m.key] != (Decimal(0), Decimal(0))]
+                    rest = [m for m in grp if m not in movers]
+                    unordered = straddle and (len(movers) > 6 or (has_tie and len(grp) > 2))
+                    orders = [grp] + ([list(p) + rest for p in itertools.permutations(movers) if list(p) + rest != grp]
+                                      if straddle and not unordered else [])
                     for oi, order in enumerate(orders):
                         olab = None if not straddle else ("Cl.30 wording (application number, then line)" if oi == 0 else
                                                           "then ".join(f"{m.ref} " for m in order).strip())
                         a, b = lo, hi
+                        tie_start = {}
                         for m in order:
                             pay, _why = _payable_qty(m, T) if m.g.g3.payable else (Decimal(0), None)
                             c = cnt[m.key]
-                            parts = _band_parts(a, pay, edges) if (pay is not None and a == b) else None
+                            # a measurement tied for 'earlier' is valued where the tie begins: in the scenario in which it
+                            # stands, the other tied measurements are disallowed and count nothing
+                            d = (dup or {}).get(m.key)
+                            sa, sb = (tie_start.setdefault(d["group"], (a, b)) if d and d.get("ties") and m.key in d["ties"]
+                                      else (a, b))
+                            parts = _band_parts(sa, pay, edges) if (pay is not None and sa == sb and not unordered) else None
                             res.setdefault(m.key, {}).setdefault((q12, q6), {})[olab] = {
-                                "start": (a, b), "parts": parts, "count": c, "cy": cy, "ledger": f"{item}|{cy}|Q12:{q12}|Q6:{q6}"}
+                                "start": (sa, sb), "parts": parts, "count": c, "cy": cy, "ledger": f"{item}|{cy}|Q12:{q12}|Q6:{q6}"}
                             if oi == 0:
                                 entries.append({"line": m.ref, "date": str(m.date), "before": [str(a), str(b)],
                                                 "count": [str(c[0]), str(c[1])],
@@ -413,16 +425,38 @@ def _bands(lines: list[Line], outcome: dict, T, st: CwState) -> dict:
     return res
 
 
-def _any_outcome(oc: dict, q6: str) -> dict:
-    """The outcome used for the band count: a line rejected under every scenario adds nothing; a line whose rejection
-    depends on a tie adds the interval over the scenarios (kept open)."""
-    vals = list(oc.values())
-    if all("rejected" in v for v in vals):
-        return vals[0]
-    for k, v in oc.items():
-        if dims_of(k).get("Q6") in (None, q6):
-            return v
-    return vals[0]
+def _tie_counts(grp: list, cnt: dict, outcome: dict, q6: str, T, dup: dict) -> None:
+    """Measurements of one date tied for 'earlier' (same-day submissions, Cl.44): exactly one of them stands, so together
+    they add the quantity of the one that stands - between the smallest and the largest candidate - once. The first of
+    them in the date's order carries that range; the others add nothing (never both, never none)."""
+    ties = {}
+    for m in grp:
+        d = dup.get(m.key)
+        if d and d.get("ties") and m.key in d["ties"]:
+            ties.setdefault(d["group"], []).append(m)
+    for members in ties.values():
+        full = []
+        for m in members:
+            kept = [v for k, v in outcome[m.key].items() if "rejected" not in v and dims_of(k).get("Q6") in (None, q6)]
+            full.append(_counted(m, kept[0], q6, T) if kept else (Decimal(0), Decimal(0)))
+        lo, hi = min(f[0] for f in full), max(f[1] for f in full)
+        for i, m in enumerate(members):
+            cnt[m.key] = (lo, hi) if i == 0 else (Decimal(0), Decimal(0))
+
+
+def _count_range(ln: Line, oc: dict, q6: str, T) -> tuple[Decimal, Decimal]:
+    """(lo, hi) this line adds to its band count under Q6 reading q6, over the other open scenarios of its outcome: a line
+    rejected under some scenarios only (a same-day duplicate tie: exactly one of the tied measurements stands) adds
+    nothing at the low end and its quantity at the high end, so the count after it is an interval and every later
+    division in the ledger stays unresolved rather than counting the tied measurements twice."""
+    vals = [v for k, v in oc.items() if dims_of(k).get("Q6") in (None, q6)] or list(oc.values())
+    kept = [v for v in vals if "rejected" not in v]
+    if not kept:
+        return Decimal(0), Decimal(0)
+    lo, hi = _counted(ln, kept[0], q6, T)
+    if len(kept) < len(vals):
+        return Decimal(0), hi
+    return lo, hi
 
 
 def _band_rates(r) -> dict:
@@ -466,9 +500,11 @@ def _value(ln: Line, oc: dict, bands: dict | None, T, dup: dict, exc: dict) -> N
         g.add("exclusion", "pass", "CW-R16", "Cl.32 (p6); Sch 4 Part 5 (p26); P19, P21 (p13)",
               detail="no excluding measurement on the same work area within the stated period")
     if r3.payable is not True:
-        # not payable (or unresolved) at G3: G4 adds its consequences as checks; the value stays G3's unless G4 rejects
-        if all("rejected" in v for v in oc.values()) and r3.payable is False:
-            pass
+        # not payable (or unresolved) at G3: G4 adds its consequences as checks; the value stays G3's
+        if ln.item in T.banded:
+            g.add("band", "n/a", "CW-R14", "Sch 4 Part 3 (pp24-25)",
+                  detail="not payable at G3: nothing to divide; its quantity advances the band count under Q6 A only where "
+                         "it is unpaid for want of its record (see the ledger)")
         return
     if all("rejected" in v for v in oc.values()):
         v = next(iter(oc.values()))

@@ -208,13 +208,16 @@ def test_fixture_coverage_check_detects_a_missing_branch(world):
 
 
 G3_MODULES = {"terms.py", "g3_core.py", "g3_cw.py", "g3_dds.py", "g3_run.py"}   # the pricing layer G3 adds on top
+# the state layer G4 adds on top of G3 (it consumes G3 results; its own boundary - no G5 construct, G3 untouched - is
+# tools/verify_g4.py Y8 and tests/test_g4_gate.py). Named, not globbed, like the G3 set.
+G4_MODULES = {"g4_core.py", "g4_cw.py", "g4_dds.py", "g4_run.py"}
 
 
 def test_boundary_no_pricing_or_outcomes():
     """G2 stops at evidence: its modules define no valuation, flag, total or submission output, and never import the
     G3 pricing layer (which may price; its own boundary is tests/test_g3_gate.py). The G3 set is named, not globbed,
     so pricing added to an evidence module is still caught."""
-    g2 = [p for p in (ROOT / "audit").glob("*.py") if p.name not in G3_MODULES]
+    g2 = [p for p in (ROOT / "audit").glob("*.py") if p.name not in G3_MODULES | G4_MODULES]
     assert {p.name for p in g2} >= {"build.py", "claims.py", "events.py", "links.py", "records_cw.py", "records_dds.py"}
     text = " ".join(p.read_text() for p in g2).lower()
     for word in ("submission.csv", "expected_total", "flagged", "load_instruments", "rate_version", "def price"):

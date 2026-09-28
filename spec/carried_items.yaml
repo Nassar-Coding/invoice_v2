@@ -45,6 +45,9 @@ items:
   status: decided at G3
   g3_treatment: 'Q3 reading A: LW-420 needs Part D (Sch 5 p24; H6); no day of either run has one, so both lines are not payable
     (Cl.37; finding required_part_missing). The once-per-run count remains G4 state.'
+  g4_treatment: 'G4 (Cl.26 once per BHA run): each line is the only LW-420 charge of its run (verification/g4/ledgers/dds_once_groups.json,
+    DDS-ONCE:LW-420|NGP-WS-201|2025-11-15 and DDS-ONCE:LW-420|NGP-WS-029|2026-05-15); neither is a charge that can stand (not
+    payable at G3), so no other charge of the run is displaced and nothing is counted twice.'
 resolved:
 - id: CI-01
   check: part_E_hours_vs_well_daily_sum

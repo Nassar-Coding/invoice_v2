@@ -17,7 +17,9 @@ questions:
     rules: [CW-R22, DDS-R21]
     scope_ref: [Q1_Q2_CW, Q1_Q2_DDS]
     status: open
-    blocks: G4
+    blocks: G5
+    originally_blocks: G4
+    g4_disposition: "Kept open (G4). The text does not settle it: 31A/36A 'on or after' vs A3 'after', and no tie-breaker for same-day submissions. G4 computes the difference once per protected line and the single recipient under each reading (CW A: tie PA-00006/PA-00023/PA-00380, B: PA-00443; DDS A: MDS-01625, B: tie MDS-01585/01631/01645, C: each well's own first invoice on or after issue, 56 of 68 wells have none); never posted to every candidate. verification/g4/ledgers/adjustments.json; spec/g4_decisions.yaml G4-Q1"
   - id: Q2
     title: Adjustment financial basis and placement - certified vs submitted CW work; application_total vs 45A payment; DDS adjustment vs DS-900 and VAT
     sources: ["CW Cl.8/45A (pp8, 32)", "CW A3 (p43)", "DDS Cl.36-40 (p8)", "DDS 36A, A3 (pp35, 42)", "README Data"]
@@ -79,11 +81,14 @@ questions:
       - {id: A, reading: "Bands advance by accepted measured quantity (rejected/duplicate quantities excluded); unpaid-for-want-of-record quantity included"}
       - {id: B, reading: "Bands advance by payable quantity only"}
       - {id: C, reading: "Exclusion 'within two days following': day+1 and day+2 excluded vs day+1 only"}
+      - {id: D, reading: "NEW (G4). Whether A.14.020 is excluded on the SAME day as the A.14.010 measurement: yes under P19 (p13) 'within two days of the measurement'; no under Cl.32 (p6) and Sch 4 Part 5 (p26) 'within the stated period following'"}
     ordering_convention: "execution date, then application number, then line number (Cl.30 wording kept as a documented convention after substitution)"
     rules: [CW-R07, CW-R14, CW-R15, CW-R16, CW-R17]
     scope_ref: [Q6_CW]
     status: open
-    blocks: G4
+    blocks: G5
+    originally_blocks: G4
+    g4_disposition: "A/B kept open (every band ledger is computed under both; on the pinned data they give the same amounts: no unpaid-for-want-of-record quantity of a banded item precedes a band edge it would move). C decided: day+1 and day+2 (the two days following D are D+1 and D+2; all four readers). D kept open (1 line on the pinned data, PA-00801-05). Cap allocation: a daily limit applies per item, work area and day to the quantity that stands after Cl.44 (2 lines over, each a single line). Ordering: execution date, then every order of same-date measurements where the order changes a value (8 lines), the Cl.30 wording labelled as one alternative. spec/g4_decisions.yaml G4-Q6"
   - id: Q7
     title: Weekly evidence reuse (CW) and drilling duplicate allocation
     sources: ["CW Cl.44 (p8)", "Sch 5 note, 47A (pp27, 33)", "DDS Cl.29 (p7)", "Sch 5 (p24)"]
@@ -93,8 +98,10 @@ questions:
       - {id: C, reading: "DDS repeat on a well-day: which line is disallowed has no contractual allocation rule (CW's later-copy rule not imported)"}
     rules: [CW-R06, CW-R17, DDS-R14, DDS-R16]
     scope_ref: [Q7]
-    status: open
-    blocks: G4
+    status: decided in part
+    blocks: G5
+    originally_blocks: G4
+    g4_disposition: "CW decided (A and B converge): a weekly item is measured by the week, so lines citing one week's dewatering log are the same item, work area and week; Cl.44 disallows the later-submitted ones in full (19 week groups on the pinned data). C kept open: of two admissible drilling charges for one well-day, run, well or loss, each is carried as the one that stands ('stands' alternatives, owner G5): 3 pairs on the pinned data (MDS-00476 MW-301, MDS-00580 LW-401, MDS-01654 LW-401). The independent readers took the charge on the earlier invoice as standing where the invoices differ; that reading is recorded for the user's decision. spec/g4_decisions.yaml G4-Q7"
   - id: Q8
     title: Background documents not supplied (call-offs, performance-section nominations, written uplift instructions, permits, well endpoints)
     sources: ["CW Cl.5, 9 (p3)", "P11 (p13)", "H3 (p15)", "DDS Cl.3-4 (p3)", "Cl.23 (p6)", "App A (p29)"]
@@ -155,7 +162,9 @@ questions:
     rules: [CW-R14]
     scope_ref: [Q12_CW_contract_year]
     status: open
-    blocks: G4
+    blocks: G5
+    originally_blocks: G4
+    g4_disposition: "Kept open (G4): every civil band ledger is computed under A and B; 268 lines carry both values; A3 totals and 45A release are reported per reading. spec/g4_decisions.yaml G4-Q12"
     plan_assumption_challenged: "Plan §6 treats the 5 January reset as settled."
   - id: Q13
     title: "NEW (correction round). Lost in hole - accumulated circulating hours: the Part E figure vs the well's daily history through the day of loss"
@@ -173,6 +182,17 @@ questions:
     decision_ref: spec/g3_decisions.yaml#Q13
     blocks: G3
 
+  - id: Q14
+    title: "NEW (G4). DDS Contract Year for the Sch 2 Part 2 annual footage: does the per-well count restart on 1 January 2026?"
+    sources: ["DDS 3A (p35)", "Sch 2 Part 2 (p17)", "A1, A2 (pp39, 41)"]
+    alternatives:
+      - {id: A, reading: "Anniversary reset: the second Contract Year runs from the first anniversary of the Commencement Date"}
+      - {id: B, reading: "No reset: 'an extension does not begin a new Contract Year', so the first Contract Year runs to the Expiry Date as extended"}
+    rules: [DDS-R12]
+    scope_ref: [Q11_DDS]
+    status: open
+    blocks: G5
+    g4_disposition: "Kept open (G4): every footage accumulator is computed under A and B (x Q11 A/B). On the pinned data no well reaches 40,000 m in a Contract Year under any reading, so no line changes (2,390 PD-210 lines at 100%). spec/g4_decisions.yaml G4-Q14"
 decisions:
   - id: D1
     title: PD-210 takes no well-class factor

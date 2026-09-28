@@ -25,7 +25,7 @@ import datetime as dt
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from . import g3_dds, links, terms
+from . import g3_dds, terms
 from .g3_core import Trace, headers_by_id, result_keys
 from .g4_core import G4Line, apply_options, dims_of, half_even, label_of, not_payable
 
@@ -214,8 +214,8 @@ def _once(comp: list[Line], w, T, st: DdsState) -> None:
             if m.g.r.payable is not False:
                 not_payable(m.g, d, rule)
     if len(comp) == 1 and not notes:
-        comp[0].g.add(fam, "pass", "DDS-R15" if fam != "duplicate" else "DDS-R16", rule,
-                      detail="the only charge for it", ledger=gid)
+        comp[0].g.add(fam, "pass" if cands else "n/a", "DDS-R15" if fam != "duplicate" else "DDS-R16", rule,
+                      detail="the only charge for it" if cands else "the only charge for it, not payable at G3", ledger=gid)
         return
     same_day = {m.key for m in comp for o in comp if o is not m and o.date == m.date and m.date is not None}
     if fam != "duplicate":
@@ -392,6 +392,7 @@ def _daily_limits(lines, T, st: DdsState) -> None:
         for m in ms:
             r = m.g.r
             if r.payable is False:
+                m.g.add("daily_limit", "n/a", "DDS-R14", "Cl.22 (p6)", detail="not chargeable: nothing to limit")
                 continue
             opts = _opts(r)
             over = {k: a for k, a in opts.items() if a.get("allowed_quantity") is not None and a["allowed_quantity"] > lim}
