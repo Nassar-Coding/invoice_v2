@@ -49,17 +49,8 @@
     "CW": 88,
     "DDS": 125
    },
-   "invoices_changed": 8,
-   "changed": [
-    "MDS-01585",
-    "MDS-01625",
-    "MDS-01631",
-    "MDS-01645",
-    "PA-00006",
-    "PA-00023",
-    "PA-00380",
-    "PA-00443"
-   ]
+   "invoices_changed": 0,
+   "changed": []
   }
  },
  "Q1": {
@@ -136,7 +127,7 @@
     "CW": 248,
     "DDS": 125
    },
-   "invoices_changed": 180,
+   "invoices_changed": 181,
    "changed": [
     "PA-00003",
     "PA-00005",
@@ -168,6 +159,7 @@
     "PA-00145",
     "PA-00149",
     "PA-00152",
+    "PA-00155",
     "PA-00159",
     "PA-00177",
     "PA-00178",
@@ -176,8 +168,7 @@
     "PA-00188",
     "PA-00191",
     "PA-00192",
-    "PA-00197",
-    "PA-00199"
+    "PA-00197"
    ]
   }
  },
@@ -281,7 +272,7 @@
   "only counts": {
    "flags": {
     "CW": 88,
-    "DDS": 123
+    "DDS": 121
    },
    "invoices_changed": 7,
    "changed": [
@@ -372,14 +363,16 @@
   },
   "only PA-00459-09 then PA-00140-04": {
    "flags": {
-    "CW": 88,
+    "CW": 82,
     "DDS": 125
    },
-   "invoices_changed": 6,
+   "invoices_changed": 8,
    "changed": [
+    "PA-00140",
     "PA-00155",
     "PA-00303",
     "PA-00382",
+    "PA-00459",
     "PA-00506",
     "PA-00611",
     "PA-00778"
@@ -387,47 +380,53 @@
   },
   "only PA-00506-06 then PA-00155-12": {
    "flags": {
-    "CW": 88,
+    "CW": 82,
     "DDS": 125
    },
-   "invoices_changed": 6,
+   "invoices_changed": 8,
    "changed": [
     "PA-00140",
+    "PA-00155",
     "PA-00303",
     "PA-00382",
     "PA-00459",
+    "PA-00506",
     "PA-00611",
     "PA-00778"
    ]
   },
   "only PA-00611-04 then PA-00382-07": {
    "flags": {
-    "CW": 88,
+    "CW": 82,
     "DDS": 125
    },
-   "invoices_changed": 6,
+   "invoices_changed": 8,
    "changed": [
     "PA-00140",
     "PA-00155",
     "PA-00303",
+    "PA-00382",
     "PA-00459",
     "PA-00506",
+    "PA-00611",
     "PA-00778"
    ]
   },
   "only PA-00778-01 then PA-00303-03": {
    "flags": {
-    "CW": 88,
+    "CW": 82,
     "DDS": 125
    },
-   "invoices_changed": 6,
+   "invoices_changed": 8,
    "changed": [
     "PA-00140",
     "PA-00155",
+    "PA-00303",
     "PA-00382",
     "PA-00459",
     "PA-00506",
-    "PA-00611"
+    "PA-00611",
+    "PA-00778"
    ]
   }
  },

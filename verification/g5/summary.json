@@ -1,5 +1,5 @@
 {
- "run_context": "37b1e34302a8cb01",
+ "run_context": "a54286f537e4149b",
  "template_rows": 2806,
  "contracts": {
   "CW": {
@@ -40,7 +40,7 @@
     "readings disagree (Q9-2)": 13,
     "wrong under every reading": 75
    },
-   "judged_total_changed": 77,
+   "judged_total_changed": 69,
    "unpriceable": 0,
    "fact_dependent": 335
   },

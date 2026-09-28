@@ -389,7 +389,8 @@ class Engine:
     def _wrong(self, reasons, total, billed_total, formed) -> bool:
         if self.policy.q9 == "B":
             return formed and billed_total is not None and total != billed_total
-        return bool([r for r in reasons if r[0] not in NOT_ESTABLISHED or r[0] == "input_unresolved"])
+        # an input that cannot be formed is not itself a failed check (Q9-4: flagged only when a check fails)
+        return bool([r for r in reasons if r[0] not in NOT_ESTABLISHED])
 
     # -------------------------------------------------------------------------------------------- outcome
     def outcome(self, inv: Invoice) -> dict:
@@ -412,11 +413,12 @@ class Engine:
         flag = 0 if right_all else 1
         if p.facts == "query" and (fact_dep or nomination):
             flag = 1
-        # expected total: the working reading; where that leaves the invoice correct, the first scenario that is wrong
+        # expected total: the total under the working reading, always - a reading chosen from source, never the scenario
+        # the billed figures happen to fall in (Z4 found the earlier 'first wrong scenario' rule moving with the bill)
         pick = working
-        if flag and not working.wrong:
-            pick = next(s for s in scen if s.wrong) if any(s.wrong for s in scen) else working
         expected = pick.total
+        # the evidence behind the flag: the working scenario's findings, or those of the scenarios under which it is wrong
+        evid = pick.reasons if pick.wrong or not flag else [x for sc in scen if sc.wrong for x in sc.reasons]
         if expected is None:
             expected = self._best_supported(inv, pick)
         # confidence (Q9-5)
@@ -435,7 +437,7 @@ class Engine:
             conf = min(conf, Decimal("0.30"))
         cats = []
         if flag:
-            for r in sorted(pick.reasons if pick.wrong else [x for s in scen if s.wrong for x in s.reasons],
+            for r in sorted((r for r in evid if r[0] not in NOT_ESTABLISHED),
                             key=lambda r: CATEGORY_ORDER.index(CATEGORY.get(r[0], "arithmetic"))):
                 c = CATEGORY.get(r[0], "arithmetic")
                 if c not in cats:
@@ -445,7 +447,8 @@ class Engine:
                 "wrong_under": [s.label for s in scen if s.wrong], "right_under": [s.label for s in scen if not s.wrong],
                 "scenarios": len(scen), "open_readings": {k: v for k, v in od.items()}, "q1": q1,
                 "fact_dependent": fact_dep, "nomination_dependent": nomination,
-                "findings": sorted({f"{r[0]}@{r[1]}" if r[1] else r[0] for r in pick.reasons}),
+                "findings": sorted({f"{r[0]}@{r[1]}" if r[1] else r[0] for r in evid if r[0] not in NOT_ESTABLISHED}),
+                "not_established": sorted({f"{r[0]}@{r[1]}" if r[1] else r[0] for r in evid if r[0] in NOT_ESTABLISHED}),
                 "totals": sorted(str(t) for t in totals), "formed": formed,
                 "expected_under": pick.label, "line_values": {k: (None if a is None else str(a)) for k, a in pick.line_values.items()}}
 

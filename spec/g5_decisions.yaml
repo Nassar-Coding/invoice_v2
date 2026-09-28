@@ -29,9 +29,9 @@ q9_rule:
       scenario. Wrong under every scenario: flag 1 with the confidence its evidence supports. Correct under every
       scenario: flag 0. Readings disagree on whether the invoice is wrong: flag 1 (a flagged uncertainty; README
       Scoring; never the reading that matches the bill) with confidence 0.50. Readings agree it is wrong but disagree
-      on its total: flag 1 with confidence at most 0.60. The expected total is the total under the working reading
-      named per question below; where that reading leaves the invoice correct, the total under the first reading, in
-      the order listed, under which it is wrong.
+      on its total: flag 1 with confidence at most 0.60. The expected total is always the total under the working
+      reading named per question below (chosen from source before any comparison with the bill); where the working
+      reading leaves the invoice correct, the expected total equals the billed total and the flag carries the doubt.
     Q9-3_unsupplied_facts: >-
       Where the contract assigns a pricing input to a document that is not supplied (DDS well class - the call-off,
       Cl.4; CW ground class - the excavation record/Engineer, S4, Cl.5; PD-210 nomination - the call-off, Cl.23), every

@@ -57,6 +57,8 @@ def coverage(inv) -> dict:
         for x in g.state:
             n = 10 if x.family in ("duplicate", "run_event", "well_event", "loss_event") else 9
             seen[n][x.status] += 1
+        # check 6: G3 identifies every line against a priced item through its code family (spec/g3_code_families.yaml)
+        seen[6]["identified (code family)" if g.g3.family else "not identified"] += 1
     seen[8]["g5 (discount, build-up in rate)"] += 1
     seen[9]["g4 state scan (every line)"] += 1
     seen[10]["g4 duplicate scan (every line)"] += 1
