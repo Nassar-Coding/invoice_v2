@@ -187,6 +187,8 @@ Falsification invoices, each built by hand, with expectations taken from the con
 7. **The G2 boundary test** now names the G5 module set, as it names the G3 and G4 sets. Every G2 evidence module is still checked.
 8. **G1/G3/G4 safeguards kept.** The G3-owned register entries (Q4, Q5, Q8, Q11) and D8-I1 keep the statuses their gates' checks require.
 
+9. **Two earlier negative controls assumed a question was still open.** The fresh-clone run at dab464c failed them: test_g1_gate `test_open_question_needs_two_alternatives_and_scope` (Q1) and test_g4_gate `test_y9_fails_on_a_question_still_blocking_g4` (Q12). Each control now sets the open state itself. The defect it injects and the check it tests are unchanged.
+
 No closed-gate defect had to be reopened. G3 results and G4 state are unchanged (Z9 digest).
 
 ## 8. What the evidence does not establish
@@ -213,12 +215,12 @@ Nothing blocks G5 closure. Two points you may want to rule on; each is reported 
 ## Changed
 
 - **New:** `audit/g5_outcomes.py`, `audit/g5_run.py`; `tools/g5_samples.py`, `g5_sample_compare.py`, `verify_g5.py`, `check_g5.sh`; `tests/test_g5_gate.py`, `test_g5_falsification.py`; `spec/g5_decisions.yaml`; `prompts/phase3/g5_expected_outcomes_v1.md`; `verification/g5/*` (including `submission.csv`).
-- **Changed:** `spec/open_questions.yaml` (G5 dispositions), `tests/test_g2_controls.py` (named G5 module set), `Phase3_TASKS.md` (G5 section).
+- **Changed:** `spec/open_questions.yaml` (G5 dispositions), `tests/test_g2_controls.py` (named G5 module set), `tests/test_g1_gate.py` and `tests/test_g4_gate.py` (two controls set the open state themselves), `Phase3_TASKS.md` (G5 section).
 - **Regenerated:** verification/g2, g3 and g4 outputs (run context only).
 
 ## Found
 
-The eight items in section 7, all fixed. No G2/G3/G4 defect was found.
+The nine items in section 7, all fixed. No G2/G3/G4 defect was found.
 
 ## Not confirmed
 

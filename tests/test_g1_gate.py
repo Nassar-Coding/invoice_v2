@@ -86,6 +86,8 @@ def test_missing_audit_correction_fails(sandbox, capsys):
 
 def test_open_question_needs_two_alternatives_and_scope(sandbox, capsys):
     def f(d):
+        # the defect: an OPEN question with one alternative (Q1 is resolved at G5, so the control re-opens it itself)
+        d["questions"][0]["status"] = "open"
         d["questions"][0]["alternatives"] = d["questions"][0]["alternatives"][:1]
         d["questions"][1]["scope_ref"] = []
     edit(sandbox / "open_questions.yaml", f)

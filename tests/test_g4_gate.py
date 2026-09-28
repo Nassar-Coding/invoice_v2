@@ -387,6 +387,7 @@ def test_y9_fails_on_a_decision_without_pages_or_history():
 def test_y9_fails_on_a_question_still_blocking_g4():
     d, s, q, c, p = _regs()
     qq = next(x for x in q["questions"] if x["id"] == "Q12")
+    qq["status"] = "open"            # the defect: a G4 question left open, still blocking G4, without its disposition
     qq["blocks"] = "G4"
     qq.pop("g4_disposition")
     errs = vg.y9(d, s, q, c, p)
