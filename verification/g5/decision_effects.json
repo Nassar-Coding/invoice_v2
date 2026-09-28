@@ -578,5 +578,66 @@
  },
  "D8-I1": {
   "note": "resolved through Q5 (entries Q5-DD120, Q5-RM530, Q5-HC630)"
+ },
+ "Q5": {
+  "entries": [
+   "Q5-DD120",
+   "Q5-RM530",
+   "Q5-HC630"
+  ],
+  "lines": 3
+ },
+ "Q10": {
+  "lines": 0,
+  "note": "A adopted: no unbilled event is added; B (add unbilled chargeable events) is not computed - the records are read only for the lines billed"
+ },
+ "totals": {
+  "discount_findings": [
+   "MDS-00072",
+   "MDS-00282",
+   "MDS-01049"
+  ],
+  "header_arithmetic_findings": [
+   "MDS-00551",
+   "MDS-00916",
+   "MDS-01317",
+   "PA-00043"
+  ]
+ },
+ "retention": {
+  "release": {
+   "recipient": "PA-00678",
+   "submitted": "2026-10-28",
+   "earlier_applications": 898,
+   "released": {
+    "by_reading": {
+     "Q12:A|Q6-day0:A": {
+      "min": "3974311.52",
+      "max": "4121067.19"
+     },
+     "Q12:A|Q6-day0:B": {
+      "min": "3974450.40",
+      "max": "4121206.07"
+     },
+     "Q12:B|Q6-day0:A": {
+      "min": "3969849.29",
+      "max": "4116569.54"
+     },
+     "Q12:B|Q6-day0:B": {
+      "min": "3969988.17",
+      "max": "4116708.42"
+     }
+    }
+   },
+   "not_established_count": 0,
+   "later_applications_without_release": [
+    "PA-00375"
+   ],
+   "basis": "45A (p32): 'On the first Application for Payment submitted after the Date for Completion as extended (2026-09-30), one half of the retention held on all earlier Applications is released, rounded down to the halala' - once; Cl.45 (p8) retention rounded down per application"
+  },
+  "release_omitted": [
+   "PA-00678"
+  ],
+  "retention_arithmetic": []
  }
 }
