@@ -147,3 +147,17 @@ outcomes, flags, categories, confidence, totals, submission.csv), no G6/G7, no t
   - Done so far: 24 histories (19 synthetic, 5 population slices), 6 isolated readers (91e785e packets -> 3b4e4fd readers -> b758791 engines); 59 disagreements all settled (verification/g4/history_dispositions.yaml), 5 engine defects fixed from them (HC-630 per run, exclusion day 0 kept open as Q6 D, finding status under partial readings, charged_twice/well_event_repeated codes, collapse of non-product label sets). Registers: Q1, Q6, Q12 kept open (blocks G5), Q7 decided in part, Q14 new; spec/g4_decisions.yaml G4-D1..D15, spec/g4_state.yaml. verify_g4 Y1-Y9 PASS on the population; tests/test_g4_gate.py (40 negative controls) and tests/test_g4_falsification.py (8 constructed histories) pass. Falsification fixed: same-day duplicate ties counted in the band ledger (now exactly once, as a range), a >6 same-date group given the convention order silently (now unresolved), rejected lines multiplying the orders.
 - [ ] G4.6 Falsification of ordering, resets, replay, duplicates and cross-invoice interactions (incl. branches no case exercises); population regression against gate3-r5 with every consequential change explained; no G5-G7 code in the diff.
 - [ ] G4.7 Report Phase3_G4.md; all G0-G4 checks and tests in a fresh clone of the final commit; gate4 SHA and annotation text.
+
+## G5 — Full invoice outcomes (from gate4 = 9fa5514; G4 closed in Phase3_G4.md)
+Exit (plan §2): every invoice has check coverage, findings, amount status and an evidence trail; monetary and procedural
+outcomes remain distinct; independently reviewed complete invoices reconcile step by step. Scope: one outcome per
+template invoice (flag, category, expected total, confidence) from G3 lines and G4 state; DS-900, VAT, retention;
+Q9 closed first; owner decisions Q7 C (earlier invoice stands) and Q6 D (both readings, ambiguity rule); every other
+G5-owned item decided from source or resolved by the ambiguity rule. Boundary: submission.csv only as G5's output
+artifact; no G6/G7; no tag moves.
+- [x] G5.0 Preflight (clean, main = origin/main = gate4 9fa5514); README, template, plan §§8, 11; header arithmetic profile.
+- [x] G5.1 Q9 rule and decisions: spec/g5_decisions.yaml (Q9-1..6; Q1, Q2, Q4, Q5, D8-I1, Q6 A/B/D, Q7 C, Q8 class/ground/nomination, Q10, Q11, Q12, Q14, G3-D1..D3, totals, retention).
+- [ ] G5.2 Independent expected outcomes: sample packets (inputs only) and reader prompt committed before any G5 code; isolated readers compute outcomes from contracts and records.
+- [ ] G5.3 Outcome engine (audit/g5_*.py): per invoice checks coverage, findings, scenarios, flag, category, expected total, confidence; submission.csv; effects per alternative.
+- [ ] G5.4 tools/verify_g5.py exit checks, each with a negative control; falsification; regression vs gate4.
+- [ ] G5.5 Phase3_G5.md; all G0-G5 checks in a fresh clone; gate5 SHA and annotation.
