@@ -6,8 +6,7 @@
     "amount": "36356.00",
     "open": [],
     "state": [
-     "band_divided",
-     "rate_differs"
+     "band_divided"
     ],
     "status": "determined"
    },
@@ -30,8 +29,7 @@
     "amount": "263732.00",
     "open": [],
     "state": [
-     "band_divided",
-     "rate_differs"
+     "band_divided"
     ],
     "status": "determined"
    }
@@ -95,8 +93,7 @@
     },
     "amount": null,
     "open": [
-     "band_divided",
-     "rate_differs"
+     "band_divided"
     ],
     "state": [],
     "status": "alternatives"
@@ -118,8 +115,7 @@
     "amount": "357496.00",
     "open": [],
     "state": [
-     "band_divided",
-     "rate_differs"
+     "band_divided"
     ],
     "status": "determined"
    },
@@ -128,8 +124,7 @@
     "amount": "5255.00",
     "open": [],
     "state": [
-     "band_divided",
-     "rate_differs"
+     "band_divided"
     ],
     "status": "determined"
    },
@@ -184,8 +179,7 @@
     "amount": null,
     "open": [],
     "state": [
-     "band_divided",
-     "rate_differs"
+     "band_divided"
     ],
     "status": "alternatives"
    }
@@ -543,8 +537,7 @@
     "amount": "15428.00",
     "open": [],
     "state": [
-     "band_divided",
-     "rate_differs"
+     "band_divided"
     ],
     "status": "determined"
    },

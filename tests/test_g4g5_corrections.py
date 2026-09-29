@@ -256,3 +256,108 @@ def test_b03_control_gate4_ignores_the_undated_dds_charge():
     w, res, st = _with(old, h)
     assert F.amounts(F.by_ref(st, "DDS")["MDS-90001-002"]) == [D("3694.70")]     # determined: the possible repeat omitted
 
+
+
+# ---------------------------------------------------------------------------------------------------------- G4-B04
+def cw_hist(hid, lines, adate="2025-03-20"):
+    """One civil application of B.22.010 lines (work date, quantity, displayed rate, amount), header consistent with the
+    amounts (no header defect of its own); zone Z1, no records needed."""
+    import g4_histories as H
+    doc = H.cw_app("PA-97001", adate, [(d, "S-05", "B.22.010", q, r, "") for d, q, r, _a in lines])
+    tot = D(0)
+    for row, (_d, _q, _r, a) in zip(doc["lines"], lines):
+        row["amount"] = a
+        tot += D(a)
+    ret = (tot * D("0.05")).quantize(D("0.01"), rounding="ROUND_DOWN")
+    doc["header"].update({"application_total": f"{tot:.2f}", "retention": f"{ret:.2f}", "net_payable": f"{tot - ret:.2f}"})
+    return {"id": hid, "documents": [doc], "records": {}, "given": []}
+
+
+def _cw_outcome(h, g4mod=g4_cw, g5mod=None):
+    from audit import g5_outcomes
+    g5mod = g5mod or g5_outcomes
+    w, res, _st = F.run(h)
+    st = {"CW": g4mod.run(w, res["CW"]), "DDS": g4_dds.run(w, res["DDS"])}
+    e = g5mod.Engine(w, st)
+    return st, {no: e.outcome(i) for no, i in e.inv["CW"].items()}
+
+
+def _state(st, ref, fam):
+    return [(x.status, x.finding) for x in F.by_ref(st, "CW")[ref].state if x.family == fam]
+
+
+def test_b04_wrong_rate_with_the_correct_amount_is_a_finding():
+    # first-band B.22.010, 600 m2, no earlier history: rate 74.50, amount 44,700.00; the claim states 71.52 (band 2)
+    st, out = _cw_outcome(cw_hist("CW-B04-1", [("2025-03-02", "600", "71.52", "44700.00")]))
+    assert _state(st, "PA-97001-01", "band_rate") == [("finding", "rate_differs")]
+    assert _state(st, "PA-97001-01", "band_arithmetic") == [("finding", "amount_arithmetic")]   # 600 x 71.52 = 42,912.00
+    o = out["PA-97001"]
+    assert o["flagged"] == 1 and "rate" in o["error_category"] and o["expected_total"] == D("44700.00")
+
+
+def test_b04_control_gate4_leaves_the_wrong_rate_unresolved_and_g5_passes_it():
+    old = gate_module(GATE4, "audit/g4_cw.py", "g4_cw_gate4")
+    old5 = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+    st, out = _cw_outcome(cw_hist("CW-B04-1", [("2025-03-02", "600", "71.52", "44700.00")]), old, old5)
+    assert _state(st, "PA-97001-01", "band_rate") == [("unresolved", "rate_differs")]
+    assert out["PA-97001"]["flagged"] == 0 and out["PA-97001"]["confidence"] == D("0.95")        # the audit's false pass
+
+
+def test_b04_rate_and_amount_are_judged_independently():
+    cases = {("74.50", "44700.00"): ("pass", "pass", 0), ("74.50", "44000.00"): ("pass", "finding", 1),
+             ("71.52", "42912.00"): ("finding", "pass", 1), ("71.52", "44700.00"): ("finding", "finding", 1)}
+    for (rate, amt), (rs, ars, flag) in cases.items():
+        st, out = _cw_outcome(cw_hist("CW-B04-x", [("2025-03-02", "600", rate, amt)]))
+        got_r = [s for s, _f in _state(st, "PA-97001-01", "band_rate")]
+        got_a = [s for s, _f in _state(st, "PA-97001-01", "band_arithmetic")] or ["pass"]      # G3 passed it outright
+        assert (got_r, got_a[0], out["PA-97001"]["flagged"]) == ([rs], ars, flag), (rate, amt)
+
+
+def test_b04_a_valid_split_is_not_a_finding():
+    # 1,000 m2 in band 1, then 400 m2 from 1,000: 200 at 74.50 + 200 at 71.52 = 29,204.00 (Cl.28 division)
+    for rate in ("74.50", "71.52"):
+        st, out = _cw_outcome(cw_hist("CW-B04-s", [("2025-03-02", "1000", "74.50", "74500.00"),
+                                                ("2025-03-03", "400", rate, "29204.00")]))
+        assert _state(st, "PA-97001-02", "band_rate") == [("pass", None)]
+        assert _state(st, "PA-97001-02", "band_arithmetic") in ([("pass", None)], [])
+        assert out["PA-97001"]["flagged"] == 0
+    st, out = _cw_outcome(cw_hist("CW-B04-s2", [("2025-03-02", "1000", "74.50", "74500.00"),
+                                             ("2025-03-03", "400", "72.00", "29204.00")]))
+    assert _state(st, "PA-97001-02", "band_rate") == [("finding", "rate_differs")]        # no band's rate
+
+
+def test_b04_genuinely_unresolved_band_stays_open_never_a_pass():
+    h = cw_hist("CW-B04-u", [("2025-03-02", "1000", "74.50", "74500.00"), ("2025-03-03", "500", "71.52", "37250.00")])
+    h["documents"][0]["lines"][0]["work_date"] = ""
+    st, out = _cw_outcome(h)
+    g = F.by_ref(st, "CW")["PA-97001-02"]
+    assert g.r.amount_status == "unresolved" and ("pass", None) not in _state(st, "PA-97001-02", "band_rate")
+    assert out["PA-97001"]["confidence"] != D("0.95")
+
+
+def test_b04_reading_dependent_band_carries_the_breach_per_scenario():
+    # 1,200 m2 in December 2025, then 100 m2 on 10 January 2026 at 74.50: band 1 after the Q12 A reset, band 2 under Q12 B
+    h = cw_hist("CW-B04-q", [("2025-12-20", "1200", "74.50", "89400.00"), ("2026-01-10", "100", "74.50", "7450.00")],
+                adate="2026-01-20")
+    st, out = _cw_outcome(h)
+    g = F.by_ref(st, "CW")["PA-97001-02"]
+    assert _state(st, "PA-97001-02", "band_rate") == [("unresolved", "rate_differs")]
+    br = {k: v.get("breaches") for k, v in g.r.alternatives.items()}
+    assert any("rate_differs" in (b or []) for k, b in br.items() if "Q12:B" in k)
+    assert all(not b for k, b in br.items() if "Q12:A" in k)
+    assert out["PA-97001"]["flagged"] == 0                                 # Q12 A decided (upheld): right
+    from audit import g5_outcomes
+    w, res, _st = F.run(h)
+    e = g5_outcomes.Engine(w, st, g5_outcomes.Policy(decided={**g5_outcomes.DECIDED, "Q12": "B"}))
+    o = e.outcome(e.inv["CW"]["PA-97001"])
+    assert o["flagged"] == 1 and "rate_differs@PA-97001-02" in o["findings"]
+
+
+def test_b04_oracle_accepts_the_fixed_state_and_rejects_gate4():
+    h = cw_hist("CW-B04-o", [("2025-03-02", "600", "71.52", "44700.00")])
+    w, res, _st = F.run(h)
+    _claims(w)
+    assert vg4.deferred_rate_errors(g4_cw.run(w, res["CW"])) == []
+    old = gate_module(GATE4, "audit/g4_cw.py", "g4_cw_gate4")
+    errs = vg4.deferred_rate_errors(old.run(w, res["CW"]))
+    assert errs and "expected finding" in errs[0]

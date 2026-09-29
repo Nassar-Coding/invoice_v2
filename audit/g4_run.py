@@ -97,7 +97,8 @@ def ledgers(st: dict) -> dict:
 
 
 def _alts(r):
-    return {k: {"allowed_quantity": _s(v.get("allowed_quantity")), "amount": _s(v.get("amount"))} for k, v in r.alternatives.items()}
+    return {k: {"allowed_quantity": _s(v.get("allowed_quantity")), "amount": _s(v.get("amount")),
+                **({"breaches": v["breaches"]} if v.get("breaches") else {})} for k, v in r.alternatives.items()}
 
 
 def changed_lines(st: dict):

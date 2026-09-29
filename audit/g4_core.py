@@ -120,7 +120,8 @@ def label_of(d: dict) -> str | None:
 
 
 def collapse(options: dict) -> dict:
-    """Drop every dimension whose value changes no result (allowed quantity and amount), then merge identical labels
+    """Drop every dimension whose value changes no result (allowed quantity, amount and the breaches carried under it -
+    G4-B04), then merge identical labels
     (the G3 rule, spec/g3_decisions.yaml): an alternative is carried only where it changes something."""
     names = sorted({d for k in options for d in dims_of(k)})
     for name in names:
@@ -129,7 +130,7 @@ def collapse(options: dict) -> dict:
         for k, v in options.items():
             dd = dims_of(k)
             rest = label_of({d: x for d, x in dd.items() if d != name})
-            groups.setdefault(rest, {})[dd.get(name)] = (v["allowed_quantity"], v["amount"])
+            groups.setdefault(rest, {})[dd.get(name)] = (v["allowed_quantity"], v["amount"], tuple(sorted(v.get("breaches") or ())))
         # droppable only where every other combination carries every value of the dimension with one result (a label
         # set that is not a full product - a dimension that applies under one reading only - keeps it)
         if all(set(g) == allv and len(set(g.values())) == 1 for g in groups.values()):
@@ -166,6 +167,8 @@ def apply_options(g: G4Line, options: dict, basis: dict, reason: str) -> None:
         for k, v in options.items():
             r.alternatives[k] = {"unit_rate": v.get("unit_rate"), "allowed_quantity": v["allowed_quantity"], "amount": v["amount"],
                                  "trace": v["trace"]}
+            if v.get("breaches"):
+                r.alternatives[k]["breaches"] = sorted(set(v["breaches"]))       # G4-B04: a breach under this scenario only
         r.conditions = [c for c in r.conditions if c["dimension"] in kept | {"nomination"}]
         for d in sorted(kept):
             if d not in {c["dimension"] for c in r.conditions}:

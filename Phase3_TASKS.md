@@ -176,9 +176,11 @@ annotation texts handed to the owner). Report: Phase3_G4_G5_corrections.md.
   verify_g4 oracle checks metres (coverage = union, each charge within its interval, allocations = product of cover counts).
 - [x] G4-B03 Unknown chronology stays a possible contributor/candidate: civil bands, duplicates, A3 and 45A recipients
   and release, DDS once-only and A3 recipients, G5 Q7 C standing (no omission, no sentinel dates).
-- [ ] G4-B04 Deferred rate and arithmetic checks completed against each established band state (per scenario); a
+- [x] G4-B04 Deferred rate and arithmetic checks completed against each established band state (per scenario); a
   correct amount never makes a wrong rate pass; split bands and genuine alternatives preserved.
-- [ ] G5 regenerated from corrected G4; flag counts per contract before/after with each change explained.
+- [x] G5 regenerated from corrected G4 (after B01-B04): flags unchanged, CW 88/900, DDS 125/1,906; four flagged civil
+  invoices change category rate -> arithmetic (PA-00303, PA-00459, PA-00506, PA-00611: under the order in which they are
+  wrong the displayed rate is right and the stated amount is not the division - previously named by the G5 fallback).
 - [ ] G5-B01 Claim-stated class, ground and nomination never select the contract value; named unresolved-output policy.
 - [ ] G5-B02 No billed or zero substitution for unvalued lines; unknown/bounded totals explicit; DS-900/VAT aggregation kept.
 - [ ] G5-B03 Adjustments and releases reconciled to G4's actual amounts, recipients and ties.

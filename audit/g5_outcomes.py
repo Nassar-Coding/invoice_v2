@@ -186,6 +186,27 @@ def line_value(g, fixed: dict) -> tuple[Decimal | None, Decimal | None, bool]:
     return q, a, a is not None
 
 
+def scenario_breaches(g, fixed: dict, v: dict, contract: str) -> list[str]:
+    """G4-B04: the checks that fail under this scenario only. (1) The breaches G4 carried on the scenario's alternative
+    (a band line's displayed rate or arithmetic, wrong under some readings); (2) a displayed rate G3 deferred because
+    the line has several admissible rates, completed against the rate of the scenario's alternative - a correct amount
+    never makes a wrong displayed rate pass."""
+    if g.r.payable is False:
+        return []
+    cands = [x for d, x in options(g) if all(fixed.get(k) == y for k, y in d.items())]
+    if not cands:
+        return []
+    out = sorted(set.intersection(*[set(x.get("breaches") or ()) for x in cands]))
+    deferred = any(c.check == "rate" and c.status == "unresolved" and c.finding == "rate_differs" for c in g.g3.checks)
+    if deferred and not any(x.family == "band_rate" for x in g.state):
+        rates = {D(x.get("unit_rate")) for x in cands}
+        ra = D(v.get("rate_applied") if contract == "CW" else v.get("unit_rate"))
+        if len(rates) == 1 and None not in rates and ra is not None and ra != next(iter(rates)) and \
+                any(D(x.get("allowed_quantity")) for x in cands):
+            out.append("rate_differs")
+    return out
+
+
 def line_dims(g) -> set:
     return {k for d, _v in options(g) for k in d}
 
@@ -319,6 +340,8 @@ class Engine:
             q, a, ok = line_value(g, fixed)
             vals[ref] = a
             for f in established(g):
+                reasons.append((f, ref))
+            for f in scenario_breaches(g, fixed, v, inv.contract):
                 reasons.append((f, ref))
             if not ok:
                 formed = False

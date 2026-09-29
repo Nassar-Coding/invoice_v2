@@ -1,5 +1,5 @@
 {
- "run_context": "7c2cf566810d8a83",
+ "run_context": "1c62d3acd3718502",
  "template_rows": 2806,
  "contracts": {
   "CW": {
@@ -7,11 +7,11 @@
    "flagged": 88,
    "flag_rate": "0.0978",
    "categories": {
-    "rate": 38,
+    "rate": 34,
     "duplicate": 18,
+    "arithmetic": 7,
     "timing": 5,
     "adjustment": 4,
-    "arithmetic": 3,
     "evidence": 3,
     "unit": 2,
     "identity": 2,

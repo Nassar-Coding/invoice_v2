@@ -1,5 +1,5 @@
 {
- "run_context": "7c2cf566810d8a83",
+ "run_context": "1c62d3acd3718502",
  "contracts": {
   "CW": {
    "lines": 7746,
@@ -17,9 +17,11 @@
     "band | n/a | -": 1,
     "band | pass | -": 993,
     "band | unresolved | band_divided": 19,
+    "band_arithmetic | pass | -": 9,
+    "band_arithmetic | unresolved | amount_arithmetic": 20,
     "band_rate | finding | rate_differs": 11,
-    "band_rate | pass | -": 619,
-    "band_rate | unresolved | rate_differs": 395,
+    "band_rate | pass | -": 634,
+    "band_rate | unresolved | rate_differs": 380,
     "daily_limit | finding | above_daily_limit": 2,
     "daily_limit | pass | -": 1181,
     "duplicate | finding | duplicate_measurement": 21,

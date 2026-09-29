@@ -568,7 +568,7 @@ def _value(ln: Line, oc: dict, bands: dict | None, T, dup: dict, exc: dict) -> N
         if "rejected" in v:
             for k3 in (base or {None: None}):
                 options[label_of({**odims, **dims_of(k3)})] = {"unit_rate": None, "allowed_quantity": Decimal(0),
-                                                                "amount": Decimal("0.00"), "trace": list(r3.trace) + [
+                                                                "amount": Decimal("0.00"), "rejected": True, "trace": list(r3.trace) + [
                     {"op": "note", "label": f"G4: {v['detail']}", "source": "Cl.44 (p8); Cl.32 (p6)"}]}
             continue
         if "unknown" in v:
@@ -616,7 +616,7 @@ def _value(ln: Line, oc: dict, bands: dict | None, T, dup: dict, exc: dict) -> N
                                                                    "multiplied by its own rounded rate and the amount is their sum")
                     single = rates[b["parts"][0][1]][0] if len(b["parts"]) == 1 else None
                     options[lab] = {"unit_rate": single, "allowed_quantity": pay, "amount": amt, "trace": t.steps,
-                                    "parts": b["parts"]}
+                                    "parts": b["parts"], "start": b["start"][0], "rates": {k: v[0] for k, v in rates.items()}}
     unknown = [v for v in options.values() if v.get("unknown")]
     if unknown:
         g.r.payable, g.r.amount_status, g.r.amount, g.r.allowed_quantity, g.r.alternatives = None, "unresolved", None, pay, {}
@@ -633,7 +633,7 @@ def _value(ln: Line, oc: dict, bands: dict | None, T, dup: dict, exc: dict) -> N
             g.add("band", "unresolved" if divided else "pass", "CW-R14", "Sch 4 Part 3 (pp24-25); 3A (p32)",
                   "band_divided" if divided else None,
                   ("divided under some readings only" if divided else f"band(s) {bands_used} under every reading carried"))
-        _rate_after_band(g, options, ln)
+        _complete_deferred(g, options, ln, T)
     apply_options(g, options, {}, "G4 state")
     g.r.payable = True
 
@@ -645,23 +645,54 @@ def _g3_options(r3) -> dict:
     return {None: {"unit_rate": r3.unit_rate, "allowed_quantity": r3.allowed_quantity, "amount": r3.amount, "trace": r3.trace}}
 
 
-def _rate_after_band(g: G4Line, options: dict, ln: Line) -> None:
-    """G3 left the billed rate and amount of a band line unresolved (the band was G4 state). With the band known under
-    each reading: a billed rate that is no single-band rate of any option, or a billed amount no option's value, is a
-    finding; one some options give is still open (their readings are not decided)."""
-    ra, amt = ln.v.get("rate_applied"), ln.v.get("amount")
-    if ra is None or amt is None:
-        return
-    rates = {v["unit_rate"] for v in options.values()}
-    vals = {v["amount"] for v in options.values()}
-    if ra in rates and len(rates) == 1:
-        g.add("band_rate", "pass", "CW-R10", "Cl.27, Cl.28 (p6)", detail=f"billed {ra} is the rate of the band the measurement lies in")
-    elif ra in rates or amt in vals:
-        g.add("band_rate", "unresolved", "CW-R10", "Cl.27, Cl.28 (p6); Sch 4 Part 3", "rate_differs",
-              f"billed {ra} (amount {amt}) matches the value under some of the readings carried only")
-    else:
-        g.add("band_rate", "finding", "CW-R10", "Cl.27, Cl.28 (p6); Sch 4 Part 3", "rate_differs",
-              f"billed {ra} x {ln.v.get('quantity')} = {amt}; the band state gives {sorted(str(x) for x in vals)}")
+def _complete_deferred(g: G4Line, options: dict, ln: Line, T) -> None:
+    """G4-B04: G3 deferred the displayed-rate check (and, where a division at the band edges could give the amount, the
+    arithmetic check) of a band line because its band was G4 state. With the band state established per scenario, both
+    are completed under EACH scenario, independently of each other and of whether the amount is right:
+      rate: one band - the displayed rate is that band's rate; a divided measurement (Cl.28) - it is one of the item's
+            contract band rates (the claim has one rate field, which cannot carry every part's rate, and no source says
+            which band's rate a divided line displays - the parts are judged by the arithmetic; an arbitrary rate is a
+            finding);
+      arithmetic (only where G3 deferred it): one band - quantity x displayed rate = amount; divided - the amount is the
+            division of the billed quantity from the scenario's start, each part at its own rate.
+    A scenario in which the line is disallowed (duplicate, exclusion) has neither check. The verdict: pass under every
+    scenario; a finding under every one; else unresolved, with the breach carried on each scenario's alternative
+    ('breaches') so that G5 applies it exactly where it holds. A correct amount never makes a wrong rate pass."""
+    ra, amt, bq = ln.v.get("rate_applied"), ln.v.get("amount"), ln.v.get("quantity")
+    g3 = {c.check: c for c in g.g3.checks}
+    arith_deferred = g3.get("arithmetic") is not None and g3["arithmetic"].status == "unresolved" and \
+        g3["arithmetic"].finding == "amount_arithmetic"
+    rate_v, arith_v = {}, {}
+    for lab, o in options.items():
+        if o.get("rejected") or not o.get("parts"):
+            continue
+        rates = o["rates"]
+        bands = [b for _q, b in o["parts"]]
+        if ra is not None:
+            rate_v[lab] = ra == rates[bands[0]] if len(bands) == 1 else ra in set(rates.values())
+        if arith_deferred and ra is not None and amt is not None and bq is not None:
+            if len(bands) == 1:
+                arith_v[lab] = bq * ra == amt
+            else:
+                arith_v[lab] = amt == sum((q * rates[b] for q, b in _band_parts(o["start"], bq, T.band_edges[ln.item])),
+                                          Decimal(0))
+    for fam, code, rule, clause, verdicts, what in (
+            ("band_rate", "rate_differs", "CW-R10", "Cl.27, Cl.28 (p6); Sch 4 Part 3", rate_v,
+             f"displayed rate {ra}"),
+            ("band_arithmetic", "amount_arithmetic", "CW-R20", "Cl.28 (p6); Cl.43 (p8); Sch 4 Part 3", arith_v,
+             f"{bq} x {ra} = {bq * ra if bq is not None and ra is not None else None}, billed {amt}")):
+        if not verdicts:
+            continue
+        bad = [lab for lab, ok in verdicts.items() if not ok]
+        for lab in bad:
+            options[lab].setdefault("breaches", []).append(code)
+        if not bad:
+            g.add(fam, "pass", rule, clause, detail=f"{what}: right for the band state under every reading carried")
+        elif len(bad) == len(verdicts):
+            g.add(fam, "finding", rule, clause, code, f"{what}: wrong for the band state under every reading carried")
+        else:
+            g.add(fam, "unresolved", rule, clause, code,
+                  f"{what}: wrong under {len(bad)} of {len(verdicts)} readings carried (breach carried per reading)")
 
 
 # ------------------------------------------------------------------------------------------------ 5 A3

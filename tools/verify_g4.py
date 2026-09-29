@@ -664,6 +664,41 @@ def y7(cw, dds) -> list[str]:
                     errs.append(f"{c} {g.g3.line_ref} [{k}]: trace ends at {out['amount']}, the value is {v['amount']}")
                 elif out["quantity"] is not None and v.get("allowed_quantity") is not None and out["quantity"] != D(v["allowed_quantity"]):
                     errs.append(f"{c} {g.g3.line_ref} [{k}]: trace quantity {out['quantity']}, the value {v['allowed_quantity']}")
+    errs += deferred_rate_errors(cw)
+    return errs
+
+
+def deferred_rate_errors(cw) -> list[str]:
+    """G4-B04, from the traces and G3's band rates (not the engine's verdicts): a band line whose displayed-rate check G3
+    deferred and whose value G4 established must carry the completed check - a pass exactly where, under every scenario,
+    the displayed rate is the one band's rate (one part in the trace) or one of the item's band rates (a divided
+    measurement), a finding where under none, never left unresolved or missing. A correct amount does not decide it."""
+    errs = []
+    for g in cw.lines.values():
+        rate3 = next((x for x in g.g3.checks if x.check == "rate"), None)
+        if rate3 is None or rate3.status != "unresolved" or g.r.payable is not True:
+            continue
+        band_alts = [(dims_of(k), D(a["unit_rate"])) for k, a in g.g3.alternatives.items()
+                     if "band" in dims_of(k) and a.get("unit_rate")]
+        if not band_alts:
+            continue
+        ra = D(_claim(g).get("rate_applied"))
+        opts = g.r.alternatives or {None: {"trace": g.r.trace, "amount": g.r.amount, "allowed_quantity": g.r.allowed_quantity}}
+        verdicts = []
+        for k, v in opts.items():
+            parts = [D(s["rate"]) for s in (v.get("trace") or []) if s.get("op") == "part"]
+            if not parts or (v.get("amount") is not None and D(v["amount"]) == 0 and D(v.get("allowed_quantity") or 0) == 0):
+                continue
+            kd = dims_of(k)
+            # the item's band rates under this scenario's other inputs (its ground, ...), from G3
+            band_rates = {rt for d, rt in band_alts if all(kd.get(x, y) == y for x, y in d.items() if x != "band")}
+            verdicts.append(ra == parts[0] if len(parts) == 1 else ra in band_rates)
+        if not verdicts or ra is None:
+            continue
+        want = "pass" if all(verdicts) else "finding" if not any(verdicts) else "unresolved"
+        got = [x.status for x in g.state if x.family == "band_rate"]
+        if got != [want]:
+            errs.append(f"CW {g.g3.line_ref}: displayed rate {ra} under the band state: expected {want}, the state has {got}")
     return errs
 
 
