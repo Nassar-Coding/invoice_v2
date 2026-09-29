@@ -1,14 +1,14 @@
 {
  "adopted": {
   "flags": {
-   "CW": 88,
+   "CW": 85,
    "DDS": 125
   }
  },
  "Q9": {
   "B_only_changed_total": {
    "flags": {
-    "CW": 77,
+    "CW": 74,
     "DDS": 110
    },
    "invoices_changed": 26,
@@ -46,7 +46,7 @@
   "scope": "the A3 recipients",
   "B_inside_judged_total": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 125
    },
    "invoices_changed": 0,
@@ -78,7 +78,7 @@
   },
   "A_only": {
    "flags": {
-    "CW": 87,
+    "CW": 84,
     "DDS": 122
    },
    "invoices_changed": 4,
@@ -91,7 +91,7 @@
   },
   "B_only": {
    "flags": {
-    "CW": 85,
+    "CW": 82,
     "DDS": 124
    },
    "invoices_changed": 4,
@@ -110,7 +110,7 @@
   },
   "open_either_stands": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 125
    },
    "invoices_changed": 0,
@@ -124,7 +124,7 @@
   },
   "B": {
    "flags": {
-    "CW": 248,
+    "CW": 245,
     "DDS": 125
    },
    "invoices_changed": 181,
@@ -177,7 +177,7 @@
   "invoices": {},
   "B": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 125
    },
    "invoices_changed": 0,
@@ -189,7 +189,7 @@
   "invoices": {},
   "B": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 125
    },
    "invoices_changed": 0,
@@ -201,7 +201,7 @@
   "invoices": {},
   "B": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 125
    },
    "invoices_changed": 0,
@@ -215,7 +215,7 @@
   },
   "only A": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 125
    },
    "invoices_changed": 0,
@@ -223,7 +223,7 @@
   },
   "only B": {
    "flags": {
-    "CW": 87,
+    "CW": 84,
     "DDS": 125
    },
    "invoices_changed": 1,
@@ -239,7 +239,7 @@
   },
   "only A": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 125
    },
    "invoices_changed": 0,
@@ -247,7 +247,7 @@
   },
   "only B": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 125
    },
    "invoices_changed": 0,
@@ -255,7 +255,7 @@
   },
   "only C": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 122
    },
    "invoices_changed": 7,
@@ -271,7 +271,7 @@
   },
   "only counts": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 121
    },
    "invoices_changed": 7,
@@ -293,7 +293,7 @@
   },
   "only circulating (Cl.21, Sch 1)": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 125
    },
    "invoices_changed": 0,
@@ -301,7 +301,7 @@
   },
   "only circulating or back-reaming (Sch 8 row)": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 124
    },
    "invoices_changed": 1,
@@ -317,7 +317,7 @@
   },
   "only back-reaming (Cl.30, Sch 1)": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 125
    },
    "invoices_changed": 0,
@@ -325,7 +325,7 @@
   },
   "only circulating or back-reaming (Sch 8 row)": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 123
    },
    "invoices_changed": 2,
@@ -346,7 +346,7 @@
   },
   "only Cl.30 wording (application number, then line)": {
    "flags": {
-    "CW": 80,
+    "CW": 77,
     "DDS": 125
    },
    "invoices_changed": 8,
@@ -363,7 +363,7 @@
   },
   "only PA-00459-09 then PA-00140-04": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 125
    },
    "invoices_changed": 2,
@@ -374,7 +374,7 @@
   },
   "only PA-00506-06 then PA-00155-12": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 125
    },
    "invoices_changed": 2,
@@ -385,7 +385,7 @@
   },
   "only PA-00611-04 then PA-00382-07": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 125
    },
    "invoices_changed": 2,
@@ -396,7 +396,7 @@
   },
   "only PA-00778-01 then PA-00303-03": {
    "flags": {
-    "CW": 88,
+    "CW": 85,
     "DDS": 125
    },
    "invoices_changed": 2,
@@ -420,7 +420,7 @@
     "CW": 386,
     "DDS": 1906
    },
-   "invoices_changed": 2079,
+   "invoices_changed": 2082,
    "changed": [
     "MDS-00001",
     "MDS-00002",
@@ -467,9 +467,9 @@
   "C_default": {
    "flags": {
     "CW": 359,
-    "DDS": 883
+    "DDS": 1241
    },
-   "invoices_changed": 1112,
+   "invoices_changed": 1408,
    "changed": [
     "MDS-00003",
     "MDS-00004",
@@ -478,20 +478,26 @@
     "MDS-00013",
     "MDS-00014",
     "MDS-00017",
+    "MDS-00018",
     "MDS-00019",
     "MDS-00020",
     "MDS-00021",
+    "MDS-00022",
     "MDS-00023",
     "MDS-00024",
+    "MDS-00025",
     "MDS-00028",
     "MDS-00029",
     "MDS-00030",
+    "MDS-00031",
     "MDS-00034",
     "MDS-00035",
     "MDS-00036",
+    "MDS-00037",
     "MDS-00038",
     "MDS-00039",
     "MDS-00040",
+    "MDS-00043",
     "MDS-00045",
     "MDS-00046",
     "MDS-00047",
@@ -499,18 +505,12 @@
     "MDS-00049",
     "MDS-00051",
     "MDS-00052",
+    "MDS-00053",
+    "MDS-00054",
     "MDS-00056",
+    "MDS-00057",
     "MDS-00058",
-    "MDS-00061",
-    "MDS-00063",
-    "MDS-00064",
-    "MDS-00065",
-    "MDS-00069",
-    "MDS-00071",
-    "MDS-00073",
-    "MDS-00075",
-    "MDS-00076",
-    "MDS-00077"
+    "MDS-00061"
    ]
   }
  },

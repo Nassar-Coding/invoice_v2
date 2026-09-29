@@ -12,8 +12,10 @@ outcomes remain distinct; independently reviewed complete invoices reconcile ste
      category is exactly the root categories of those findings (every finding code mapped); an unflagged invoice has no
      finding under any scenario.
   Z4 monetary and procedural outcomes distinct: a flag resting only on procedural or payment-only findings keeps the
-     contract value as its expected total (no blanket zero); and billing is never authority - changing every billed
-     amount and header total changes no expected total.
+     contract value as its expected total (no blanket zero); billing is never authority - changing every billed amount
+     and header total changes no contract total, and a flagged row exports the contract total; the invoice's statement of
+     an unsupplied fact is never authority (G5-B01) - changing every stated class and unrecorded ground changes no flag,
+     category, exported total, contract total or confidence.
   Z5 independent sample: every reader's flag and expected total agree with the engine or carry a live settlement
      (verification/g5/sample_dispositions.yaml); the comparison reproduces; packets committed before the readers'
      outputs and both before the G5 engine (git).
@@ -36,6 +38,7 @@ from __future__ import annotations
 import copy
 import csv
 import io
+import itertools
 import json
 import subprocess
 import sys
@@ -53,7 +56,7 @@ import g5_sample_compare as SC  # noqa: E402
 from audit import g4_run, g5_run  # noqa: E402
 from audit.common import SNAPSHOT  # noqa: E402
 from audit.g3_core import result_keys  # noqa: E402
-from audit.g4_core import base  # noqa: E402
+from audit.g4_core import base, dims_of  # noqa: E402
 from audit.g5_outcomes import (CATEGORY, CATEGORY_ORDER, FACT_DIMS, PAYMENT_ONLY, PROCEDURAL, Engine, options,  # noqa: E402
                                template_ids)
 
@@ -158,7 +161,60 @@ def z3(out: dict) -> list[str]:
 
 
 # ============================================================================== Z4
-def z4(out: dict, perturbed: dict | None = None) -> list[str]:
+def admissible_errors(out: dict, eng: Engine) -> list[str]:
+    """G5-B01/B02, independent of the engine's scenario evaluation: a row that exports its own billed total instead of the
+    contract total claims that the billed total is a total the contract supports under some admissible value of the
+    unsupplied documents. Check it from the line alternatives: some well class and section nomination, and per civil line
+    some ground class, under the working readings must reproduce every billed line amount (DS-900 aside) and the billed
+    total (drilling through DS-900 and VAT)."""
+    errs = []
+    for i, o in out.items():
+        if not o["formed"] or D(o["expected_total"]) == D(o["contract_total"]):
+            continue
+        inv = eng.inv[o["contract"]][i]
+        work = {k: v for k, v in (o["expected_under"] or {}).items() if k not in ("Q1", "class")}
+        classes = sorted({d["class"] for _k, _v, g in inv.lines for d, _x in options(g) if "class" in d}) or [None]
+        noms = sorted({(v.get("well_name"), v.get("hole_section")) for _k, v, g in inv.lines
+                       if any(x["dimension"] == "nomination" for x in g.r.conditions)}, key=str)
+        ok = False
+        for cls in classes:
+            for combo in itertools.product(*[[True, False] for _ in noms]):
+                nom = dict(zip(noms, combo))
+                svc, good = Decimal(0), True
+                for key, v, g in inv.lines:
+                    billed = D(v.get("amount")) or Decimal(0)
+                    if inv.contract == "DDS" and g.g3.code == "DS-900":
+                        continue
+                    if g.r.payable is False:
+                        vals = {Decimal(0)}
+                    elif any(x["dimension"] == "nomination" for x in g.r.conditions) and \
+                            not nom[(v.get("well_name"), v.get("hole_section"))]:
+                        vals = {Decimal(0)}
+                    else:
+                        fixed = {**eng.policy.decided, **work, **({"class": cls} if cls else {})}
+                        fixed.update({d: st[0] for d, st in eng.stands.get(key, {}).items() if not st[1]})
+                        vals = {D(x.get("amount")) for d, x in options(g)
+                                if all(fixed.get(k, y) == y for k, y in d.items() if k != "ground")}
+                    if billed not in vals:
+                        good = False
+                        break
+                    svc += billed
+                if not good:
+                    continue
+                tot = svc
+                if inv.contract == "DDS":
+                    ds = -(((svc - 250000) * Decimal("0.04")).quantize(Decimal("0.01"), rounding="ROUND_HALF_EVEN")) \
+                        if svc > 250000 else 0
+                    net = svc + ds
+                    tot = net + (net * Decimal("0.15")).quantize(Decimal("0.01"), rounding="ROUND_HALF_EVEN")
+                ok = ok or tot == D(o["billed_total"])
+        if not ok:
+            errs.append(f"{i}: exports its billed total {o['billed_total']} as an admissible contract total, but no admissible "
+                        "value of the unsupplied documents reproduces it")
+    return errs
+
+
+def z4(out: dict, perturbed: dict | None = None, claims_changed: dict | None = None) -> list[str]:
     errs = []
     for i, o in out.items():
         codes = {f.split("@")[0] for f in o["findings"]}
@@ -168,13 +224,61 @@ def z4(out: dict, perturbed: dict | None = None) -> list[str]:
                             f"({o['billed_total']} -> {o['expected_total']})")
             if D(o["expected_total"]) == 0 and D(o["billed_total"]) != 0:
                 errs.append(f"{i}: procedural breach valued at zero")
+    for i, o in out.items():
+        # the exported figure: a flagged row exports the contract value on the evidence; an unflagged row its own total,
+        # which is then an admissible total (right under some value of every unsupplied document - EXPORT-E)
+        adm = {D(t) for t in o.get("admissible_totals", [o["contract_total"]])}
+        want = D(o["billed_total"]) if D(o["billed_total"]) in adm else D(o["contract_total"])
+        if o["formed"] and D(o["expected_total"]) != want:
+            errs.append(f"{i}: exports {o['expected_total']}; its own total is {'' if want == D(o['billed_total']) else 'not '}"
+                        f"an admissible contract total, so it must export {want}")
     if perturbed is not None:
         for i, o in out.items():
             p = perturbed.get(i)
-            if p is None or D(p["expected_total"]) != D(o["expected_total"]):
-                errs.append(f"{i}: the expected total moves with the billed figures ({o['expected_total']} -> "
-                            f"{None if p is None else p['expected_total']})")
+            if p is None or D(p["contract_total"]) != D(o["contract_total"]):
+                errs.append(f"{i}: the contract total moves with the billed figures ({o['contract_total']} -> "
+                            f"{None if p is None else p['contract_total']})")
+            elif p["formed"] and D(p["expected_total"]) != D(o["contract_total"]):
+                errs.append(f"{i}: flagged when the billed figures change, it exports {p['expected_total']} - it moves with the "
+                            f"billed figures instead of the contract value {o['contract_total']}")
+    if claims_changed is not None:
+        # G5-B01: the invoice's own statement of a fact whose document is not supplied (header well class; a civil line's
+        # ground where no record classifies it) changes nothing - flag, category, exported total, contract total, confidence
+        for i, o in out.items():
+            q = claims_changed.get(i)
+            key = ("flagged", "error_category", "expected_total", "contract_total", "confidence")
+            if q is None or any(str(q[k]) != str(o[k]) for k in key):
+                errs.append(f"{i}: changing only its stated class/ground moves the outcome "
+                            f"{[o[k] for k in key]} -> {None if q is None else [q[k] for k in key]}")
     return errs
+
+
+CLASSES = ["Standard", "Extended Reach", "HPHT"]
+GROUNDS = ["G1", "G2", "G3", "G4", "G5"]
+
+
+def perturb_facts(w, st):
+    """A copy of the world in which every drilling header states another well class and every civil line whose ground no
+    supplied record classifies (its G4 value carries ground alternatives) states another ground class - evidence and
+    billed figures unchanged."""
+    unrecorded = {k for k, g in st["CW"].lines.items() if any("ground:" in a for a in g.r.alternatives)}
+    keys = dict(zip(map(id, w.claims.rows["cw_lines"]), result_keys(w.claims.rows["cw_lines"])))
+    w2 = copy.copy(w)
+    w2.claims = copy.copy(w.claims)
+    w2.claims.rows = dict(w.claims.rows)
+    for k in ("dds_headers", "cw_lines"):
+        new = []
+        for r in w.claims.rows[k]:
+            r2 = copy.copy(r)
+            r2.values = dict(r.values)
+            if k == "dds_headers" and r2.values.get("well_class") in CLASSES:
+                r2.values["well_class"] = CLASSES[(CLASSES.index(r2.values["well_class"]) + 1) % 3]
+            if k == "cw_lines" and keys[id(r)] in unrecorded:
+                g0 = (r2.values.get("ground_class") or "").split(" ")[0]
+                r2.values["ground_class"] = GROUNDS[(GROUNDS.index(g0) + 2) % 5] if g0 in GROUNDS else "G4"
+            new.append(r2)
+        w2.claims.rows[k] = new
+    return w2
 
 
 def perturb_billing(w):
@@ -279,7 +383,10 @@ def joint_errors(out: dict, eng: Engine) -> list[str]:
             fixed = dict(p.decided)
             if p.q7c == "earlier":
                 fixed.update({d: s[0] for d, s in eng.stands.get(key, {}).items() if not s[1]})
-            fixed.update(fact_values(eng, inv, key, v, g))
+            fixed.update(fact_values(o, g))
+            if any(x["dimension"] == "nomination" for x in g.r.conditions):
+                states = {(a, vals + (Decimal(0),)) for a, vals in states}      # absent nomination: not chargeable
+                continue
             # a civil line's ground class is its own fact (its own work area and day): local to the line in the join;
             # a well's class is one fact for all its services (joint)
             opts = [({(f"{k}@{key}" if k == "ground" else k): y for k, y in d.items()}, x) for d, x in options(g)
@@ -312,9 +419,18 @@ def joint_errors(out: dict, eng: Engine) -> list[str]:
     return errs
 
 
-def fact_values(eng: Engine, inv, key, v, g) -> dict:
-    """The fact dimensions the adopted fact rule fixes on this line (the rule itself is the engine's policy)."""
-    return {d: x for d, x in eng.fixed_for(inv, key, v, g, {}).items() if base(d) in FACT_DIMS}
+FALLBACK = {"class": "Standard", "ground": "G2"}      # spec/g5_decisions.yaml Q9-3 E (EXPORT-D), read from the register
+
+
+def fact_values(o: dict, g) -> dict:
+    """The totals an outcome reports are those on the absent-document values (EXPORT-D): S4 G2, P2/P3 Standard, Cl.23 not
+    nominated - except a well class the engine reports open across the well's invoices (Cl.4 conflict), which stays
+    free in the join."""
+    dims = {d for k in g.r.alternatives for d in dims_of(k)}
+    out = {d: x for d, x in FALLBACK.items() if d in dims}
+    if "class" in o.get("open_readings", {}):
+        out.pop("class", None)
+    return out
 
 
 # ============================================================================== Z7
@@ -410,6 +526,7 @@ def main() -> int:
     headers = {h.values.get("application_no") or h.values.get("invoice_no"): h.values
                for k in ("cw_headers", "dds_headers") for h in w.claims.rows[k]}
     perturbed = {i: g5_run.serial(o) for i, o in Engine(perturb_billing(w), st).run().items()}
+    facts_changed = {i: g5_run.serial(o) for i, o in Engine(perturb_facts(w, st), st).run().items()}
     cmp_ = SC.compare(serial)
     disp = (yaml.safe_load((OUT / "sample_dispositions.yaml").read_text()) or {}).get("dispositions", {})
     load = lambda p: yaml.safe_load(p.read_text())  # noqa: E731
@@ -418,7 +535,7 @@ def main() -> int:
         ("Z1 one outcome per template invoice; submission.csv in the template format", lambda: z1(serial, ids, headers, fresh["submission.csv"])),
         ("Z2 every invoice has a status for each of the twelve checks over exactly its claim lines", lambda: z2(serial, eng, w)),
         ("Z3 findings and evidence trail: flag <-> findings, category = root categories", lambda: z3(serial)),
-        ("Z4 monetary and procedural outcomes distinct; billing never authority for an expected total", lambda: z4(serial, perturbed)),
+        ("Z4 monetary and procedural outcomes distinct; billing never authority for an expected total", lambda: z4(serial, perturbed, facts_changed) + admissible_errors(out, eng)),
         ("Z5 independently reviewed invoices agree (or carry a live settlement); inputs before outputs (git)",
          lambda: z5(cmp_, disp) + ([] if json.loads((OUT / "sample_comparison.json").read_text()) ==
                                    json.loads(json.dumps(cmp_, sort_keys=True)) else ["verification/g5/sample_comparison.json does not reproduce"])),

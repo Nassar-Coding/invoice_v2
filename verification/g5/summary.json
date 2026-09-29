@@ -1,15 +1,15 @@
 {
- "run_context": "5432d2655f0cc890",
+ "run_context": "5ecaa994f8620019",
  "template_rows": 2806,
  "contracts": {
   "CW": {
    "invoices": 900,
-   "flagged": 88,
-   "flag_rate": "0.0978",
+   "flagged": 85,
+   "flag_rate": "0.0944",
    "categories": {
-    "rate": 34,
+    "rate": 31,
     "duplicate": 18,
-    "arithmetic": 7,
+    "arithmetic": 6,
     "timing": 5,
     "adjustment": 4,
     "evidence": 3,
@@ -23,6 +23,7 @@
     "unit; rate": 1,
     "duplicate; rate": 1,
     "timing; signature": 1,
+    "rate; arithmetic": 1,
     "evidence; arithmetic": 1,
     "term; evidence; rate; adjustment": 1,
     "eligibility": 1,
@@ -30,17 +31,18 @@
     "limit": 1
    },
    "confidence": {
-    "0@0.80": 298,
+    "0@0.80": 301,
     "0@0.95": 514,
     "1@0.50": 13,
-    "1@0.80": 35,
+    "1@0.60": 25,
+    "1@0.80": 7,
     "1@0.95": 40
    },
    "flag_basis": {
     "readings disagree (Q9-2)": 13,
-    "wrong under every reading": 75
+    "wrong under every reading": 72
    },
-   "judged_total_changed": 69,
+   "judged_total_changed": 66,
    "unpriceable": 0,
    "fact_dependent": 335
   },
@@ -49,8 +51,8 @@
    "flagged": 125,
    "flag_rate": "0.0656",
    "categories": {
-    "rate": 51,
-    "quantity": 21,
+    "rate": 53,
+    "quantity": 19,
     "eligibility": 7,
     "timing": 6,
     "arithmetic": 6,
@@ -70,8 +72,7 @@
    "confidence": {
     "0@0.80": 1781,
     "1@0.50": 8,
-    "1@0.60": 3,
-    "1@0.80": 114
+    "1@0.60": 117
    },
    "flag_basis": {
     "wrong under every reading": 117,

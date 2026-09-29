@@ -18,3 +18,43 @@ dispositions:
       Q1); the reader adopted 31A and gave the A3 reading (flag 1) as its alternative. Under the ambiguity rule (Q9-2)
       readings that disagree on whether the invoice is wrong give flag 1 at confidence 0.50, which is the engine's
       outcome; the other reader (r1) flagged it 1.
+  "PA-00111|cw_b_r1|expected total: engine 368862.02 reader 368252.12":
+    settled: engine
+    basis: >-
+      Flag agrees (1). The reader's premise (prompts/phase3/g5_expected_outcomes_v1.md, sample premises) prescribed the
+      application's own ground_class for lines no supplied record classifies; that premise is the rejected Q9-3 rule
+      (G4/G5 correction round, G5-B01: the claim is not authority for a fact assigned to the excavation record, S4 p10,
+      Cl.5 p3). Under Q9-3 E the invoice is wrong under every admissible ground; the exported total is on the value the
+      supplied evidence establishes, S4 'a classification not recorded on the day of excavation shall be taken to be G2'
+      (EXPORT-D, 368862.02). The reader's 368252.12 is the total under the stated ground and is one of the invoice's
+      admissible_totals, reported in the outcome; which applies depends on the unsupplied record (confidence 0.60).
+  "PA-00111|cw_b_r2|expected total: engine 368862.02 reader 368252.12":
+    settled: engine
+    basis: >-
+      Flag agrees (1). The reader's premise (prompts/phase3/g5_expected_outcomes_v1.md, sample premises) prescribed the
+      application's own ground_class for lines no supplied record classifies; that premise is the rejected Q9-3 rule
+      (G4/G5 correction round, G5-B01: the claim is not authority for a fact assigned to the excavation record, S4 p10,
+      Cl.5 p3). Under Q9-3 E the invoice is wrong under every admissible ground; the exported total is on the value the
+      supplied evidence establishes, S4 'a classification not recorded on the day of excavation shall be taken to be G2'
+      (EXPORT-D, 368862.02). The reader's 368252.12 is the total under the stated ground and is one of the invoice's
+      admissible_totals, reported in the outcome; which applies depends on the unsupplied record (confidence 0.60).
+  "PA-00613|cw_a_r1|expected total: engine 58052.28 reader 60849.08":
+    settled: engine
+    basis: >-
+      Flag agrees (1). The reader's premise (prompts/phase3/g5_expected_outcomes_v1.md, sample premises) prescribed the
+      application's own ground_class for lines no supplied record classifies; that premise is the rejected Q9-3 rule
+      (G4/G5 correction round, G5-B01: the claim is not authority for a fact assigned to the excavation record, S4 p10,
+      Cl.5 p3). Under Q9-3 E the invoice is wrong under every admissible ground; the exported total is on the value the
+      supplied evidence establishes, S4 'a classification not recorded on the day of excavation shall be taken to be G2'
+      (EXPORT-D, 58052.28). The reader's 60849.08 is the total under the stated ground and is one of the invoice's
+      admissible_totals, reported in the outcome; which applies depends on the unsupplied record (confidence 0.60).
+  "PA-00613|cw_a_r2|expected total: engine 58052.28 reader 60849.08":
+    settled: engine
+    basis: >-
+      Flag agrees (1). The reader's premise (prompts/phase3/g5_expected_outcomes_v1.md, sample premises) prescribed the
+      application's own ground_class for lines no supplied record classifies; that premise is the rejected Q9-3 rule
+      (G4/G5 correction round, G5-B01: the claim is not authority for a fact assigned to the excavation record, S4 p10,
+      Cl.5 p3). Under Q9-3 E the invoice is wrong under every admissible ground; the exported total is on the value the
+      supplied evidence establishes, S4 'a classification not recorded on the day of excavation shall be taken to be G2'
+      (EXPORT-D, 58052.28). The reader's 60849.08 is the total under the stated ground and is one of the invoice's
+      admissible_totals, reported in the outcome; which applies depends on the unsupplied record (confidence 0.60).

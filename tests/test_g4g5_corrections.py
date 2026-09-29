@@ -448,3 +448,124 @@ def test_g5b04_oracle_joins_combinations_and_rejects_the_gate_pair():
     out_old = {no: e_old.outcome(i) for no, i in e_old.inv["CW"].items()}
     errs = vg5.joint_errors(out_old, e_old)
     assert any("PA-9X001" in x and "formed=False" in x for x in errs)
+
+
+# ---------------------------------------------------------------------------------------------------------- G5-B01
+def _unit():
+    import test_g5_falsification as U
+    return U
+
+
+def _nom_line(ref, billed, value="1000.00"):
+    U = _unit()
+    k, v, g = U._line("DDS", ref, "PD-210", billed, value)
+    g.r.conditions = [{"dimension": "nomination", "owner": "G5", "basis": "Cl.23"}]
+    g.r.amount_status = "conditional"
+    v.update({"well_name": "W-1", "hole_section": "12-1/4 in"})
+    return k, v, g
+
+
+def _cls_line(ref, billed):
+    U = _unit()
+    alts = {"class:Standard": "1000.00", "class:Extended Reach": "1175.00", "class:HPHT": "1325.00"}
+    return U._line("DDS", ref, "MW-310", billed, alts=alts)
+
+
+def _o(invs, target, policy=None, mod=None):
+    U = _unit()
+    e = U._engine(invs, policy=policy)
+    if mod is not None:
+        e2 = mod.Engine.__new__(mod.Engine)
+        e2.__dict__.update({k: v for k, v in e.__dict__.items() if not k.startswith("_")})
+        e = e2
+    return e.outcome(target)
+
+
+def test_g5b01_claim_only_change_leaves_flag_total_and_confidence():
+    U = _unit()
+    for billed in ("1000.00", "1325.00", "1111.00"):
+        res = set()
+        for cls in ("HPHT", "Standard", "Extended Reach", ""):
+            inv = U._dds("K", [_cls_line("K-001", billed)], cls=cls)
+            o = _o([inv], inv)
+            res.add((o["flagged"], o["expected_total"], o["confidence"], o["contract_total"]))
+        assert len(res) == 1, (billed, res)
+
+
+def test_g5b01_control_gate5_claim_selects_the_value():
+    U = _unit()
+    old5 = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+    res = set()
+    for cls in ("HPHT", "Standard"):
+        inv = old5.Invoice("DDS", "K", U._dds("K", [_cls_line("K-001", "1325.00")], cls=cls).header,
+                           [_cls_line("K-001", "1325.00")])
+        e = old5.Engine.__new__(old5.Engine)
+        e.policy, e.inv, e.stands, e.a3, e.release, e.inv_date = old5.Policy(), {"CW": {}, "DDS": {"K": inv}}, {}, \
+            {"CW": {}, "DDS": {}}, {}, {}
+        o = e.outcome(inv)
+        res.add((o["flagged"], o["expected_total"], o["confidence"]))
+    assert len(res) == 2          # the header's class statement alone moves the outcome (the audit's MDS-00753 pattern)
+
+
+def test_g5b01_inconsistent_classes_for_one_well_stay_open():
+    U = _unit()
+    a = U._dds("KA", [_cls_line("KA-001", "1325.00")], header_extra={"well_name": "W-9"}, cls="HPHT")
+    b = U._dds("KB", [_cls_line("KB-001", "1000.00")], header_extra={"well_name": "W-9"}, cls="Standard")
+    oa, ob = _o([a, b], a), _o([a, b], b)
+    # Cl.4: one class governs the well - no single call-off makes both right: the class is one open fact (Q9-2)
+    for o in (oa, ob):
+        assert o["class_conflict"] and o["flagged"] == 1 and o["confidence"] == D("0.50") and "class" in o["open_readings"]
+    b2 = U._dds("KB", [_cls_line("KB-001", "1325.00")], header_extra={"well_name": "W-9"}, cls="Standard")
+    for o in (_o([a, b2], a), _o([a, b2], b2)):
+        assert not o["class_conflict"] and o["flagged"] == 0 and o["confidence"] == D("0.80")
+
+
+def test_g5b01_both_nomination_outcomes():
+    U = _unit()
+    ok = U._dds("N1", [_nom_line("N1-001", "1000.00")])
+    o = _o([ok], ok)
+    assert o["flagged"] == 0 and o["confidence"] == D("0.80") and o["nomination_dependent"]    # right if nominated
+    assert D(o["contract_total"]) == D("0.00")          # EXPORT-D: no supplied call-off nominates the section
+    bad = U._dds("N2", [_nom_line("N2-001", "1200.00"),
+                        U._line("DDS", "N2-002", "DD-101", "500.00", "500.00")])
+    o = _o([bad], bad)
+    # wrong whether or not the section is nominated (1,200 billed, 1,000 if nominated, 0 if not): flagged; the
+    # exported total rests on the absent nomination (500 + VAT), confidence 0.60 (the total depends on the call-off)
+    assert o["flagged"] == 1 and o["expected_total"] == D("575.00") and o["confidence"] == D("0.60")
+    assert "section_not_nominated@N2-001" not in o["findings"]          # evidence-dependent, never a finding
+
+
+def test_g5b01_civil_ground_statement_is_not_authority():
+    U = _unit()
+    res = set()
+    for stated in ("G4 Soft", "G2 Firm", ""):
+        k, v, g = U._line("CW", "GR-01", "A.12.010", "150.00",
+                          alts={"ground:G1": "90.00", "ground:G2": "100.00", "ground:G4": "150.00"})
+        v["ground_class"] = stated
+        inv = U.Invoice("CW", "GR", {"application_total": D("150.00"), "retention": D("7.50"), "net_payable": D("142.50"),
+                                     "adjustment": D("0"), "retention_released": D("0")}, [(k, v, g)])
+        o = _o([inv], inv)
+        res.add((o["flagged"], o["expected_total"], o["confidence"], o["contract_total"]))
+    assert res == {(0, D("150.00"), D("0.80"), D("100.00"))}          # right under G4; S4 fallback G2 gives 100.00
+
+
+def test_g5b01_z4_claim_check_passes_fixed_and_fails_gate5():
+    import verify_g5 as vg5
+    U = _unit()
+    old5 = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+
+    def run(mod, cls):
+        lines = [_cls_line("K-001", "1325.00")]
+        if mod is None:
+            inv = U._dds("K", lines, cls=cls)
+            return {"K": _o([inv], inv)}
+        inv = old5.Invoice("DDS", "K", U._dds("K", lines, cls=cls).header, lines)
+        e = old5.Engine.__new__(old5.Engine)
+        e.policy, e.inv, e.stands, e.a3, e.release, e.inv_date = old5.Policy(), {"CW": {}, "DDS": {"K": inv}}, {}, \
+            {"CW": {}, "DDS": {}}, {}, {}
+        o = e.outcome(inv)
+        o["contract_total"] = o["expected_total"]
+        return {"K": o}
+    assert [x for x in vg5.z4(run(None, "HPHT"), None, run(None, "Standard")) if "stated class" in x] == []
+    errs = vg5.z4(run(old5, "HPHT"), None, run(old5, "Standard"))
+    assert any("changing only its stated class/ground moves the outcome" in x for x in errs)

@@ -33,17 +33,29 @@ q9_rule:
       reading named per question below (chosen from source before any comparison with the bill); where the working
       reading leaves the invoice correct, the expected total equals the billed total and the flag carries the doubt.
     Q9-3_unsupplied_facts: >-
-      Where the contract assigns a pricing input to a document that is not supplied (DDS well class - the call-off,
-      Cl.4; CW ground class - the excavation record/Engineer, S4, Cl.5; PD-210 nomination - the call-off, Cl.23), every
-      admissible value is a scenario and the invoice's own statement of the input (DDS header well_class, CW line
-      ground_class, the PD-210 charge itself) is tested in every scenario: a statement contradicting the scenario's fact
-      is a breach in that scenario (DDS check 1 'class per call-off'; CW S4/Cl.42). So an invoice can be correct only in
-      the scenario that matches its own statements. It is flagged when it is wrong in that scenario (and so in every
-      scenario); it is not flagged when it is fully correct there and nothing in the supplied records contradicts its
-      statement - the missing document is a gap in the evidence set, not evidence against this invoice. Its confidence
-      is capped at 0.80 (the governing document is not supplied). The statement is never used to price: every value is
-      computed under every admissible input. Alternatives counted: B every fact-dependent invoice flagged as a query;
-      C facts at the contractual defaults (DDS Standard, CW G2 'not recorded on the day').
+      Rule E (missing-evidence rule; adopted in the G4/G5 correction round, G5-B01 - replaces the earlier rule under which
+      the invoice's own statement of the fact selected its scenario and was tested as a breach). Where the contract assigns
+      a pricing input to a document that is not supplied (DDS well class - the call-off, Cl.4; CW ground class - the
+      excavation record/Engineer, S4, Cl.5; PD-210 nomination - the call-off, Cl.23), every admissible value is an
+      EVIDENCE scenario, separate from the readings of Q9-2. The invoice's statement of the input (DDS header well_class, CW
+      line ground_class) never selects a value and is never itself a breach: without the document it cannot be shown
+      wrong, and the claim is not authority (plan; G5-B01). Missing evidence is not a breach: under a reading the invoice
+      is right when SOME admissible value of every unsupplied document makes it right (a civil line's ground is its own
+      fact; a well's class is one fact for all its services; a section's nomination one fact for its PD-210 charges), and
+      wrong only when NO admissible value does - an established breach whatever the document says, reported by the
+      findings that hold under every value (or 'no_admissible_document' where each value fails for a different reason).
+      Cl.4 'the well class stated in the call-off governs the whole well': where the invoices of one well can be right
+      only under different classes, no single call-off makes them all right, and the class is one open fact shared by
+      those invoices (Q9-2, working value Standard). Numeric export: contract_total is the total on the values the
+      supplied evidence establishes for an absent document (EXPORT-D: S4 'a classification not recorded on the day ...
+      taken to be G2'; P2/P3 HPHT/Extended Reach factors only 'where the call-off so states' - Standard; Cl.23 PD-210 only on
+      a section the call-off nominates - not chargeable), never the invoice's statement and never the bill; a flagged row
+      exports contract_total; an unflagged fact-dependent row exports its own total, which is then an admissible total
+      (EXPORT-E: right under some value of the unsupplied document; stated as such in expected_basis, not as a contract
+      calculation of that value). Confidence: 0.80 unflagged fact-dependent (the governing document is not supplied);
+      0.60 flagged where the total depends on it. Invariant (verify_g5 Z4): changing only a stated class or unrecorded
+      ground changes no flag, category, exported total, contract total or confidence. Alternatives counted: B every
+      fact-dependent invoice flagged as a query; C the absent-document values alone decide the flag.
     Q9-4_unknown_total: >-
       An invoice whose expected total cannot be formed under the working scenario (a line with no value under any
       admissible input) is flagged when any check fails, with expected_total_cents = the best-supported total (every
@@ -128,17 +140,17 @@ decisions:
     effect_key: order
   - id: Q8-class
     status: resolved by rule (Q9-3)
-    reading: "DDS well class: the call-off (Cl.4) is not supplied and no report states a class; every class is computed and the header's class statement is tested in each scenario (Q9-3)."
+    reading: "DDS well class: the call-off (Cl.4) is not supplied and no report states a class; every class is computed; the invoice is right when some class makes it right (Q9-3 E); the header's statement plays no part; one class per well across its invoices (Cl.4)."
     alternatives: {B: "flag every class-dependent invoice as a query", C: "Standard (no call-off states HPHT/Extended Reach: P2, P3)"}
     effect_key: Q8-class
   - id: Q8-ground
     status: resolved by rule (Q9-3)
-    reading: "CW ground class of the 649 lines no supplied record classifies: every class computed; the line's own ground_class statement tested in each scenario (Q9-3)."
+    reading: "CW ground class of the 649 lines no supplied record classifies: every class computed; each line right when some class makes it right (Q9-3 E); the line's ground_class statement plays no part; export on S4 G2 (EXPORT-D)."
     alternatives: {B: "flag every ground-dependent application as a query", C: "G2 ('a classification not recorded on the day ... taken to be G2', S4)"}
     effect_key: Q8-ground
   - id: PD210-nomination
     status: resolved by rule (Q9-3)
-    reading: "The call-off nomination of a performance-drilled section is not supplied; a PD-210 charge on a 12-1/4 or 8-1/2 inch section states that the section was nominated (Q9-3); valued at G3 on that basis, section checked."
+    reading: "The call-off nomination of a performance-drilled section is not supplied: nominated and not nominated are both evidence scenarios (Q9-3 E); the invoice is right when some nomination makes it right; export on 'not nominated' (EXPORT-D, Cl.23)."
     alternatives: {B: "every PD-210 invoice flagged as a query", C: "no nomination: PD-210 not chargeable"}
     effect_key: PD210-nomination
   - id: G3-D1

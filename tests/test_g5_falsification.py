@@ -80,17 +80,23 @@ def test_offsetting_line_errors_are_flagged_though_the_total_is_unchanged():
     assert o["flagged"] == 1 and o["expected_total"] == D("150.00") and "rate" in o["error_category"]
 
 
-def test_a_class_statement_the_pricing_contradicts_is_wrong_under_every_class():
-    # header says HPHT; the line is priced at the Standard value: under HPHT the amount is wrong, under Standard the
-    # header's statement is - the invoice is wrong whichever class the missing call-off states
+def test_the_invoices_class_statement_never_selects_its_value():
+    # G5-B01 (Q9-3 E): the call-off is not supplied; the header's well class is the contractor's statement. It neither
+    # selects the priced alternative nor is itself tested: the outcome is the same whichever class the header states.
     alts = {"class:Standard": "1000.00", "class:Extended Reach": "1100.00", "class:HPHT": "1250.00"}
-    line = _line("DDS", "C-001", "DD-101", "1000.00", alts=alts)
-    inv = _dds("C", [line], cls="HPHT")
+    for billed in ("1000.00", "1250.00"):
+        outs = []
+        for cls in ("HPHT", "Standard", "Extended Reach", ""):
+            inv = _dds("C", [_line("DDS", "C-001", "DD-101", billed, alts=alts)], cls=cls)
+            o = _engine([inv]).outcome(inv)
+            outs.append((o["flagged"], o["expected_total"], o["confidence"]))
+        assert len(set(outs)) == 1
+        assert outs[0] == (0, (D(billed) * D("1.15")).quantize(D("0.01")), D("0.80"))   # right under an admissible call-off
+    # priced at no admissible class: wrong under every call-off; expected total on the absent-document value (Standard,
+    # P2/P3 'where the call-off so states'), confidence 0.60 (the total depends on the unsupplied call-off)
+    inv = _dds("C3", [_line("DDS", "C3-001", "DD-101", "1111.00", alts=alts)], cls="HPHT")
     o = _engine([inv]).outcome(inv)
-    assert o["flagged"] == 1 and o["expected_total"] == D("1437.50")        # 1,250.00 + 15% VAT
-    inv_ok = _dds("C2", [_line("DDS", "C2-001", "DD-101", "1250.00", alts=alts)], cls="HPHT")
-    o_ok = _engine([inv_ok]).outcome(inv_ok)
-    assert o_ok["flagged"] == 0 and o_ok["confidence"] == D("0.80")         # correct, but the call-off is missing
+    assert o["flagged"] == 1 and o["expected_total"] == D("1150.00") and o["confidence"] == D("0.60")
 
 
 def test_a_line_that_cannot_be_valued_is_never_a_confident_pass():

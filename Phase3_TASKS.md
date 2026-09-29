@@ -181,7 +181,12 @@ annotation texts handed to the owner). Report: Phase3_G4_G5_corrections.md.
 - [x] G5 regenerated from corrected G4 (after B01-B04): flags unchanged, CW 88/900, DDS 125/1,906; four flagged civil
   invoices change category rate -> arithmetic (PA-00303, PA-00459, PA-00506, PA-00611: under the order in which they are
   wrong the displayed rate is right and the stated amount is not the division - previously named by the G5 fallback).
-- [ ] G5-B01 Claim-stated class, ground and nomination never select the contract value; named unresolved-output policy.
+- [x] G5-B01 Claim-stated class, ground and nomination never select the contract value; named unresolved-output policy
+  Q9-3 E (missing evidence is not a breach; wrong only when no admissible value makes the invoice right; one class per
+  well, Cl.4; export EXPORT-D on the absent-document values, EXPORT-E the invoice's own total only where it is an
+  admissible contract total). Population replayed: CW 88 -> 85 (PA-00291, PA-00509, PA-00898 rested solely on the
+  stated ground), DDS 125 unchanged; 25 CW and 114 DDS flagged rows 0.80 -> 0.60 (total depends on the unsupplied
+  document). Z4 rotates every stated class/unrecorded ground over the population: no outcome moves.
 - [ ] G5-B02 No billed or zero substitution for unvalued lines; unknown/bounded totals explicit; DS-900/VAT aggregation kept.
 - [ ] G5-B03 Adjustments and releases reconciled to G4's actual amounts, recipients and ties.
 - [x] G5-B04 Local alternatives namespaced by their evidence group (order@item/date, earlier@group, stands@group,

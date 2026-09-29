@@ -58,7 +58,8 @@ CATEGORY = {
     "well_event_repeated": "duplicate", "loss_repeated": "duplicate",
     "not_chargeable_on_standby": "eligibility", "not_chargeable_on_operating": "eligibility",
     "tool_not_in_hole": "eligibility", "excluded_by_other_item": "eligibility", "well_event_not_on_its_day": "eligibility",
-    "lwd_not_run": "eligibility", "not_performance_section": "eligibility",
+    "lwd_not_run": "eligibility", "not_performance_section": "eligibility", "section_not_nominated": "eligibility",
+    "no_admissible_document": "rate",
     "above_daily_limit": "limit",
     "rate_differs": "rate", "band_crossing_not_split": "rate",
     "discount": "discount",
@@ -94,7 +95,8 @@ class Invoice:
 class Policy:
     """How G5 resolves each open item; the default is the adopted decision set. Alternatives change one field."""
     decided: dict = field(default_factory=lambda: dict(DECIDED))
-    facts: str = "stated"          # stated (Q9-3) | default (C: Standard / G2) | query (B: every fact-dependent invoice flagged)
+    facts: str = "evidence"        # evidence (Q9-3 E, G5-B01) | default (C: the absent-document values only) | query (B: every
+    #                                fact-dependent invoice flagged)
     q7c: str = "earlier"           # earlier (owner) | open (either charge stands)
     q9: str = "A"                  # A: any breach | B: only a changed judged total
     q2: str = "A"                  # A: adjustment outside the judged total | B: inside (DDS before DS-900/VAT)
@@ -132,7 +134,21 @@ def stated_facts(inv: Invoice, v: dict) -> dict:
     return out
 
 
+# the value the supplied evidence establishes where the document a fact belongs to is not supplied (EXPORT-D, G5-B01):
+# CW S4 (p10) 'a classification not recorded on the day of excavation shall be taken to be G2'; DDS P2, P3 (p11) the HPHT /
+# Extended Reach factors apply 'where the call-off so states' - no supplied call-off states it; Cl.23 (p6) PD-210 only on a
+# section the call-off nominates - no supplied call-off nominates one. Never the invoice's own statement.
 DEFAULT_FACTS = {"class": "Standard", "ground": "G2"}
+FALLBACK_NOMINATED = False
+
+
+def nomination_group(v: dict) -> tuple | None:
+    """The call-off nomination a PD-210 charge depends on: its well's section (Cl.23)."""
+    return (v.get("well_name"), v.get("hole_section"))
+
+
+def nominated_conditional(g) -> bool:
+    return any(x["dimension"] == "nomination" for x in g.r.conditions)
 
 
 def standing_map(w, st: dict, inv_date: dict) -> dict:
@@ -284,19 +300,14 @@ class Engine:
         self.release = rel
 
     # -------------------------------------------------------------------------------------------- dims
-    def fixed_for(self, inv: Invoice, key, v, g, readings: dict, facts_override: dict | None = None) -> dict | None:
+    def fixed_for(self, inv: Invoice, key, v, g, readings: dict) -> dict:
+        """The decided readings, the scenario's open readings and the owner's Q7 C choices for this line. Facts assigned
+        to documents not supplied are NOT fixed here - never from the invoice's statement (G5-B01): evaluate() takes
+        them from the evidence scenario."""
         p = self.policy
         fixed = dict(p.decided)
         fixed.update(readings)
-        stated = stated_facts(inv, v)
         dims = line_dims(g)
-        for d in {x for x in dims if base(x) in FACT_DIMS}:
-            if facts_override and d in facts_override:
-                fixed[d] = facts_override[d]
-            elif p.facts == "default":
-                fixed[d] = DEFAULT_FACTS[d]
-            else:
-                fixed[d] = stated.get(d)
         for d in {x for x in dims if base(x) in STANDS_DIMS}:
             s = self.stands.get(key, {}).get(d)
             if p.q7c == "earlier" and s is not None and not s[1]:
@@ -344,7 +355,13 @@ class Engine:
         return cands
 
     # -------------------------------------------------------------------------------------------- one scenario
-    def evaluate(self, inv: Invoice, readings: dict, recipient: str | None, facts_override: dict | None = None) -> Scenario:
+    def evaluate(self, inv: Invoice, readings: dict, recipient: str | None, ev: dict | None = None) -> Scenario:
+        """One scenario: the readings, the Q1 recipient and an evidence scenario ev = {'class': a well class or None,
+        'nominated': {section group: bool}, 'ground': 'fallback' | 'consistent'} for the facts whose documents are not
+        supplied. 'consistent' gives each civil line (its ground is its own fact) a ground class under which it is right,
+        where one exists - the question it answers is whether ANY admissible evidence makes the invoice right; the
+        invoice's statement of a fact plays no part (G5-B01)."""
+        ev = ev or {"class": DEFAULT_FACTS["class"], "nominated": {}, "ground": "fallback"}
         p = self.policy
         reasons = []
         vals = {}
@@ -360,7 +377,30 @@ class Engine:
             if inv.contract == "DDS" and code == "DS-900":
                 ds_bill += billed
                 continue
-            fixed = self.fixed_for(inv, key, v, g, readings, facts_override)
+            fixed = self.fixed_for(inv, key, v, g, readings)
+            dims = line_dims(g)
+            if "class" in dims:
+                fixed["class"] = ev["class"]
+            if "ground" in dims:
+                fixed["ground"] = DEFAULT_FACTS["ground"]
+                if ev["ground"] == "consistent":
+                    grounds = sorted({d["ground"] for d, _x in options(g) if "ground" in d},
+                                     key=lambda x: (x != DEFAULT_FACTS["ground"], x))
+                    for gv in grounds:
+                        q_, a_, ok_ = line_value(g, {**fixed, "ground": gv})
+                        if ok_ and a_ == billed and not scenario_breaches(g, {**fixed, "ground": gv}, v, inv.contract):
+                            fixed["ground"] = gv
+                            break
+            if nominated_conditional(g) and not ev["nominated"].get(nomination_group(v), True):
+                # evidence scenario: the section is not nominated - the PD-210 charge is not chargeable (Cl.23)
+                vals[ref] = ZERO
+                for f in established(g):
+                    reasons.append((f, ref))
+                if billed != 0:
+                    reasons.append(("section_not_nominated", ref))
+                if inv.contract == "DDS":
+                    svc_bill += billed
+                continue
             q, a, ok = line_value(g, fixed)
             vals[ref] = a
             for f in established(g):
@@ -381,11 +421,6 @@ class Engine:
                     reasons.append((open_f[0] if open_f else
                                     "quantity_above_record" if (q is not None and bq is not None and q < bq and q != 0)
                                     else "rate_differs", ref))
-            # a fact statement the scenario contradicts is itself a breach (Q9-3)
-            st_f = stated_facts(inv, v)
-            for d in line_dims(g) & FACT_DIMS:
-                if st_f.get(d) is not None and fixed.get(d) != st_f.get(d):
-                    reasons.append(("class_statement" if d == "class" else "ground_differs_from_record", ref))
             if inv.contract == "DDS":
                 svc_exp += a
                 svc_bill += billed
@@ -447,33 +482,105 @@ class Engine:
         # an input that cannot be formed is not itself a failed check (Q9-4: flagged only when a check fails)
         return bool([r for r in reasons if r[0] not in NOT_ESTABLISHED])
 
+    # -------------------------------------------------------------------------------------------- evidence
+    def classes_of(self, inv: Invoice) -> list:
+        return sorted({d["class"] for _k, _v, g in inv.lines for d, _x in options(g) if "class" in d}) or [None]
+
+    def nomination_groups(self, inv: Invoice) -> list:
+        return sorted({nomination_group(v) for _k, v, g in inv.lines if nominated_conditional(g)}, key=str)
+
+    def evidence_scenarios(self, inv: Invoice, classes: list) -> list[dict]:
+        """Every admissible value of the facts whose documents are not supplied (Q9-3 E): each well class the lines were
+        priced under, each nominated / not-nominated combination of the PD-210 sections; ground per civil line through
+        'consistent' (whether some ground class makes each line right)."""
+        groups = self.nomination_groups(inv)
+        noms = [dict(zip(groups, c)) for c in itertools.product(*[[True, False] for _ in groups])] or [{}]
+        return [{"class": c, "nominated": n, "ground": "consistent"} for c in classes for n in noms]
+
+    def fallback(self, inv: Invoice, cls=None) -> dict:
+        """EXPORT-D: the values the supplied evidence establishes for absent documents (DEFAULT_FACTS)."""
+        return {"class": cls if cls is not None else (DEFAULT_FACTS["class"] if self.classes_of(inv) != [None] else None),
+                "nominated": {gk: FALLBACK_NOMINATED for gk in self.nomination_groups(inv)}, "ground": "fallback"}
+
+    def right_classes(self, inv: Invoice) -> set:
+        """Well classes under which some admissible evidence makes this invoice right under the working reading (memo)."""
+        memo = self.__dict__.setdefault("_rc", {})
+        if inv.id not in memo:
+            od = self.open_dims(inv)
+            w0 = {k: v[0] for k, v in od.items()}
+            memo[inv.id] = {e["class"] for e in self.evidence_scenarios(inv, self.classes_of(inv))
+                            if not self.evaluate(inv, w0, None, e).wrong}
+        return memo[inv.id]
+
+    def class_conflict(self, inv: Invoice) -> bool:
+        """Cl.4 (p3): 'the well class stated in the call-off governs the whole well'. Where the invoices of one well can
+        be right only under different classes, no single call-off makes them all right: the class is then one open fact
+        shared by them (Q9-2), not a value each invoice may take for itself."""
+        if inv.contract != "DDS" or self.classes_of(inv) == [None] or not inv.header:
+            return False
+        well = inv.header.get("well_name")
+        memo = self.__dict__.setdefault("_wc", {})
+        if well not in memo:
+            sets = [self.right_classes(i) for i in self.inv["DDS"].values()
+                    if i.header and i.header.get("well_name") == well and self.classes_of(i) != [None]]
+            sets = [x for x in sets if x]
+            memo[well] = len(sets) > 1 and not set.intersection(*sets)
+        return memo[well]
+
     # -------------------------------------------------------------------------------------------- outcome
     def outcome(self, inv: Invoice) -> dict:
         p = self.policy
         od = self.open_dims(inv)
+        classes = self.classes_of(inv)
+        conflict = self.class_conflict(inv)
+        if conflict:
+            # one open fact shared by the well's invoices (Q9-2); its working value the absent-document one (Standard)
+            od = {**od, "class": sorted(classes, key=lambda c: (c != DEFAULT_FACTS["class"], c))}
         names = sorted(od)
         combos = [dict(zip(names, c)) for c in itertools.product(*[od[n] for n in names])] or [{}]
         q1 = self.q1_scenarios(inv)
         recips = [None] + q1 if p.q1 == "open" else (q1 or [None])
-        scen = [self.evaluate(inv, c, r) for c in combos for r in recips]
-        working = scen[0] if p.q1 == "open" else scen[0]
-        # fact dependence (Q9-3)
-        fact_dep = any(line_dims(g) & FACT_DIMS for _k, _v, g in inv.lines)
-        nomination = any(any(x["dimension"] == "nomination" for x in g.r.conditions) for _k, _v, g in inv.lines)
-        wrong_all = all(s.wrong for s in scen)
-        right_all = not any(s.wrong for s in scen)
-        formed = all(s.formed for s in scen)
-        totals = {s.total for s in scen if s.formed}
+        fact_dep = classes != [None] or any("ground" in line_dims(g) for _k, _v, g in inv.lines)
+        nomination = bool(self.nomination_groups(inv))
+        labels = []
+        for c in combos:
+            rd = {k: v for k, v in c.items() if k != "class"}
+            for r in recips:
+                cls = c.get("class")
+                evs = self.evidence_scenarios(inv, [cls] if cls is not None else classes)
+                if p.facts == "default":
+                    evs = [self.fallback(inv, cls)]
+                cons = [self.evaluate(inv, rd, r, e) for e in evs]
+                fb = self.evaluate(inv, rd, r, self.fallback(inv, cls)) if (fact_dep or nomination) else cons[0]
+                right = [s for s in cons if not s.wrong]
+                if right:
+                    robust = []
+                else:
+                    common = set.intersection(*[set(s.reasons) for s in cons])
+                    robust = [x for x in fb.reasons if x in common] or [("no_admissible_document", None)]
+                labels.append({"label": {**c, **({"Q1": r} if r else {})}, "wrong": not right, "reasons": robust,
+                               "fb": fb, "cons": cons,
+                               "formed": fb.formed and all(s.formed for s in cons)})
+        wrong_all = all(x["wrong"] for x in labels)
+        right_all = not any(x["wrong"] for x in labels)
+        formed = all(x["formed"] for x in labels)
+        totals = {x["fb"].total for x in labels if x["fb"].formed}
+        ev_totals = {s.total for x in labels for s in x["cons"] + [x["fb"]] if s.formed}
         billed = D((inv.header or {}).get("application_total" if inv.contract == "CW" else "invoice_total"))
         flag = 0 if right_all else 1
         if p.facts == "query" and (fact_dep or nomination):
             flag = 1
-        # expected total: the total under the working reading, always - a reading chosen from source, never the scenario
-        # the billed figures happen to fall in (Z4 found the earlier 'first wrong scenario' rule moving with the bill)
-        pick = working
-        expected = pick.total
-        # the evidence behind the flag: the working scenario's findings, or those of the scenarios under which it is wrong
-        evid = pick.reasons if pick.wrong or not flag else [x for sc in scen if sc.wrong for x in sc.reasons]
+        # expected total under the working reading (chosen from source, never by the bill): where some admissible evidence
+        # makes the invoice right, its own total is an admissible total (EXPORT-E); where none does, the total on the
+        # values the supplied evidence establishes (EXPORT-D) - never the invoice's statement of a fact
+        work = labels[0]
+        # the totals the contract supports under the working reading, one per admissible value of the unsupplied documents
+        admissible = {x.total for x in work["cons"] + [work["fb"]] if x.formed}
+        expected = billed if billed is not None and billed in admissible else work["fb"].total
+        # the line values behind the exported total (the absent-document scenario, or the evidence scenario whose total
+        # it is), so that it reconciles line by line
+        pick = next((x for x in [work["fb"]] + work["cons"] if x.formed and x.total == expected), work["fb"])
+        evid = work["reasons"] if work["wrong"] or not flag else [x for lb in labels if lb["wrong"] for x in lb["reasons"]]
         if expected is None:
             expected = self._best_supported(inv, pick)
         # confidence (Q9-5)
@@ -481,11 +588,11 @@ class Engine:
             conf = Decimal("0.30")
         elif not wrong_all and not right_all:
             conf = Decimal("0.50")
-        elif wrong_all and len(totals) > 1:
+        elif wrong_all and (len(totals) > 1 or len(ev_totals) > 1):
             conf = Decimal("0.60")
         else:
             conf = Decimal("0.95")
-            cats = {CATEGORY.get(r[0], "other") for r in pick.reasons}
+            cats = {CATEGORY.get(r[0], "other") for r in evid}
             if fact_dep or nomination or self._q7c_depends(inv) or (flag and cats and cats <= PROCEDURAL | {"adjustment"}):
                 conf = Decimal("0.80")
         if p.facts == "query" and (fact_dep or nomination) and not wrong_all:
@@ -499,13 +606,22 @@ class Engine:
                     cats.append(c)
         return {"invoice_id": inv.id, "contract": inv.contract, "flagged": flag, "error_category": "; ".join(cats),
                 "expected_total": expected, "billed_total": billed, "confidence": conf,
-                "wrong_under": [s.label for s in scen if s.wrong], "right_under": [s.label for s in scen if not s.wrong],
-                "scenarios": len(scen), "open_readings": {k: v for k, v in od.items()}, "q1": q1,
-                "fact_dependent": fact_dep, "nomination_dependent": nomination,
+                # the contract value on the supplied evidence under the working reading: never the bill, never a stated fact
+                "contract_total": work["fb"].total,
+                "wrong_under": [x["label"] for x in labels if x["wrong"]],
+                "right_under": [x["label"] for x in labels if not x["wrong"]],
+                "scenarios": len(labels), "open_readings": {k: v for k, v in od.items()}, "q1": q1,
+                "fact_dependent": fact_dep, "nomination_dependent": nomination, "class_conflict": conflict,
+                "evidence_totals": [str(min(ev_totals)), str(max(ev_totals))] if ev_totals else None,
+                "admissible_totals": sorted(str(t) for t in admissible),
+                "expected_basis": ("billed total: an admissible total under some value of an unsupplied document (EXPORT-E)"
+                                   if (fact_dep or nomination) and billed in admissible else
+                                   "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
+                                   if (fact_dep or nomination) else "contract value under the working reading"),
                 "findings": sorted({f"{r[0]}@{r[1]}" if r[1] else r[0] for r in evid if r[0] not in NOT_ESTABLISHED}),
                 "not_established": sorted({f"{r[0]}@{r[1]}" if r[1] else r[0] for r in evid if r[0] in NOT_ESTABLISHED}),
                 "totals": sorted(str(t) for t in totals), "formed": formed,
-                "expected_under": pick.label, "line_values": {k: (None if a is None else str(a)) for k, a in pick.line_values.items()}}
+                "expected_under": work["label"], "line_values": {k: (None if a is None else str(a)) for k, a in pick.line_values.items()}}
 
     def _q7c_depends(self, inv: Invoice) -> bool:
         return any(k in self.stands for k, _v, _g in inv.lines)
