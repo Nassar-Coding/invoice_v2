@@ -57,11 +57,15 @@ q9_rule:
       ground changes no flag, category, exported total, contract total or confidence. Alternatives counted: B every
       fact-dependent invoice flagged as a query; C the absent-document values alone decide the flag.
     Q9-4_unknown_total: >-
-      An invoice whose expected total cannot be formed under the working scenario (a line with no value under any
-      admissible input) is flagged when any check fails, with expected_total_cents = the best-supported total (every
-      valued line at its working value, each unvalued line at the value the evidence supports, else at its billed value
-      ONLY where no check on that line failed) and confidence 0.30, and is listed in the report. On the pinned data no
-      invoice falls here (verification/g5/summary.json 'unpriceable').
+      An invoice whose total cannot be formed under the working reading (some admissible scenario leaves a line with no
+      value) is flagged only when a check fails, confidence 0.30, expected_status 'bounded'. No billed amount and no zero is
+      substituted for a value (G5-B02, correction round - replaces the earlier 'best-supported' fallback that copied the
+      billed amount). expected_bounds: each valued line at its value, each unvalued line between the least and greatest of
+      its admissible values consistent with the scenario, or [0, not bounded] where none is established; drilling bounds
+      through DS-900 (Cl.38) and VAT (Cl.40). Numeric export EXPORT-U (owned by G5): expected_total_cents is the LOWER
+      BOUND - the amount established as payable on the supplied evidence - stated in expected_basis as a bound, not as a
+      contract calculation of the total. On the pinned data no invoice falls here (verification/g5/summary.json
+      'unpriceable'); verify_g5 Z4 executes the branch on the audit's raw input.
     Q9-5_confidence: >-
       Row confidence (README: 'how sure you are of this row', the amount included; plan §11): 0.95 when the outcome and
       the amount are the same under every admissible reading and input and every applicable check was made; 0.80 when
@@ -75,7 +79,7 @@ q9_rule:
       discount, arithmetic, adjustment), joined with '; '. A symptom of a cause already listed is not repeated (an
       amount that differs because the quantity is above the record is 'quantity', not also 'arithmetic'); blank when
       flag = 0.
-  alternatives: {Q9_A: "flag any breach (adopted, Q9-1)", Q9_B: "flag only a changed judged total", Q9_C_unknown: "export billed total at low confidence"}
+  alternatives: {Q9_A: "flag any breach (adopted, Q9-1)", Q9_B: "flag only a changed judged total", Q9_C_unknown: "export billed total at low confidence (rejected: G5-B02)"}
 
 decisions:
   - id: Q2

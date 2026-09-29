@@ -187,7 +187,10 @@ annotation texts handed to the owner). Report: Phase3_G4_G5_corrections.md.
   admissible contract total). Population replayed: CW 88 -> 85 (PA-00291, PA-00509, PA-00898 rested solely on the
   stated ground), DDS 125 unchanged; 25 CW and 114 DDS flagged rows 0.80 -> 0.60 (total depends on the unsupplied
   document). Z4 rotates every stated class/unrecorded ground over the population: no outcome moves.
-- [ ] G5-B02 No billed or zero substitution for unvalued lines; unknown/bounded totals explicit; DS-900/VAT aggregation kept.
+- [x] G5-B02 No billed or zero substitution for unvalued lines; unknown/bounded totals explicit (expected_status,
+  expected_bounds; export EXPORT-U = the lower bound, named in expected_basis); DS-900/VAT aggregation kept; the
+  invoice's own billed services now include unvalued lines in its DS-900 check (defect found). Z4 executes the
+  unformed branch on the audit's raw input. Population: no unformed invoice; flags unchanged (CW 85, DDS 125).
 - [ ] G5-B03 Adjustments and releases reconciled to G4's actual amounts, recipients and ties.
 - [x] G5-B04 Local alternatives namespaced by their evidence group (order@item/date, earlier@group, stands@group,
   stands-run@group, alloc@well/date); independent groups combine; PD-210 allocations under Q7 C; Z6 joins legal combinations.

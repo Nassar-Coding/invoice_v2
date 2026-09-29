@@ -569,3 +569,96 @@ def test_g5b01_z4_claim_check_passes_fixed_and_fails_gate5():
     assert [x for x in vg5.z4(run(None, "HPHT"), None, run(None, "Standard")) if "stated class" in x] == []
     errs = vg5.z4(run(old5, "HPHT"), None, run(old5, "Standard"))
     assert any("changing only its stated class/ground moves the outcome" in x for x in errs)
+
+
+# ---------------------------------------------------------------------------------------------------------- G5-B02
+def h_b02_missing_depth(billed="2117.50"):
+    """The audit's raw input: one PD-210 charge with no start depth, end 1,500 m, quantity 50 at 42.35 (2,117.50)."""
+    import g4_histories as H
+    doc = H.dds_inv("MDS-95901", W, "NG-Rig 97", "2025-04-20", [("2025-04-10", "PD-210", "50", "42.35", H.S12, "Operating",
+                                                                "", "1500")])
+    doc["lines"][0]["amount"] = billed
+    reps = H.reports(H.ddr(W, "NG-Rig 97", "2025-04-10", H.S12, "Operating", 1450, 1500, 15, 1, H.BASIC, F.CREW,
+                           part_b=("2025-04-10", "2025-04-10", H.BASIC, 15, False)))
+    return {"id": "DDS-G5B02", "documents": [doc], "reports": reps, "records": {}, "given": []}
+
+
+def _dds_outcome(h, g5mod=None):
+    from audit import g5_outcomes
+    g5mod = g5mod or g5_outcomes
+    w, res, st = F.run(h)
+    e = g5mod.Engine(w, st)
+    return {no: e.outcome(i) for no, i in e.inv["DDS"].items()}
+
+
+def test_g5b02_unvalued_line_never_takes_the_billed_amount():
+    a = _dds_outcome(h_b02_missing_depth("2117.50"))["MDS-95901"]
+    b = _dds_outcome(h_b02_missing_depth("9999.00"))["MDS-95901"]
+    for o in (a, b):
+        assert o["formed"] is False and o["flagged"] == 1 and o["confidence"] == D("0.30")
+        assert "depths_missing@MDS-95901-001" in o["findings"]
+        assert o["expected_status"] == "bounded" and o["expected_bounds"][1] is None       # no supported upper bound
+        assert o["expected_basis"].startswith("EXPORT-U")
+    assert a["expected_total"] == b["expected_total"] == D(a["expected_bounds"][0]) == D("0.00")
+    assert a["expected_total"] not in (D("2117.50"), D("2435.13"))
+
+
+def test_g5b02_control_gate5_copies_the_bill():
+    old5 = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+    a = _dds_outcome(h_b02_missing_depth("2117.50"), old5)["MDS-95901"]
+    b = _dds_outcome(h_b02_missing_depth("9999.00"), old5)["MDS-95901"]
+    assert a["expected_total"] == D("2117.50") and b["expected_total"] == D("9999.00")     # the audit's result
+
+
+def _unvalued(ref, code, billed, findings=()):
+    U = _unit()
+    k, v, g = U._line("DDS" if ref.startswith("X") else "CW", ref, code, billed, None, findings=findings)
+    g.r.payable, g.r.amount, g.r.amount_status = None, None, "unresolved"
+    return k, v, g
+
+
+def test_g5b02_partially_formed_drilling_invoice_keeps_ds900_and_vat():
+    U = _unit()
+    lines = [U._line("DDS", "X-001", "DD-101", "300000.00", "300000.00"), _unvalued("X-002", "MW-310", "5000.00"),
+             U._line("DDS", "X-003", "DS-900", "-2200.00")]
+    inv = U._dds("X", lines)
+    o = _o([inv], inv)
+    # lower bound: services 300,000.00 -> DS-900 -2,000.00 -> net 298,000.00 -> VAT 44,700.00 -> 342,700.00; no upper bound
+    assert o["formed"] is False and o["expected_total"] == D("342700.00")
+    assert o["expected_bounds"] == ["342700.00", None] and o["flagged"] == 0 and o["confidence"] == D("0.30")
+    lines[1] = _unvalued("X-002", "MW-310", "5000.00", findings=["report_missing"])      # a failed check on the line
+    inv = U._dds("X", lines)
+    o = _o([inv], inv)
+    assert o["flagged"] == 1 and o["expected_total"] == D("342700.00")
+
+
+def test_g5b02_bounded_unvalued_line_and_civil_partial():
+    U = _unit()
+    # an unvalued line whose admissible values are known (an open reading left unfixed) carries min..max bounds
+    k, v, g = U._line("CW", "P-02", "A.13.010", "100.00", alts={"Q4:A": "90.00", "Q4:B": None})
+    lines = [U._line("CW", "P-01", "A.11.010", "50.00", "50.00"), (k, v, g), _unvalued("P-03", "A.12.010", "10.00")]
+    inv = U.Invoice("CW", "P", {"application_total": D("160.00"), "retention": D("8.00"), "net_payable": D("152.00"),
+                                "adjustment": D("0"), "retention_released": D("0")}, lines)
+    o = _o([inv], inv)
+    assert o["formed"] is False and o["expected_bounds"][1] is None and D(o["expected_bounds"][0]) == o["expected_total"]
+    assert o["expected_total"] not in (D("160.00"),)
+
+
+def test_g5b02_missing_billed_amount_is_not_a_zero_contract_value():
+    U = _unit()
+    k, v, g = U._line("CW", "M-01", "A.11.010", "0.00", "100.00")
+    v["amount"] = None
+    inv = U.Invoice("CW", "M", {"application_total": D("100.00"), "retention": D("5.00"), "net_payable": D("95.00"),
+                                "adjustment": D("0"), "retention_released": D("0")}, [(k, v, g)])
+    o = _o([inv], inv)
+    assert o["expected_total"] == D("100.00") and o["contract_total"] == D("100.00") and o["flagged"] == 1
+
+
+def test_g5b02_z4_unformed_branch_fails_with_gate5(monkeypatch):
+    import verify_g5 as vg5
+    assert vg5.unformed_branch_errors() == []
+    old5 = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+    monkeypatch.setattr(vg5, "Engine", old5.Engine)
+    errs = vg5.unformed_branch_errors()
+    assert any("moves with the billed amount" in x for x in errs) and any("exports 2117.50" in x for x in errs)
+

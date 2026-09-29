@@ -105,14 +105,15 @@ def test_a_line_that_cannot_be_valued_is_never_a_confident_pass():
     inv = Invoice("CW", "U", {"application_total": D("100.00"), "retention": D("5.00"), "net_payable": D("95.00"),
                               "adjustment": D("0"), "retention_released": D("0")}, lines)
     o = _engine([inv]).outcome(inv)
-    # Q9-4: not formed -> confidence 0.30; flagged only when a check fails (none does here); total = best-supported
+    # Q9-4: not formed -> confidence 0.30; flagged only when a check fails (none does here). G5-B02: the total is not
+    # established - never the billed 100.00: the export is the lower bound (EXPORT-U), the upper bound is disclosed (none)
     assert o["formed"] is False and o["confidence"] == D("0.30") and o["flagged"] == 0
-    assert o["expected_total"] == D("100.00")
+    assert o["expected_total"] == D("0.00") and o["expected_bounds"] == ["0", None] and o["expected_status"] == "bounded"
     lines2 = [lines[0], _line("CW", "U-02", "A.11.020", "50.00", "40.00")]
     inv2 = Invoice("CW", "U2", {**inv.header, "application_total": D("150.00"), "retention": D("7.50"),
                                 "net_payable": D("142.50")}, lines2)
     o2 = _engine([inv2]).outcome(inv2)
-    assert o2["flagged"] == 1 and o2["confidence"] == D("0.30") and o2["expected_total"] == D("140.00")
+    assert o2["flagged"] == 1 and o2["confidence"] == D("0.30") and o2["expected_total"] == D("40.00")   # 40 + [0, -]
 
 
 def test_a_same_day_tie_between_two_invoices_stays_open_under_q7c():

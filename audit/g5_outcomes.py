@@ -257,6 +257,7 @@ class Scenario:
     reasons: list          # (finding, line_ref or None)
     formed: bool
     line_values: dict
+    bounds: dict = field(default_factory=dict)      # ref -> (lo, hi or None) of a line with no single value (G5-B02)
 
 
 def established(g) -> list[str]:
@@ -365,6 +366,7 @@ class Engine:
         p = self.policy
         reasons = []
         vals = {}
+        bounds = {}
         formed = True
         billed_lines = ZERO
         svc_exp, svc_bill, ds_bill = ZERO, ZERO, ZERO
@@ -377,6 +379,8 @@ class Engine:
             if inv.contract == "DDS" and code == "DS-900":
                 ds_bill += billed
                 continue
+            if inv.contract == "DDS":
+                svc_bill += billed          # the invoice's own services, valued or not (its DS-900 check, Cl.38)
             fixed = self.fixed_for(inv, key, v, g, readings)
             dims = line_dims(g)
             if "class" in dims:
@@ -398,8 +402,6 @@ class Engine:
                     reasons.append((f, ref))
                 if billed != 0:
                     reasons.append(("section_not_nominated", ref))
-                if inv.contract == "DDS":
-                    svc_bill += billed
                 continue
             q, a, ok = line_value(g, fixed)
             vals[ref] = a
@@ -410,6 +412,11 @@ class Engine:
             if not ok:
                 formed = False
                 reasons.append(("input_unresolved", ref))
+                # G5-B02: never the billed amount, never zero: the line's admissible values consistent with the scenario
+                # bound it; where no admissible value is established it may be not payable at all (0) and has no upper
+                # bound
+                amts = [D(x.get("amount")) for d, x in options(g) if all(fixed.get(k, y) == y for k, y in d.items())]
+                bounds[ref] = (min(amts), max(amts)) if amts and None not in amts else (ZERO, None)
                 continue
             if a != billed:
                 if not any(r[1] == ref and CATEGORY.get(r[0]) not in PROCEDURAL for r in reasons):
@@ -423,7 +430,6 @@ class Engine:
                                     else "rate_differs", ref))
             if inv.contract == "DDS":
                 svc_exp += a
-                svc_bill += billed
             else:
                 exp_total += a
         h = inv.header or {}
@@ -468,7 +474,7 @@ class Engine:
                 reasons.append(("header_arithmetic", None))
         wrong = self._wrong(reasons, total, billed_total, formed)
         return Scenario({**readings, **({"Q1": recipient} if recipient else {})}, wrong, total if formed else None,
-                        reasons, formed, vals)
+                        reasons, formed, vals, bounds)
 
     def _a3_difference(self, contract: str) -> Decimal:
         t = self.a3[contract].get("_total") or {}
@@ -581,8 +587,15 @@ class Engine:
         # it is), so that it reconciles line by line
         pick = next((x for x in [work["fb"]] + work["cons"] if x.formed and x.total == expected), work["fb"])
         evid = work["reasons"] if work["wrong"] or not flag else [x for lb in labels if lb["wrong"] for x in lb["reasons"]]
-        if expected is None:
-            expected = self._best_supported(inv, pick)
+        status, bnds = "formed", [expected, expected]
+        if not formed:
+            # G5-B02 (EXPORT-U): some admissible scenario of the working reading cannot be valued - the total is not
+            # established; export the lower bound over its evidence scenarios, disclose the upper (None: not bounded)
+            bs = [self._bounds(inv, x) for x in [work["fb"]] + work["cons"]]
+            lo = min(b[0] for b in bs)
+            hi = None if any(b[1] is None for b in bs) else max(b[1] for b in bs)
+            status, bnds, expected = "bounded", [lo, hi], lo
+            pick = min([work["fb"]] + work["cons"], key=lambda x: self._bounds(inv, x)[0])
         # confidence (Q9-5)
         if not formed:
             conf = Decimal("0.30")
@@ -614,7 +627,11 @@ class Engine:
                 "fact_dependent": fact_dep, "nomination_dependent": nomination, "class_conflict": conflict,
                 "evidence_totals": [str(min(ev_totals)), str(max(ev_totals))] if ev_totals else None,
                 "admissible_totals": sorted(str(t) for t in admissible),
-                "expected_basis": ("billed total: an admissible total under some value of an unsupplied document (EXPORT-E)"
+                "expected_status": status, "expected_bounds": [None if x is None else str(x) for x in bnds],
+                "expected_basis": ("EXPORT-U: the lower bound of the admissible total - the valued lines and each unvalued line at "
+                                   "the least its admissible values allow (0 where none is established); the total itself "
+                                   f"is not established (upper bound {'none' if bnds[1] is None else bnds[1]})")
+                if status != "formed" else ("billed total: an admissible total under some value of an unsupplied document (EXPORT-E)"
                                    if (fact_dep or nomination) and billed in admissible else
                                    "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
                                    if (fact_dep or nomination) else "contract value under the working reading"),
@@ -626,14 +643,22 @@ class Engine:
     def _q7c_depends(self, inv: Invoice) -> bool:
         return any(k in self.stands for k, _v, _g in inv.lines)
 
-    def _best_supported(self, inv: Invoice, s: Scenario) -> Decimal:
-        """Q9-4: every valued line at its working value; an unvalued line at its billed value (disclosed)."""
-        tot = ZERO
-        for key, v, g in inv.lines:
-            ref = v.get("line_ref") or key
-            a = s.line_values.get(ref)
-            tot += a if a is not None else (D(v.get("amount")) or ZERO)
-        return tot
+    def _bounds(self, inv: Invoice, sc: Scenario) -> tuple:
+        """G5-B02: the admissible judged total of a scenario that cannot be formed, as bounds - each valued line at its
+        value, each unvalued line between its bounds; drilling through DS-900 (Cl.38) and VAT (Cl.40), which rise with
+        the services total. No billed amount and no zero is substituted for a value; hi is None where not bounded."""
+        lo = hi = ZERO
+        for ref, a in sc.line_values.items():
+            b = (a, a) if a is not None else sc.bounds.get(ref, (ZERO, None))
+            lo += b[0]
+            hi = None if hi is None or b[1] is None else hi + b[1]
+
+        def total(svc):
+            if svc is None or inv.contract == "CW":
+                return svc
+            ds = -half_even((svc - 250000) * Decimal("0.04")) if svc > 250000 else ZERO
+            return svc + ds + half_even((svc + ds) * Decimal("0.15"))
+        return total(lo), total(hi)
 
     def run(self, template_ids: list[str] | None = None) -> dict:
         out = {}

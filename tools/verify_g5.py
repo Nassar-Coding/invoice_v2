@@ -225,6 +225,14 @@ def z4(out: dict, perturbed: dict | None = None, claims_changed: dict | None = N
             if D(o["expected_total"]) == 0 and D(o["billed_total"]) != 0:
                 errs.append(f"{i}: procedural breach valued at zero")
     for i, o in out.items():
+        # G5-B02: a figure presented as a formed total is one; an unformed total is explicit - its lower bound, named
+        if o["formed"] != (o.get("expected_status", "formed") == "formed"):
+            errs.append(f"{i}: formed={o['formed']} but expected_status {o.get('expected_status')}")
+        if not o["formed"]:
+            b = o.get("expected_bounds") or [None, None]
+            if b[0] is None or D(o["expected_total"]) != D(b[0]) or not str(o.get("expected_basis", "")).startswith("EXPORT-U"):
+                errs.append(f"{i}: unformed total exported as {o['expected_total']} without its EXPORT-U lower bound {b}")
+            continue
         # the exported figure: a flagged row exports the contract value on the evidence; an unflagged row its own total,
         # which is then an admissible total (right under some value of every unsupplied document - EXPORT-E)
         adm = {D(t) for t in o.get("admissible_totals", [o["contract_total"]])}
@@ -279,6 +287,38 @@ def perturb_facts(w, st):
             new.append(r2)
         w2.claims.rows[k] = new
     return w2
+
+
+def unformed_branch_errors() -> list[str]:
+    """G5-B02: the population has no unformed invoice, so the branch is executed here on the audit's raw input through the
+    production pipeline (materialized claims and report -> G2 -> G3 -> G4 -> G5): one PD-210 charge with no start depth,
+    end 1,500 m, quantity 50, billed 2,117.50 - and the same with the billed amount changed to 9,999.00. The exported
+    total must be the explicit lower bound, the same for both, never either billed amount."""
+    import g4_histories as H
+    import g4_history_compare as HC
+    from audit import g3_cw, g3_dds, g4_cw, g4_dds
+    outs = []
+    for billed in ("2117.50", "9999.00"):
+        doc = H.dds_inv("MDS-95901", "NGP-ZZ-951", "NG-Rig 97", "2025-04-20",
+                        [("2025-04-10", "PD-210", "50", "42.35", H.S12, "Operating", "", "1500")])
+        doc["lines"][0]["amount"] = billed
+        reps = H.reports(H.ddr("NGP-ZZ-951", "NG-Rig 97", "2025-04-10", H.S12, "Operating", 1450, 1500, 15, 1, H.BASIC,
+                               ["2 directional hands", "2 MWD engineers"], part_b=("2025-04-10", "2025-04-10", H.BASIC, 15, False)))
+        w, _g3, _st = HC.run_history({"id": "Z4-UNFORMED", "documents": [doc], "reports": reps, "records": {}, "given": []})
+        res = {"CW": g3_cw.run(w), "DDS": g3_dds.run(w)}
+        st = {"CW": g4_cw.run(w, res["CW"]), "DDS": g4_dds.run(w, res["DDS"])}
+        e = Engine(w, st)
+        outs.append(e.outcome(e.inv["DDS"]["MDS-95901"]))
+    errs = []
+    for o, billed in zip(outs, ("2117.50", "9999.00")):
+        if o["formed"] or not str(o.get("expected_basis", "")).startswith("EXPORT-U"):
+            errs.append(f"unformed branch (billed {billed}): formed={o['formed']}, basis {o.get('expected_basis')!r}")
+        if D(o["expected_total"]) in (D("2117.50"), D("9999.00")) or D(o["expected_total"]) != D(o["expected_bounds"][0]):
+            errs.append(f"unformed branch (billed {billed}): exports {o['expected_total']}")
+    if D(outs[0]["expected_total"]) != D(outs[1]["expected_total"]):
+        errs.append(f"unformed branch: the export moves with the billed amount ({outs[0]['expected_total']} -> "
+                    f"{outs[1]['expected_total']})")
+    return errs
 
 
 def perturb_billing(w):
@@ -535,7 +575,7 @@ def main() -> int:
         ("Z1 one outcome per template invoice; submission.csv in the template format", lambda: z1(serial, ids, headers, fresh["submission.csv"])),
         ("Z2 every invoice has a status for each of the twelve checks over exactly its claim lines", lambda: z2(serial, eng, w)),
         ("Z3 findings and evidence trail: flag <-> findings, category = root categories", lambda: z3(serial)),
-        ("Z4 monetary and procedural outcomes distinct; billing never authority for an expected total", lambda: z4(serial, perturbed, facts_changed) + admissible_errors(out, eng)),
+        ("Z4 monetary and procedural outcomes distinct; billing never authority for an expected total", lambda: z4(serial, perturbed, facts_changed) + admissible_errors(out, eng) + unformed_branch_errors()),
         ("Z5 independently reviewed invoices agree (or carry a live settlement); inputs before outputs (git)",
          lambda: z5(cmp_, disp) + ([] if json.loads((OUT / "sample_comparison.json").read_text()) ==
                                    json.loads(json.dumps(cmp_, sort_keys=True)) else ["verification/g5/sample_comparison.json does not reproduce"])),
