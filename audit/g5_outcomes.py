@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, ROUND_HALF_EVEN, Decimal
 
 from .g3_core import headers_by_id, result_keys
-from .g4_core import dims_of
+from .g4_core import base, dims_of, local_dim
 
 CENT = Decimal("0.01")
 ZERO = Decimal("0")
@@ -35,7 +35,7 @@ READING_ORDER = {
     "earlier": [],
 }
 FACT_DIMS = {"class", "ground"}          # Q9-3: inputs assigned to documents not supplied
-STANDS_DIMS = {"stands", "stands-run"}   # resolved by the owner's Q7 C decision
+STANDS_DIMS = {"stands", "stands-run", "alloc"}   # kinds resolved by the owner's Q7 C decision (local to their group)
 
 # established findings -> root category (Q9-6), in the order categories are reported
 CATEGORY = {
@@ -137,30 +137,51 @@ DEFAULT_FACTS = {"class": "Standard", "ground": "G2"}
 
 def standing_map(w, st: dict, inv_date: dict) -> dict:
     """Owner decision Q7 C: of the admissible charges of one group, the one on the earliest-submitted invoice stands;
-    within one invoice (or one submission date) the earliest line. {line key: {dim: standing ref}}."""
+    within one invoice (or one submission date) the earliest line. For overlapping PD-210 intervals the same decision
+    gives each contested segment to the earliest-submitted charge covering it. Each group's choice is its own local
+    dimension (G5-B04). {line key: {dimension: (value, open)}} - open where the order is not established."""
     out = {}
     for c in st:
         lines = {g.g3.line_ref: (k, g) for k, g in st[c].lines.items()}
-        groups = getattr(st[c], "groups", [])
-        for grp in groups:
+
+        def order(ref):
+            no = ref.rsplit("-", 1)[0]
+            return (inv_date.get((c, no)), no, ref)
+
+        def earliest(cands, possible=()):
+            # G4-B03: a candidate on an invoice whose submission date is not established may be the earliest - never
+            # ordered last by a sentinel date; with one, which charge stands is not established (open), and so it is
+            # where the earliest candidate is only possibly of the same well-day (its service date not established)
+            dated = sorted((m for m in cands if order(m)[0]), key=order)
+            undated = [m for m in cands if not order(m)[0]]
+            first = dated[0] if dated else sorted(cands)[0]
+            # a charge on another invoice submitted the same day: which invoice is earlier is not established (open)
+            tie = bool(undated) or first in possible or any(
+                order(m)[0] == order(first)[0] and order(m)[1] != order(first)[1] for m in dated)
+            return first, tie
+        for grp in getattr(st[c], "groups", []):
+            gid = grp["group"]
+            if gid.startswith("DDS-PD210"):
+                if not grp.get("overlaps") or not grp.get("allocations"):
+                    continue
+                assign, tie = [], False
+                for seg, refs in grp["overlaps"]:
+                    f, t = seg.split("-", 1)
+                    first, tie_s = earliest([r for r in refs if r in lines])
+                    assign.append(((Decimal(f), Decimal(t)), first))
+                    tie = tie or tie_s
+                well, date = gid.split(":", 1)[1].split("|")
+                dim = f"alloc@{well}/{date}"
+                val = ";".join(f"{a}-{b}>{ref}" for (a, b), ref in sorted(assign)) or "none"
+                for m in grp["members"]:
+                    if m in lines:
+                        out.setdefault(lines[m][0], {})[dim] = (val, tie)
+                continue
             cands = [m for m in grp.get("candidates", []) if m in lines]
             if len(cands) < 2:
                 continue
-
-            def order(ref):
-                no = ref.rsplit("-", 1)[0]
-                return (inv_date.get((c, no)), no, ref)
-            dim = "stands-run" if grp["group"].startswith("DDS-HC630") and any(
-                "stands-run" in dims_of(a) for m in cands for a in lines[m][1].r.alternatives) else "stands"
-            # G4-B03: a candidate on an invoice whose submission date is not established may be the earliest - it is
-            # never ordered last by a sentinel date; with one, which charge stands is not established (open), and so it
-            # is where the earliest candidate is only possibly of the same well-day (its service date not established)
-            dated = sorted((m for m in cands if order(m)[0]), key=order)
-            undated = [m for m in cands if not order(m)[0]]
-            first = dated[0] if dated else cands[0]
-            # a charge on another invoice submitted the same day: which invoice is earlier is not established (open)
-            tie = bool(undated) or first in grp.get("possible", []) or any(
-                order(m)[0] == order(first)[0] and order(m)[1] != order(first)[1] for m in dated)
+            dim = local_dim("stands-run" if gid.startswith("DDS-HC630") else "stands", gid)
+            first, tie = earliest(cands, grp.get("possible", []))
             for m in cands:
                 out.setdefault(lines[m][0], {})[dim] = (first, tie)
     return out
@@ -269,14 +290,14 @@ class Engine:
         fixed.update(readings)
         stated = stated_facts(inv, v)
         dims = line_dims(g)
-        for d in dims & FACT_DIMS:
+        for d in {x for x in dims if base(x) in FACT_DIMS}:
             if facts_override and d in facts_override:
                 fixed[d] = facts_override[d]
             elif p.facts == "default":
                 fixed[d] = DEFAULT_FACTS[d]
             else:
                 fixed[d] = stated.get(d)
-        for d in dims & STANDS_DIMS:
+        for d in {x for x in dims if base(x) in STANDS_DIMS}:
             s = self.stands.get(key, {}).get(d)
             if p.q7c == "earlier" and s is not None and not s[1]:
                 fixed[d] = s[0]
@@ -289,10 +310,12 @@ class Engine:
         out = {}
         for key, v, g in inv.lines:
             for d, _val in options(g):
+                if any(d.get(k, x) != x for k, x in p.decided.items()):
+                    continue            # an option under a reading not adopted: its local choices are not open
                 for k, x in d.items():
-                    if k in p.decided or k in FACT_DIMS:
+                    if k in p.decided or base(k) in FACT_DIMS:
                         continue
-                    if k in STANDS_DIMS:
+                    if base(k) in STANDS_DIMS:
                         s = self.stands.get(key, {}).get(k)
                         if p.q7c == "earlier" and s is not None and not s[1]:
                             continue
@@ -300,10 +323,11 @@ class Engine:
                     if x not in out[k]:
                         out[k].append(x)
         for k, vals in out.items():
-            pref = READING_ORDER.get(k, [])
+            pref = READING_ORDER.get(base(k), [])
             out[k] = [x for x in pref if x in vals] + sorted(x for x in vals if x not in pref)
-            if k in p.force:
-                out[k] = [p.force[k]]
+            f = p.force.get(k, p.force.get(base(k)))
+            if f is not None and (f in vals or k in p.force):
+                out[k] = [f]
         return out
 
     def q1_scenarios(self, inv: Invoice) -> list:

@@ -21,6 +21,12 @@ READING_DIMS = {"Q4", "Q5-DD120", "Q5-RM530", "Q5-HC630", "Q11", "Q12", "Q14", "
                 "stands-run", "alloc"}
 
 
+def local_dim(kind: str, group: str) -> str:
+    """A choice local to one evidence/state group (G5-B04): its dimension is named after the group it governs, so two
+    independent groups never share one assignment. Group ids lose the label separators (':' '|' ',')."""
+    return f"{kind}@" + group.replace(":", "-").replace("|", "/").replace(",", "+")
+
+
 def base(dim: str) -> str:
     """The kind of a dimension: a local choice is namespaced by the evidence group it governs ('order@<ledger>/<date>',
     'stands@<group>', 'alloc@<well>/<date>'); its kind is the part before '@'."""

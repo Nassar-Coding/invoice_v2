@@ -184,7 +184,8 @@ annotation texts handed to the owner). Report: Phase3_G4_G5_corrections.md.
 - [ ] G5-B01 Claim-stated class, ground and nomination never select the contract value; named unresolved-output policy.
 - [ ] G5-B02 No billed or zero substitution for unvalued lines; unknown/bounded totals explicit; DS-900/VAT aggregation kept.
 - [ ] G5-B03 Adjustments and releases reconciled to G4's actual amounts, recipients and ties.
-- [ ] G5-B04 Local alternatives namespaced by their evidence group; independent groups combine.
+- [x] G5-B04 Local alternatives namespaced by their evidence group (order@item/date, earlier@group, stands@group,
+  stands-run@group, alloc@well/date); independent groups combine; PD-210 allocations under Q7 C; Z6 joins legal combinations.
 - [ ] G5-B05 DS-900 checked for single charge, sign, amount, threshold and rounding.
 - [ ] G5-B06 Findings attributed to the violated obligation; no fabricated rate category; Z4 separates monetary and procedural.
 - [ ] Population and submission regenerated; all G0-G5 checks and tests in a fresh clone; report; SHAs and tag texts.

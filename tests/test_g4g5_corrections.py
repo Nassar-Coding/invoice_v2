@@ -201,8 +201,15 @@ def test_b03_control_gate4_release_omits_the_undated_application():
     assert any("45A release recipient" in e for e in vg4.chronology_errors(st["CW"], st["DDS"]))
 
 
-def _g5(mod, h):
+def _stands(o):
+    return [k for k in o["open_readings"] if k.split("@")[0] == "stands"]
+
+
+def _g5(mod, h, gate=False):
     w, res, st = F.run(h)
+    if gate:            # the tagged pair: gate4's G4 state under gate5's G5
+        st = {"CW": gate_module(GATE4, "audit/g4_cw.py", "g4_cw_gate4").run(w, res["CW"]),
+              "DDS": gate_module(GATE4, "audit/g4_dds.py", "g4_dds_gate4").run(w, res["DDS"])}
     e = mod.Engine(w, st)
     return {no: e.outcome(i) for no, i in e.inv["DDS"].items()}, e
 
@@ -211,17 +218,16 @@ def test_b03_undated_invoice_never_sorted_last_under_q7c():
     from audit import g5_outcomes
     out, e = _g5(g5_outcomes, _hist("DDS-H01", "MDS-90001", "invoice_date"))
     o = out["MDS-90002"]
-    assert "stands" in o["open_readings"] and o["confidence"] != D("0.80")
+    assert _stands(o) and o["confidence"] != D("0.80")
     # its own daily-limit breach makes it wrong whichever charge stands; the totals differ by the 4 March charge (Q9-5)
     assert o["flagged"] == 1 and o["confidence"] == D("0.60") and len(o["totals"]) == 2
-    assert "stands" in out["MDS-90001"]["open_readings"] and out["MDS-90001"]["confidence"] == D("0.50")
-    k = next(k for k, v in e.stands.items() if "stands" in v)
-    assert e.stands[k]["stands"][1] is True                           # open, not a keeper chosen by a sentinel date
+    assert _stands(out["MDS-90001"]) and out["MDS-90001"]["confidence"] == D("0.50")
+    assert all(t is True for v in e.stands.values() for d, (_f, t) in v.items() if d.startswith("stands@"))                          # open, not a keeper chosen by a sentinel date
 
 
 def test_b03_control_gate5_sentinel_selects_a_keeper():
     old = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
-    out, e = _g5(old, _hist("DDS-H01", "MDS-90001", "invoice_date"))
+    out, e = _g5(old, _hist("DDS-H01", "MDS-90001", "invoice_date"), gate=True)
     o = out["MDS-90002"]
     assert "stands" not in o["open_readings"] and o["confidence"] == D("0.80")      # the audit's definite keeper
     # the undated invoice's charge is treated as the later one: a definite repeat at 0.80
@@ -361,3 +367,84 @@ def test_b04_oracle_accepts_the_fixed_state_and_rejects_gate4():
     old = gate_module(GATE4, "audit/g4_cw.py", "g4_cw_gate4")
     errs = vg4.deferred_rate_errors(old.run(w, res["CW"]))
     assert errs and "expected finding" in errs[0]
+
+
+# ---------------------------------------------------------------------------------------------------------- G5-B04
+def h_b04_witness():
+    """The audit's raw-history witness: Z1, March 2025; two independent band-edge order groups (B.22.010 on 2 March,
+    A.13.010 on 4 March), each of two measurements on two applications in different work areas (not duplicates)."""
+    import g4_histories as H
+    x1 = H.cw_app("PA-9X001", "2025-03-20", [("2025-03-01", "S-05", "B.22.010", "1100", "74.50", ""),
+                                             ("2025-03-02", "S-05", "B.22.010", "150", "74.50", ""),
+                                             ("2025-03-03", "S-05", "A.13.010", "4900", "18.90", ""),
+                                             ("2025-03-04", "S-05", "A.13.010", "150", "18.90", "")])
+    x2 = H.cw_app("PA-9X002", "2025-03-25", [("2025-03-02", "S-04", "B.22.010", "150", "74.50", ""),
+                                             ("2025-03-04", "S-04", "A.13.010", "150", "18.90", "")], site="S-04")
+    return {"id": "CW-G5B04", "documents": [x1, x2], "records": {}, "given": []}
+
+
+def test_g5b04_independent_local_groups_combine_into_four_totals():
+    st, out = _cw_outcome(h_b04_witness())
+    assert [D(t) for t in out["PA-9X001"]["totals"]] == [D("187953.50"), D("188066.50"), D("188251.50"), D("188364.50")]
+    assert [D(t) for t in out["PA-9X002"]["totals"]] == [D("13393.50"), D("13506.50"), D("13691.50"), D("13804.50")]
+    for o in out.values():
+        assert o["formed"] is True and o["scenarios"] >= 4 and len([k for k in o["open_readings"] if k.startswith("order@")]) == 2
+
+
+def test_g5b04_control_gate4_gate5_merge_the_groups_into_one_order():
+    old4 = gate_module(GATE4, "audit/g4_cw.py", "g4_cw_gate4")
+    old5 = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+    st, out = _cw_outcome(h_b04_witness(), old4, old5)
+    o = out["PA-9X001"]
+    assert o["formed"] is False and o["confidence"] == D("0.30") and len(o["totals"]) <= 1      # the audit's result
+
+
+def test_g5b04_two_independent_tie_groups_and_q12():
+    import g4_histories as H
+    # two applications submitted the same day each measure A.11.010 on S-01 (3 June) and D.41.010 on S-02 (4 June):
+    # two independent Cl.44 tie groups - each application is the earlier one in one scenario of EACH group
+    a = H.cw_app("PA-9T001", "2025-06-10", [("2025-06-03", "S-01", "A.11.010", "100", "3.85", ""),
+                                            ("2025-06-04", "S-02", "A.13.010", "50", "18.90", "")], site="S-01")
+    b = H.cw_app("PA-9T002", "2025-06-10", [("2025-06-03", "S-01", "A.11.010", "100", "3.85", ""),
+                                            ("2025-06-04", "S-02", "A.13.010", "50", "18.90", "")], site="S-01")
+    st, out = _cw_outcome({"id": "CW-G5B04t", "documents": [a, b], "records": {}, "given": []})
+    for o in out.values():
+        groups = [k for k in o["open_readings"] if k.startswith("earlier@")]
+        assert len(groups) == 2 and o["scenarios"] == 4 and o["formed"]
+        # wrong where the other application's measurement is the earlier one in either group, right in one scenario
+        assert len(o["right_under"]) == 1 and len(o["wrong_under"]) == 3 and o["confidence"] == D("0.50")
+    # Q12 is a global reading: forcing B applies it to every group at once, never per group
+    import g4cr_fixtures as F2
+    from audit import g5_outcomes
+    w, res, st2 = F2.run(_cw_order_q12())
+    e = g5_outcomes.Engine(w, st2)
+    o = e.outcome(e.inv["CW"]["PA-9Q001"])
+    assert o["open_readings"] == {}                  # Q12 A (decided): CY2 restarts at zero, no edge, no order group
+    eb = g5_outcomes.Engine(w, st2, g5_outcomes.Policy(decided={**g5_outcomes.DECIDED, "Q12": "B"}))
+    ob = eb.outcome(eb.inv["CW"]["PA-9Q001"])
+    assert list(ob["open_readings"]) == ["order@B.22.010/2026-01-10"] and len(ob["open_readings"]["order@B.22.010/2026-01-10"]) == 2
+
+
+def _cw_order_q12():
+    import g4_histories as H
+    # a same-date order group on 10 January 2026 at the B.22.010 edge only under Q12 B (no reset): Q12 decided A
+    x = H.cw_app("PA-9Q001", "2026-01-20", [("2025-12-20", "S-05", "B.22.010", "1150", "74.50", ""),
+                                            ("2026-01-10", "S-05", "B.22.010", "100", "74.50", "")])
+    y = H.cw_app("PA-9Q002", "2026-01-22", [("2026-01-10", "S-04", "B.22.010", "100", "74.50", "")], site="S-04")
+    return {"id": "CW-G5B04q", "documents": [x, y], "records": {}, "given": []}
+
+
+def test_g5b04_oracle_joins_combinations_and_rejects_the_gate_pair():
+    import verify_g5 as vg5
+    from audit import g5_outcomes
+    w, res, st = F.run(h_b04_witness())
+    e = g5_outcomes.Engine(w, st)
+    out = {no: e.outcome(i) for no, i in e.inv["CW"].items()}
+    assert vg5.joint_errors(out, e) == []
+    old4 = gate_module(GATE4, "audit/g4_cw.py", "g4_cw_gate4")
+    old5 = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+    st_old = {"CW": old4.run(w, res["CW"]), "DDS": g4_dds.run(w, res["DDS"])}
+    e_old = old5.Engine(w, st_old)
+    out_old = {no: e_old.outcome(i) for no, i in e_old.inv["CW"].items()}
+    errs = vg5.joint_errors(out_old, e_old)
+    assert any("PA-9X001" in x and "formed=False" in x for x in errs)

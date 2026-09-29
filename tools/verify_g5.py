@@ -17,7 +17,8 @@ outcomes remain distinct; independently reviewed complete invoices reconcile ste
   Z5 independent sample: every reader's flag and expected total agree with the engine or carry a live settlement
      (verification/g5/sample_dispositions.yaml); the comparison reproduces; packets committed before the readers'
      outputs and both before the G5 engine (git).
-  Z6 reconciliation step by step: every expected total is recomputed independently from the outcome's line values (civil:
+  Z6 reconciliation step by step (and G5-B04: the legal combinations, joined line by line without the engine's list of
+     open dimensions, give exactly its formed totals): every expected total is recomputed from the outcome's line values (civil:
      their sum; drilling: services, DS-900 = -4% of the excess over 250,000, net, VAT 15%, total, rounding half-even with
      exact rational arithmetic) and every cents figure from its decimal.
   Z7 ambiguity rule: flag = 0 only when the invoice is correct under every scenario; a flag where scenarios disagree has
@@ -52,7 +53,9 @@ import g5_sample_compare as SC  # noqa: E402
 from audit import g4_run, g5_run  # noqa: E402
 from audit.common import SNAPSHOT  # noqa: E402
 from audit.g3_core import result_keys  # noqa: E402
-from audit.g5_outcomes import CATEGORY, CATEGORY_ORDER, PAYMENT_ONLY, PROCEDURAL, Engine, template_ids  # noqa: E402
+from audit.g4_core import base  # noqa: E402
+from audit.g5_outcomes import (CATEGORY, CATEGORY_ORDER, FACT_DIMS, PAYMENT_ONLY, PROCEDURAL, Engine, options,  # noqa: E402
+                               template_ids)
 
 OUT = ROOT / "verification" / "g5"
 DECISIONS = ROOT / "spec" / "g5_decisions.yaml"
@@ -255,6 +258,65 @@ def z6(out: dict) -> list[str]:
     return errs
 
 
+def joint_errors(out: dict, eng: Engine) -> list[str]:
+    """G5-B04, independent of the engine's collection of open dimensions: the legal combinations of an invoice are built
+    by joining its lines' alternatives directly - two alternatives combine only where they agree on every dimension they
+    share, so independent groups combine freely and one group's choice is never imposed on another. The readings the
+    register decides, the owner's Q7 C choices and the invoice's facts under the adopted fact rule fix their
+    dimensions. The joined totals (civil: the sum; drilling: services, DS-900, VAT) must be exactly the engine's
+    formed totals, and the invoice formed exactly when every legal combination values every line."""
+    errs = []
+    p = eng.policy
+    for i, o in out.items():
+        inv = eng.inv[o["contract"]][i]
+        states = {((), ())}
+        for key, v, g in inv.lines:
+            if inv.contract == "DDS" and g.g3.code == "DS-900":
+                continue
+            if g.r.payable is False:
+                states = {(a, vals + (Decimal(0),)) for a, vals in states}
+                continue
+            fixed = dict(p.decided)
+            if p.q7c == "earlier":
+                fixed.update({d: s[0] for d, s in eng.stands.get(key, {}).items() if not s[1]})
+            fixed.update(fact_values(eng, inv, key, v, g))
+            # a civil line's ground class is its own fact (its own work area and day): local to the line in the join;
+            # a well's class is one fact for all its services (joint)
+            opts = [({(f"{k}@{key}" if k == "ground" else k): y for k, y in d.items()}, x) for d, x in options(g)
+                    if all(fixed.get(k, y) == y for k, y in d.items())]
+            new = set()
+            for a, vals in states:
+                ad = dict(a)
+                for d, x in opts:
+                    if all(ad.get(k, y) == y for k, y in d.items()):
+                        amt = D(x.get("amount"))
+                        new.add((tuple(sorted({**ad, **d}.items())), vals + (amt,)))
+            states = new
+        formed = bool(states) and all(None not in vals for _a, vals in states)
+        totals = set()
+        for _a, vals in states:
+            if None in vals:
+                continue
+            s = sum(vals, Decimal(0))
+            if inv.contract == "DDS":
+                ds = -(((s - 250000) * Decimal("0.04")).quantize(Decimal("0.01"), rounding="ROUND_HALF_EVEN")) if s > 250000 else 0
+                net = s + ds
+                s = net + (net * Decimal("0.15")).quantize(Decimal("0.01"), rounding="ROUND_HALF_EVEN")
+            totals.add(s)
+        if formed != o["formed"]:
+            errs.append(f"{i}: {'every' if formed else 'not every'} legal combination values every line, the engine says "
+                        f"formed={o['formed']}")
+        elif formed and totals != {D(t) for t in o["totals"]}:
+            errs.append(f"{i}: legal combinations give totals {sorted(map(str, totals))[:6]}, the engine "
+                        f"{o['totals'][:6]}")
+    return errs
+
+
+def fact_values(eng: Engine, inv, key, v, g) -> dict:
+    """The fact dimensions the adopted fact rule fixes on this line (the rule itself is the engine's policy)."""
+    return {d: x for d, x in eng.fixed_for(inv, key, v, g, {}).items() if base(d) in FACT_DIMS}
+
+
 # ============================================================================== Z7
 def z7(out: dict) -> list[str]:
     errs = []
@@ -360,7 +422,8 @@ def main() -> int:
         ("Z5 independently reviewed invoices agree (or carry a live settlement); inputs before outputs (git)",
          lambda: z5(cmp_, disp) + ([] if json.loads((OUT / "sample_comparison.json").read_text()) ==
                                    json.loads(json.dumps(cmp_, sort_keys=True)) else ["verification/g5/sample_comparison.json does not reproduce"])),
-        ("Z6 every expected total reconciles step by step with its lines (independent rational arithmetic)", lambda: z6(serial)),
+        ("Z6 every expected total reconciles step by step with its lines (independent rational arithmetic); the legal "
+         "combinations joined line by line give exactly the engine's formed totals", lambda: z6(serial) + joint_errors(out, eng)),
         ("Z7 ambiguity rule and confidence rubric", lambda: z7(serial)),
         ("Z8 decisions and registers: effects computed, no question blocks G5, owner decisions recorded",
          lambda: z8(load(DECISIONS), json.loads(fresh["decision_effects.json"]), load(QUESTIONS))),

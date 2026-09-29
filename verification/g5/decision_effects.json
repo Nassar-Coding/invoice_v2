@@ -363,69 +363,45 @@
   },
   "only PA-00459-09 then PA-00140-04": {
    "flags": {
-    "CW": 82,
+    "CW": 88,
     "DDS": 125
    },
-   "invoices_changed": 8,
+   "invoices_changed": 2,
    "changed": [
     "PA-00140",
-    "PA-00155",
-    "PA-00303",
-    "PA-00382",
-    "PA-00459",
-    "PA-00506",
-    "PA-00611",
-    "PA-00778"
+    "PA-00459"
    ]
   },
   "only PA-00506-06 then PA-00155-12": {
    "flags": {
-    "CW": 82,
+    "CW": 88,
     "DDS": 125
    },
-   "invoices_changed": 8,
+   "invoices_changed": 2,
    "changed": [
-    "PA-00140",
     "PA-00155",
-    "PA-00303",
-    "PA-00382",
-    "PA-00459",
-    "PA-00506",
-    "PA-00611",
-    "PA-00778"
+    "PA-00506"
    ]
   },
   "only PA-00611-04 then PA-00382-07": {
    "flags": {
-    "CW": 82,
+    "CW": 88,
     "DDS": 125
    },
-   "invoices_changed": 8,
+   "invoices_changed": 2,
    "changed": [
-    "PA-00140",
-    "PA-00155",
-    "PA-00303",
     "PA-00382",
-    "PA-00459",
-    "PA-00506",
-    "PA-00611",
-    "PA-00778"
+    "PA-00611"
    ]
   },
   "only PA-00778-01 then PA-00303-03": {
    "flags": {
-    "CW": 82,
+    "CW": 88,
     "DDS": 125
    },
-   "invoices_changed": 8,
+   "invoices_changed": 2,
    "changed": [
-    "PA-00140",
-    "PA-00155",
     "PA-00303",
-    "PA-00382",
-    "PA-00459",
-    "PA-00506",
-    "PA-00611",
     "PA-00778"
    ]
   }

@@ -21,6 +21,7 @@ from collections import Counter, defaultdict
 
 from . import g4_run
 from .common import ROOT, SNAPSHOT
+from .g4_core import base
 from .g5_outcomes import DECIDED, Engine, Policy, cents, line_dims, options, template_ids
 
 OUT = ROOT / "verification" / "g5"
@@ -148,7 +149,7 @@ def decision_effects(w, st, base_out: dict) -> dict:
         return {"lines": n, "invoices": {c: len(v) for c, v in ids.items()}}
 
     def dim_pred(dim):
-        return lambda c, k, v, g: dim in line_dims(g)
+        return lambda c, k, v, g: dim in {base(x) for x in line_dims(g)}
 
     procedural = {"submitted_late", "submitted_early", "outside_period", "contract_ref_variant", "subcontractor_mismatch",
                   "contractor_mismatch", "line_well_differs_from_invoice"}
@@ -164,8 +165,8 @@ def decision_effects(w, st, base_out: dict) -> dict:
             out[q][f"{v}"] = alt(Policy(decided={**DECIDED, q: v}))
     for dim in ("Q6-day0", "Q4", "Q5-DD120", "Q5-RM530", "Q5-HC630", "order", "earlier"):
         entry = invoices_with(dim_pred(dim))
-        values = sorted({d[dim] for c in eng.inv for inv in eng.inv[c].values() for _k, _v, g in inv.lines
-                         for d, _x in options(g) if dim in d})
+        values = sorted({x for c in eng.inv for inv in eng.inv[c].values() for _k, _v, g in inv.lines
+                         for d, _x in options(g) for k, x in d.items() if base(k) == dim})
         for v in values:
             entry[f"only {v}"] = alt(Policy(force={dim: v}))
         out[dim] = entry

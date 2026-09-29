@@ -35,7 +35,7 @@ from decimal import ROUND_DOWN, Decimal
 
 from . import g3_cw, terms
 from .g3_core import Trace, headers_by_id, result_keys
-from .g4_core import G4Line, apply_options, dims_of, label_of, not_payable, recipient_of
+from .g4_core import G4Line, apply_options, base, dims_of, label_of, local_dim, not_payable, recipient_of
 
 Q3_RECORD = {"record_missing", "record_wrong_series", "record_unsigned", "record_date_mismatch", "record_area_mismatch",
              "record_area_unresolved", "item_not_supported_by_record"}
@@ -317,15 +317,16 @@ def _local_outcome(ln: Line, dup: dict, exc: dict, T, st: CwState) -> dict:
     e = exc.get(ln.key)
     dims = []
     if d and d["ties"]:
-        dims.append(("earlier", d["ties"]))
+        dims.append((local_dim("earlier", d["group"]), d["ties"]))
     if e and any(e[("A", d0)][0] != e[("B", d0)][0] for d0 in ("A", "B")):
         dims.append(("Q6", ["A", "B"]))
     if e and any(e[(q6, "A")][0] != e[(q6, "B")][0] for q6 in ("A", "B")):
         dims.append(("Q6-day0", ["A", "B"]))
     for combo in itertools.product(*[v for _k, v in dims]) if dims else [()]:
         scn = dict(zip([k for k, _v in dims], combo))
-        lab = label_of({k: (_ref_of(v, st) if k == "earlier" else v) for k, v in scn.items()})
-        standing = (d["standing"] if d and d["standing"] else scn.get("earlier")) if d else None
+        lab = label_of({k: (_ref_of(v, st) if base(k) == "earlier" else v) for k, v in scn.items()})
+        standing = (d["standing"] if d and d["standing"] else
+                    next((v for k, v in scn.items() if base(k) == "earlier"), None)) if d else None
         if d and standing != ln.key:
             out[lab] = {"rejected": "duplicate", "detail": f"the same item, work area and date (or week) is measured earlier "
                                                            f"({_ref_of(standing, st)}): the later measurement is disallowed in full"}
@@ -449,7 +450,8 @@ def _bands(lines: list[Line], outcome: dict, T, st: CwState, dup: dict | None = 
                                 pa = _band_parts(sa, pay, edges)
                                 parts = pa if (sa == sb or (sb < INF and pa == _band_parts(sb, pay, edges))) else None
                             res.setdefault(m.key, {}).setdefault((q12, q6), {})[olab] = {
-                                "start": (sa, sb), "parts": parts, "count": c, "cy": cy, "ledger": f"{item}|{cy}|Q12:{q12}|Q6:{q6}"}
+                                "start": (sa, sb), "parts": parts, "count": c, "cy": cy, "ledger": f"{item}|{cy}|Q12:{q12}|Q6:{q6}",
+                                "date": m.date}
                             if oi == 0:
                                 entries.append({"line": m.ref, "date": str(m.date), "before": [str(a), str(b)],
                                                 "count": [str(c[0]), str(c[1])],
@@ -595,7 +597,7 @@ def _value(ln: Line, oc: dict, bands: dict | None, T, dup: dict, exc: dict) -> N
             for order_lab, b in by_order.items():
                 sdims = {**odims, "Q12": q12, "Q6": q6}
                 if order_lab:
-                    sdims["order"] = order_lab
+                    sdims[local_dim("order", f"{b['ledger'].split('|')[0]}/{b['date']}")] = order_lab
                 for k3, rates in base.items():
                     lab = label_of({**sdims, **dims_of(k3)})
                     if b["parts"] is None:
@@ -798,7 +800,7 @@ def _sum_options(by_line: dict) -> dict:
         groups = {}
         for ref, opts in known.items():
             sel = [(dd, x) for dd, x in opts.values() if all(dd.get(n, combo[n]) == combo[n] for n in names)]
-            gd = sorted({g for dd, _x in sel for g in dd if g in GROUP_DIMS or g.startswith("class@")})
+            gd = sorted({g for dd, _x in sel for g in dd if base(g) in GROUP_DIMS or g.startswith("class@")})
             gkey = tuple((g, frozenset(dd[g] for dd, _x in sel if g in dd)) for g in gd)
             groups.setdefault(gkey, []).append(sel)
         lo = hi = Decimal(0)

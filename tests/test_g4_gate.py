@@ -131,8 +131,8 @@ def test_y2_fails_on_a_ledger_out_of_date_order(cw02):
 
 def test_y2_fails_when_only_one_order_is_carried(cw02):
     st = _st(cw02)
-    g = next(g for g in st["CW"].lines.values() if any("order:" in k for k in g.r.alternatives))
-    keep = next(k for k in g.r.alternatives if "order:" in k)
+    g = next(g for g in st["CW"].lines.values() if any("order@" in k for k in g.r.alternatives))
+    keep = next(k for k in g.r.alternatives if "order@" in k)
     g.r.alternatives = {keep: g.r.alternatives[keep]}
     assert any("one order carried" in e for e in vg.ledger_order_errors(st["CW"]))
 

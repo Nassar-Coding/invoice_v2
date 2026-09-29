@@ -28,7 +28,7 @@ from decimal import Decimal
 
 from . import g3_dds, terms
 from .g3_core import Trace, headers_by_id, result_keys
-from .g4_core import G4Line, apply_options, dims_of, half_even, label_of, not_payable, recipient_of
+from .g4_core import G4Line, apply_options, base, dims_of, half_even, label_of, local_dim, not_payable, recipient_of
 
 RUN_EVENTS = {"DD-111": "last", "LW-420": "first"}                     # Cl.26
 WELL_EVENTS = {"MB-701": "first", "DD-140": "first", "MB-702": "last", "LW-430": "last"}   # Cl.27
@@ -249,7 +249,7 @@ def _once(comp: list[Line], w, T, st: DdsState) -> None:
             opts = {}
             for c in cands:
                 for k3, a in _opts(m.g.g3).items():
-                    lab = label_of({**dims_of(k3), "stands": c.ref})
+                    lab = label_of({**dims_of(k3), local_dim("stands", gid): c.ref})
                     if c is m:
                         opts[lab] = a
                     else:
@@ -283,13 +283,11 @@ def _undated_repeats(lines, rel: dict, st: DdsState) -> None:
             for m in kept:
                 opts = _opts(m.g.r)
                 new = {}
+                sd = local_dim("stands", gid)
                 for k, a in opts.items():
                     d = dims_of(k)
-                    if "stands" not in d:
-                        new[label_of({**d, "stands": m.ref})] = a
-                    else:
-                        new[k] = a
-                    new[label_of({**{x: y for x, y in d.items() if x != "stands"}, "stands": u.ref})] = {
+                    new[label_of({**d, sd: m.ref})] = a
+                    new[label_of({**d, sd: u.ref})] = {
                         "unit_rate": None, "allowed_quantity": Decimal(0), "amount": Decimal("0.00"),
                         "trace": list(a.get("trace") or []) + [{"op": "note", "label": f"G4: not chargeable if {u.ref} (date not "
                                                                 "established) is for the same well-day and stands", "source": "Cl.29 (p7)"}]}
@@ -321,7 +319,7 @@ def _hc630_runs(lines, st: DdsState) -> None:
             continue
         st.groups.append({"group": gid, "members": [m.ref for m in ms], "candidates": [m.ref for m in ms],
                           "rule": "Sch 8 (p28) under Q5-HC630 'per BHA run'; Cl.30 (p7) under 'count'"})
-        dim = "stands" if not any("stands" in dims_of(k) for m in ms for k in m.g.r.alternatives) else "stands-run"
+        dim = local_dim("stands-run", gid)
         for m in ms:
             opts = {}
             for k3, a in _opts(m.g.r).items():
@@ -637,7 +635,8 @@ def _a3(w, lines, T, st: DdsState) -> None:
             if g.r.payable is False:
                 by_line[ln.ref] = {"difference": "0.00", "basis": "not chargeable: nothing invoiced to re-price"}
                 continue
-            if g.r.payable is None or (g.changed and not any("stands" in k for k in g.r.alternatives)):
+            if g.r.payable is None or (g.changed and not any(base(d) in ("stands", "stands-run") for k in g.r.alternatives
+                                                             for d in dims_of(k))):
                 by_line[ln.ref] = {"difference": None, "basis": "the line's value after state is not established here"}
                 continue
             new3 = g3_dds.evaluate(ln.v, {**(ln.inv or {}), "invoice_date": ins.issued}, ln.ddr, T=T, inputs=ctx.get(ln.key))
@@ -646,10 +645,13 @@ def _a3(w, lines, T, st: DdsState) -> None:
             diff = {}
             for k, a in old.items():
                 kd = dims_of(k)
-                stands = kd.pop("stands", None)
-                base = label_of(kd)
-                n = new.get(base, new.get(None))
-                if stands is not None and stands != ln.ref:
+                sk = [d for d in kd if base(d) in ("stands", "stands-run")]
+                if any(base(d) == "alloc" for d in kd):
+                    diff[k] = None           # a PD-210 allocation is not re-priced at the new rates here: not established
+                    continue
+                rest = label_of({d: x for d, x in kd.items() if d not in sk})
+                n = new.get(rest, new.get(None))
+                if any(kd[d] != ln.ref for d in sk):          # another charge of one of its groups stands
                     diff[k] = Decimal("0.00")
                 else:
                     diff[k] = None if n is None or a["amount"] is None or n["amount"] is None else n["amount"] - a["amount"]

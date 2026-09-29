@@ -10,28 +10,7 @@
    "PA-00611-04",
    "PA-00778-01"
   ],
-  "amount_by_order": {
-   "Cl.30 wording (application number, then line)": {
-    "min": "148515.93",
-    "max": "148515.93"
-   },
-   "PA-00459-09 then PA-00140-04": {
-    "min": "63449.92",
-    "max": "63449.92"
-   },
-   "PA-00506-06 then PA-00155-12": {
-    "min": "52035.12",
-    "max": "52035.12"
-   },
-   "PA-00611-04 then PA-00382-07": {
-    "min": "10723.18",
-    "max": "10723.18"
-   },
-   "PA-00778-01 then PA-00303-03": {
-    "min": "22256.66",
-    "max": "22256.66"
-   }
-  }
+  "amount_by_order": {}
  },
  "G4-D2_contract_year": {
   "cw_lines_with_Q12": 270,

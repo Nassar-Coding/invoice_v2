@@ -60,7 +60,7 @@ import g4_histories as H  # noqa: E402
 import g4_history_compare as HC  # noqa: E402
 import verify_g3 as vg3  # noqa: E402
 from audit import g3_run, g4_cw, g4_dds, g4_run  # noqa: E402
-from audit.g4_core import dims_of  # noqa: E402
+from audit.g4_core import base, dims_of, local_dim  # noqa: E402
 
 OUT = ROOT / "verification" / "g4"
 DECISIONS = ROOT / "spec" / "g4_decisions.yaml"
@@ -237,8 +237,12 @@ def ledger_order_errors(cw) -> list[str]:
             errs.append(f"band ledger {lk}: not counted in execution-date order")
     # a same-date group at an edge whose order changes a division carries every order
     for g in cw.lines.values():
-        orders = {dims_of(k).get("order") for k in g.r.alternatives if "order" in dims_of(k)}
-        if orders and len(orders) < 2:
+        by_group = defaultdict(set)
+        for k in g.r.alternatives:
+            for d, x in dims_of(k).items():
+                if base(d) == "order":
+                    by_group[d].add(x)
+        if any(len(v) < 2 for v in by_group.values()):
             errs.append(f"{g.g3.line_ref}: one order carried where the order changes the division")
     return errs
 
@@ -394,7 +398,7 @@ def y4(cw, dds) -> list[str]:
     errs = []
     lines_cw = {g.g3.line_ref: g for g in cw.lines.values()}
     for d in cw.duplicates:
-        errs += _one_stands([lines_cw[m] for m in d["members"] if m in lines_cw], d["group"], "earlier")
+        errs += _one_stands([lines_cw[m] for m in d["members"] if m in lines_cw], d["group"], local_dim("earlier", d["group"]))
     lines_dds = {g.g3.line_ref: g for g in dds.lines.values()}
     for grp in dds.groups:
         ms = [lines_dds[m] for m in grp["members"] if m in lines_dds]
@@ -403,7 +407,7 @@ def y4(cw, dds) -> list[str]:
         for ref in (grp.get("not_on_day") or {}):
             if lines_dds[ref].r.payable is not False:
                 errs.append(f"{grp['group']}: {ref} is charged off its contractual day and still stands")
-        dim = "stands-run" if any("stands-run" in dims_of(k) for g in ms for k in g.r.alternatives) else "stands"
+        dim = local_dim("stands-run" if grp["group"].startswith("DDS-HC630") else "stands", grp["group"])
         errs += _one_stands([g for g in ms if g.g3.line_ref in grp.get("candidates", grp["members"])], grp["group"], dim,
                             reading=("Q5-HC630", "per BHA run (Sch 8)") if grp["group"].startswith("DDS-HC630") else None)
     errs += pd210_coverage_errors(dds)
@@ -420,9 +424,16 @@ def _nonzero(v) -> bool:
 
 
 def _one_stands(ms: list, gid: str, dim: str, reading: tuple | None = None) -> list[str]:
-    """Under every alternative of the group exactly one member keeps a value (a member G3 did not value is not counted)."""
+    """Under every alternative of the group exactly one member keeps a value (a member G3 did not value is not counted:
+    under the alternative in which it stands, no valued member does). `dim` is the group's own dimension; a kind without
+    '@' checks every group of that kind the members carry, each on its own (G5-B04: local dimensions)."""
     if len(ms) < 2:
         return []
+    if "@" not in dim:
+        own = sorted({d for g in ms for k in g.r.alternatives for d in dims_of(k) if base(d) == dim})
+        if own:
+            return [e for d in own for e in _one_stands([g for g in ms if any(d in dims_of(k) for k in g.r.alternatives)
+                                                        or not g.r.alternatives], gid, d, reading)]
     labels = {dims_of(k).get(dim) for g in ms for k in g.r.alternatives if dim in dims_of(k)}
     valued = [g for g in ms if g.g3.payable is not False]
     if not labels:
@@ -442,7 +453,8 @@ def _one_stands(ms: list, gid: str, dim: str, reading: tuple | None = None) -> l
                     and (reading is None or dims_of(k).get(reading[0]) == reading[1])]
             if any(_nonzero(v.get("amount")) or _nonzero(v.get("allowed_quantity")) for v in vals):
                 standing.append(g.g3.line_ref)
-        if len(standing) != 1:
+        unvalued = {g.g3.line_ref for g in ms if g.g3.payable is None}
+        if len(standing) != 1 and not (not standing and lab in unvalued):
             errs.append(f"{gid}: under {dim}:{lab} {len(standing)} charges stand ({', '.join(standing)})")
     return errs
 
