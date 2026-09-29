@@ -1,5 +1,5 @@
 {
- "run_context": "ae6ec08d9ba2cc8a",
+ "run_context": "89f0c33608cd82ec",
  "template_rows": 2806,
  "contracts": {
   "CW": {
@@ -9,7 +9,7 @@
    "categories": {
     "rate": 31,
     "duplicate": 18,
-    "arithmetic": 6,
+    "arithmetic": 7,
     "timing": 5,
     "adjustment": 4,
     "evidence": 3,
@@ -23,9 +23,8 @@
     "unit; rate": 1,
     "duplicate; rate": 1,
     "timing; signature": 1,
-    "rate; arithmetic": 1,
     "evidence; arithmetic": 1,
-    "term; evidence; rate; adjustment": 1,
+    "term; evidence; adjustment": 1,
     "eligibility": 1,
     "unit; duplicate": 1,
     "limit": 1

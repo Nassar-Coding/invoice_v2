@@ -57,7 +57,7 @@ from audit import g4_run, g5_run  # noqa: E402
 from audit.common import SNAPSHOT  # noqa: E402
 from audit.g3_core import result_keys  # noqa: E402
 from audit.g4_core import base, dims_of  # noqa: E402
-from audit.g5_outcomes import (CATEGORY, CATEGORY_ORDER, FACT_DIMS, PAYMENT_ONLY, PROCEDURAL, Engine, options,  # noqa: E402
+from audit.g5_outcomes import (CATEGORY, CATEGORY_ORDER, FACT_DIMS, PAYMENT_ONLY, Engine, options,  # noqa: E402
                                template_ids)
 
 OUT = ROOT / "verification" / "g5"
@@ -214,11 +214,17 @@ def admissible_errors(out: dict, eng: Engine) -> list[str]:
     return errs
 
 
+# G5-B06, stated here and not taken from the engine: breaches with no monetary consequence of their own are identity and
+# timing (submission window, period, reference). Out-of-term work is not payable (G3, closed): a monetary term
+# consequence, whose zero valuation is source-correct and must not fail this check.
+PROCEDURAL_BREACH = {"identity", "timing"}
+
+
 def z4(out: dict, perturbed: dict | None = None, claims_changed: dict | None = None) -> list[str]:
     errs = []
     for i, o in out.items():
         codes = {f.split("@")[0] for f in o["findings"]}
-        if o["flagged"] and codes and all(CATEGORY.get(c) in PROCEDURAL or c in PAYMENT_ONLY for c in codes):
+        if o["flagged"] and codes and all(CATEGORY.get(c) in PROCEDURAL_BREACH or c in PAYMENT_ONLY for c in codes):
             if D(o["expected_total"]) != D(o["billed_total"]) and not o["right_under"]:
                 errs.append(f"{i}: a procedural/payment-only flag changed the expected total "
                             f"({o['billed_total']} -> {o['expected_total']})")
@@ -289,6 +295,137 @@ def perturb_facts(w, st):
     return w2
 
 
+def rebill_admissible(w, eng: Engine, out: dict):
+    """EXPORT-E independence (G5-B01): a copy of the world in which every unflagged fact-dependent invoice with no other
+    open reading is re-billed exactly at a DIFFERENT admissible value of its unsupplied facts - drilling: another well
+    class for every class-rated line (DS-900 and VAT recomputed); civil: another ground class for every unrecorded-ground
+    line (retention and net recomputed). Returns (world, {invoice: new billed total})."""
+    from decimal import ROUND_DOWN, ROUND_HALF_EVEN
+    q = Decimal("0.01")
+    fixed0 = dict(eng.policy.decided)
+    new_line, new_head, rebilled = {}, {}, {}
+    # drilling invoices that can move: unflagged, formed, no other open reading, fact-dependent; with the classes other
+    # than the one each line is billed at
+    eligible = {}
+    for i, o in out.items():
+        if o["contract"] == "DDS" and not o["flagged"] and o["formed"] and not o["open_readings"] and o["fact_dependent"] \
+                and not o["nomination_dependent"] and eng.inv["DDS"][i].header is not None:
+            cls = set()
+            for _k, v, g in eng.inv["DDS"][i].lines:
+                vals = {d["class"]: x for d, x in options(g) if "class" in d and all(fixed0.get(a, b) == b for a, b in d.items())}
+                if vals:
+                    cls = cls | {c for c, x in vals.items() if D(x.get("amount")) != D(v.get("amount"))} if not cls else \
+                        cls & {c for c, x in vals.items() if D(x.get("amount")) != D(v.get("amount"))}
+            eligible[i] = cls
+    for i, o in out.items():
+        if o["flagged"] or not o["formed"] or o["open_readings"] or not o["fact_dependent"] or o["nomination_dependent"]:
+            continue
+        inv = eng.inv[o["contract"]][i]
+        if inv.header is None:
+            continue
+        dim = "class" if o["contract"] == "DDS" else "ground"
+        amounts, ok = {}, True
+        for k, v, g in inv.lines:
+            vals = {d.get(dim): x for d, x in options(g) if dim in d and all(fixed0.get(a, b) == b for a, b in d.items())}
+            if not vals:
+                continue
+            billed = D(v.get("amount"))
+            other = sorted(c for c, x in vals.items() if D(x.get("amount")) != billed and x.get("amount") is not None
+                           and x.get("unit_rate") is not None)
+            if not other:
+                ok = False
+                break
+            x = vals[other[0]] if dim == "ground" else None
+            amounts[k] = (other, vals)
+        if not ok or not amounts:
+            continue
+        if dim == "class":
+            # the well class is one fact for all the well's services (Cl.4): every invoice of the well moves together
+            well = inv.header.get("well_name")
+            sisters = [j for j in eng.inv["DDS"].values() if j.header and j.header.get("well_name") == well
+                       and any("class" in d for _k, _v, g in j.lines for d, _x in options(g))]
+            if any(j.id not in eligible for j in sisters):
+                continue
+            common = set.intersection(*[set(o_) for o_, _v in amounts.values()], *[eligible[j.id] for j in sisters])
+            if not common:
+                continue
+            c = sorted(common)[0]
+            chosen = {k: vals[c] for k, (_o, vals) in amounts.items()}
+        else:
+            chosen = {k: vals[o_[0]] for k, (o_, vals) in amounts.items()}
+        rate_f = "unit_rate" if o["contract"] == "DDS" else "rate_applied"
+        lines = {k: dict(v) for k, v, _g in inv.lines}
+        for k, x in chosen.items():
+            lines[k]["amount"] = D(x["amount"])
+            lines[k][rate_f] = D(x["unit_rate"])
+        h = dict(inv.header)
+        if o["contract"] == "DDS":
+            svc = sum((D(v.get("amount")) or Decimal(0) for k, v, g in inv.lines if g.g3.code != "DS-900" and k not in chosen),
+                      Decimal(0)) + sum((D(x["amount"]) for x in chosen.values()), Decimal(0))
+            due = -((svc - 250000) * Decimal("0.04")).quantize(q, rounding=ROUND_HALF_EVEN) if svc > 250000 else Decimal(0)
+            ds = [k for k, v, g in inv.lines if g.g3.code == "DS-900"]
+            if (due != 0 and len(ds) != 1) or (due == 0 and any(D(lines[k].get("amount")) for k in ds)):
+                continue
+            for k in ds:
+                lines[k]["amount"] = due
+            net = svc + due
+            vat = (net * Decimal("0.15")).quantize(q, rounding=ROUND_HALF_EVEN)
+            h.update({"net_amount": net, "vat_amount": vat, "invoice_total": net + vat})
+            rebilled[i] = net + vat
+        else:
+            tot = sum((D(v.get("amount")) or Decimal(0) for v in lines.values()), Decimal(0))
+            ret = (tot * Decimal("0.05")).quantize(q, rounding=ROUND_DOWN)
+            h.update({"application_total": tot, "retention": ret,
+                      "net_payable": tot + (D(h.get("adjustment")) or 0) - ret + (D(h.get("retention_released")) or 0)})
+            rebilled[i] = tot
+        new_line.update(lines)
+        new_head[i] = h
+    w2 = copy.copy(w)
+    w2.claims = copy.copy(w.claims)
+    w2.claims.rows = dict(w.claims.rows)
+    for lk, hk, no_f in (("cw_lines", "cw_headers", "application_no"), ("dds_lines", "dds_headers", "invoice_no")):
+        rows = []
+        for k, r in zip(result_keys(w.claims.rows[lk]), w.claims.rows[lk]):
+            if k in new_line:
+                r2 = copy.copy(r)
+                r2.values = new_line[k]
+                rows.append(r2)
+            else:
+                rows.append(r)
+        w2.claims.rows[lk] = rows
+        hrows = []
+        for r in w.claims.rows[hk]:
+            if r.values.get(no_f) in new_head:
+                r2 = copy.copy(r)
+                r2.values = new_head[r.values[no_f]]
+                hrows.append(r2)
+            else:
+                hrows.append(r)
+        w2.claims.rows[hk] = hrows
+    return w2, rebilled
+
+
+def export_e_errors(out: dict, rebilled_out: dict, rebilled: dict) -> list[str]:
+    """The flag and confidence of an invoice right under some admissible value of an unsupplied document never depend on
+    WHICH admissible value its bill matches; its contract total never moves; its export follows its own admissible
+    total (EXPORT-E)."""
+    errs = []
+    for i, new_total in rebilled.items():
+        o, r = out[i], rebilled_out.get(i)
+        if r is None:
+            errs.append(f"{i}: no outcome after re-billing")
+            continue
+        if (r["flagged"], str(r["confidence"])) != (o["flagged"], str(o["confidence"])):
+            errs.append(f"{i}: re-billed at another admissible value, flag/confidence {o['flagged']}/{o['confidence']} -> "
+                        f"{r['flagged']}/{r['confidence']}")
+        elif D(r["contract_total"]) != D(o["contract_total"]) or D(r["expected_total"]) != new_total:
+            errs.append(f"{i}: re-billed at another admissible value, contract {o['contract_total']} -> {r['contract_total']}, "
+                        f"export {r['expected_total']} (own total {new_total})")
+    if not rebilled:
+        errs.append("EXPORT-E independence: no invoice could be re-billed - the check exercised nothing")
+    return errs
+
+
 def unformed_branch_errors() -> list[str]:
     """G5-B02: the population has no unformed invoice, so the branch is executed here on the audit's raw input through the
     production pipeline (materialized claims and report -> G2 -> G3 -> G4 -> G5): one PD-210 charge with no start depth,
@@ -338,6 +475,47 @@ def perturb_billing(w):
             new.append(r2)
         w2.claims.rows[k] = new
     return w2
+
+
+def attribution_errors(out: dict, eng: Engine) -> list[str]:
+    """G5-B06, from the line's own facts, not the engine's finding list: a rate finding on a line needs a displayed rate
+    that is not an admissible contract rate of the line (or a G3/G4 rate check that is not a pass); a quantity finding
+    needs an admissible allowed quantity below the billed one (or a G3/G4 quantity finding)."""
+    errs = []
+    for i, o in out.items():
+        inv = eng.inv[o["contract"]].get(i)
+        if inv is None:
+            continue
+        by_ref = {(v.get("line_ref") or k): (v, g) for k, v, g in inv.lines}
+        for f in o["findings"]:
+            code, _, ref = f.partition("@")
+            if not ref or ref not in by_ref:
+                continue
+            v, g = by_ref[ref]
+            checks = [(x.check, x.status, x.finding) for x in g.g3.checks] + [(x.family, x.status, x.finding) for x in g.state]
+            if code == "rate_differs":
+                ra = D(v.get("rate_applied") if o["contract"] == "CW" else v.get("unit_rate"))
+                named = any(f_ == "rate_differs" and st == "finding" for _c, st, f_ in checks) or \
+                    any("rate_differs" in (x.get("breaches") or []) for x in g.r.alternatives.values())
+                # the scenarios the outcome is judged under: in one of them the displayed rate must not be the line's rate
+                scen = [dict(x) for x in (o["wrong_under"] or [])] + [dict(o["expected_under"] or {})]
+                differs = False
+                for lab in scen:
+                    rates = {D(x.get("unit_rate")) for d, x in options(g)
+                             if all(lab.get(k, y) == y for k, y in d.items())}
+                    if g.r.payable is False and not g.r.alternatives:
+                        rates = {D(a.get("unit_rate")) for a in g.g3.alternatives.values()} | {g.g3.unit_rate}
+                    if ra is not None and ra not in rates - {None} and rates - {None}:
+                        differs = True
+                if not named and not differs:
+                    errs.append(f"{i}: rate_differs on {ref}, whose displayed rate {ra} is an admissible contract rate")
+            if code == "quantity_above_record":
+                bq = D(v.get("quantity"))
+                qs = {D(x.get("allowed_quantity")) for _d, x in options(g)} - {None}
+                named = any(f_ == "quantity_above_record" and st == "finding" for _c, st, f_ in checks)
+                if not named and not any(q < bq for q in qs if bq is not None):
+                    errs.append(f"{i}: quantity_above_record on {ref}, but no admissible quantity is below the billed {bq}")
+    return errs
 
 
 def ds900_errors(out: dict, eng: Engine) -> list[str]:
@@ -627,6 +805,13 @@ def main() -> int:
                for k in ("cw_headers", "dds_headers") for h in w.claims.rows[k]}
     perturbed = {i: g5_run.serial(o) for i, o in Engine(perturb_billing(w), st).run().items()}
     facts_changed = {i: g5_run.serial(o) for i, o in Engine(perturb_facts(w, st), st).run().items()}
+    w_rb, rebilled = rebill_admissible(w, eng, out)
+    # the re-billed claims pass through G3 and G4 again: their rate checks read the displayed rate (G4-B04)
+    from audit import g3_run as _g3, g4_cw as _g4c, g4_dds as _g4d
+    _w, res_rb = _g3.run_all(w_rb)
+    e_rb = Engine(w_rb, {"CW": _g4c.run(w_rb, res_rb["CW"]), "DDS": _g4d.run(w_rb, res_rb["DDS"])})
+    del res_rb
+    rebilled_out = {i: e_rb.outcome(e_rb.inv[out[i]["contract"]][i]) for i in rebilled}
     cmp_ = SC.compare(serial)
     disp = (yaml.safe_load((OUT / "sample_dispositions.yaml").read_text()) or {}).get("dispositions", {})
     load = lambda p: yaml.safe_load(p.read_text())  # noqa: E731
@@ -635,8 +820,9 @@ def main() -> int:
         ("Z1 one outcome per template invoice; submission.csv in the template format", lambda: z1(serial, ids, headers, fresh["submission.csv"])),
         ("Z2 every invoice has a status for each of the twelve checks over exactly its claim lines", lambda: z2(serial, eng, w)),
         ("Z3 findings and evidence trail: flag <-> findings, category = root categories; payment fields reconciled to "
-         "G4's accounts and recipients", lambda: z3(serial) + payment_errors(out, eng) + ds900_errors(out, eng)),
-        ("Z4 monetary and procedural outcomes distinct; billing never authority for an expected total", lambda: z4(serial, perturbed, facts_changed) + admissible_errors(out, eng) + unformed_branch_errors()),
+         "G4's accounts and recipients", lambda: z3(serial) + payment_errors(out, eng) + ds900_errors(out, eng) + attribution_errors(out, eng)),
+        ("Z4 monetary and procedural outcomes distinct; billing never authority for an expected total", lambda: z4(serial, perturbed, facts_changed) + admissible_errors(out, eng) + unformed_branch_errors()
+         + export_e_errors(out, rebilled_out, rebilled)),
         ("Z5 independently reviewed invoices agree (or carry a live settlement); inputs before outputs (git)",
          lambda: z5(cmp_, disp) + ([] if json.loads((OUT / "sample_comparison.json").read_text()) ==
                                    json.loads(json.dumps(cmp_, sort_keys=True)) else ["verification/g5/sample_comparison.json does not reproduce"])),

@@ -76,9 +76,30 @@ q9_rule:
     Q9-6_category: >-
       error_category = the ordered, de-duplicated root categories of the invoice's established findings (identity,
       term, timing, evidence, signature, evidence_mismatch, unit, quantity, duplicate, eligibility, limit, rate,
-      discount, arithmetic, adjustment), joined with '; '. A symptom of a cause already listed is not repeated (an
-      amount that differs because the quantity is above the record is 'quantity', not also 'arithmetic'); blank when
-      flag = 0.
+      discount, arithmetic, adjustment), joined with '; '; blank when flag = 0. A finding is attributed to the obligation
+      the line violates (G5-B06, correction round): a value changed by an established consequence keeps that
+      consequence's cause (out-of-term work is not payable - 'term', a monetary term consequence, never also 'rate');
+      otherwise what actually differs - the quantity (quantity_above_record), the displayed rate against the scenario's
+      rate (rate_differs), the displayed arithmetic (amount_arithmetic), a division at a band edge
+      (band_crossing_not_split), else value_differs - never 'rate' by default. Procedural breaches with no monetary
+      consequence of their own are identity and timing only.
+    Q9-7_export_policies: >-
+      Named numeric export policies for expected_total_cents, owned by G5 (the template needs one number per row; a
+      number is never presented as more than it is - expected_basis states which policy produced it).
+      EXPORT-D (absent-document values): contract_total, the judged total under the working reading on the values the
+      supplied evidence establishes where a governing document is not supplied (CW S4 G2; DDS P2/P3 Standard; Cl.23 not
+      nominated). Independent of the bill and of the invoice's statements. Exported by every flagged row whose own
+      total is not an admissible contract total, and by every row that depends on no unsupplied document (there it is
+      simply the contract value).
+      EXPORT-E (admissible own total): where the invoice's billed total equals a total the contract supports under some
+      admissible value of its unsupplied documents (under the working reading), the row exports its billed total.
+      Scope: this CHOOSES ONLY THE EXPORTED NUMBER. The flag and the confidence never depend on which admissible value
+      the bill matches: the flag is existential (right when SOME admissible value makes the invoice right, Q9-3 E), so
+      re-billing an invoice exactly at a different admissible value leaves them unchanged - verified over the population
+      by verify_g5 Z4 (every eligible unflagged fact-dependent invoice re-billed at another well class, jointly per well,
+      or another ground class, through G3/G4/G5 again: flag, confidence and contract_total unchanged, export = its own
+      total), and against gate5, whose statement rule fails it.
+      EXPORT-U (unformed total): the lower bound of the admissible total (Q9-4), with the bounds disclosed.
   alternatives: {Q9_A: "flag any breach (adopted, Q9-1)", Q9_B: "flag only a changed judged total", Q9_C_unknown: "export billed total at low confidence (rejected: G5-B02)"}
 
 decisions:

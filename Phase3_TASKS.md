@@ -199,5 +199,8 @@ annotation texts handed to the owner). Report: Phase3_G4_G5_corrections.md.
   stands-run@group, alloc@well/date); independent groups combine; PD-210 allocations under Q7 C; Z6 joins legal combinations.
 - [x] G5-B05 DS-900 checked for single charge, sign, amount, threshold and rounding (discount_split, discount_sign,
   discount; the line's well); ordinary-service obligations not imposed; Z3 DS-900 oracle in exact rationals.
-- [ ] G5-B06 Findings attributed to the violated obligation; no fabricated rate category; Z4 separates monetary and procedural.
+- [x] G5-B06 Findings attributed to the violated obligation (an established consequence keeps its cause; else quantity,
+  displayed rate against the scenario's rate, displayed arithmetic, band division, value_differs - never 'rate' by
+  default); 'term' is a monetary consequence; Z4 states its procedural set (identity, timing) itself; Z3 attribution
+  oracle from the line's own facts.
 - [ ] Population and submission regenerated; all G0-G5 checks and tests in a fresh clone; report; SHAs and tag texts.

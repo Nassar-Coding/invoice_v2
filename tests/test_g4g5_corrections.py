@@ -830,3 +830,85 @@ def test_g5b05_ds900_oracle_passes_fixed_and_fails_gate5():
         {}, {}, {"CW": {}, "DDS": {}}, {}
     errs = vg5.ds900_errors({i.id: e2.outcome(i) for i in invs}, e2)
     assert any("S2: 2 DS-900 charges" in x for x in errs) and any("S6: a positive DS-900" in x for x in errs)
+
+
+# ---------------------------------------------------------------------------------------------------------- G5-B06
+def h_b06_out_of_term(rate="74.50", amount="44700.00"):
+    # one B.22.010 line, 600 m2 at 74.50 = 44,700.00, dated 2 October 2026 - after completion as extended (30 September)
+    return cw_hist("CW-G5B06", [("2026-10-02", "600", rate, amount)], adate="2026-10-10")
+
+
+def test_g5b06_out_of_term_keeps_its_cause_without_a_rate_category():
+    import verify_g5 as vg5
+    st, out = _cw_outcome(h_b06_out_of_term())
+    o = out["PA-97001"]
+    assert o["flagged"] == 1 and o["error_category"] == "term" and o["expected_total"] == D("0.00")
+    assert not [f for f in o["findings"] if f.startswith(("rate_differs", "release_omitted"))]
+    assert [x for x in vg5.z4({"PA-97001": o}) if "PA-97001" in x] == []       # a monetary term consequence, not procedural
+
+
+def test_g5b06_a_real_rate_error_is_kept():
+    st, out = _cw_outcome(h_b06_out_of_term(rate="70.00", amount="42000.00"))
+    o = out["PA-97001"]
+    assert "rate_differs@PA-97001-01" in o["findings"] and "term" in o["error_category"]
+
+
+def test_g5b06_control_gate5_invents_rate():
+    old4 = gate_module(GATE4, "audit/g4_cw.py", "g4_cw_gate4")
+    old5 = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+    st, out = _cw_outcome(h_b06_out_of_term(), old4, old5)
+    assert "rate_differs@PA-97001-01" in out["PA-97001"]["findings"]
+
+
+def test_g5b06_attribution_oracle_passes_fixed_and_fails_gate5():
+    import verify_g5 as vg5
+    from audit import g5_outcomes
+    w, res, st = F.run(h_b06_out_of_term())
+    e = g5_outcomes.Engine(w, st)
+    assert vg5.attribution_errors({"PA-97001": e.outcome(e.inv["CW"]["PA-97001"])}, e) == []
+    old4 = gate_module(GATE4, "audit/g4_cw.py", "g4_cw_gate4")
+    old5 = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+    st_old = {"CW": old4.run(w, res["CW"]), "DDS": g4_dds.run(w, res["DDS"])}
+    e_old = old5.Engine(w, st_old)
+    errs = vg5.attribution_errors({"PA-97001": e_old.outcome(e_old.inv["CW"]["PA-97001"])}, e_old)
+    assert any("admissible contract rate" in x for x in errs)
+
+
+def test_g5b01_export_e_flag_never_depends_on_which_admissible_value_the_bill_matches():
+    import verify_g5 as vg5
+    U = _unit()
+    # the same invoice billed exactly at Standard, then exactly at HPHT: both admissible - same flag and confidence,
+    # the same contract total, each exporting its own total (EXPORT-E)
+    a = U._dds("E", [_cls_line("E-001", "1000.00")], cls="HPHT")
+    b = U._dds("E", [_cls_line("E-001", "1325.00")], cls="HPHT")
+    oa, ob = _o([a], a), _o([b], b)
+    assert (oa["flagged"], oa["confidence"], oa["contract_total"]) == (ob["flagged"], ob["confidence"], ob["contract_total"])
+    assert oa["expected_total"] == D("1150.00") and ob["expected_total"] == D("1523.75")
+    assert vg5.export_e_errors({"E": oa}, {"E": ob}, {"E": D("1523.75")}) == []
+    # gate5 (the invoice's statement selects the class): the flag moves with the admissible value the bill matches
+    old5 = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+
+    def g5(inv):
+        e = old5.Engine.__new__(old5.Engine)
+        e.policy, e.inv, e.stands, e.inv_date, e.a3, e.release = old5.Policy(), {"CW": {}, "DDS": {inv.id: inv}}, {}, {}, \
+            {"CW": {}, "DDS": {}}, {}
+        o = e.outcome(inv)
+        o["contract_total"] = o["expected_total"]
+        return o
+    ga, gb = g5(old5.Invoice("DDS", "E", a.header, a.lines)), g5(old5.Invoice("DDS", "E", b.header, b.lines))
+    assert any("flag/confidence" in x for x in vg5.export_e_errors({"E": ga}, {"E": gb}, {"E": D("1523.75")}))
+
+
+def test_g5b01_robust_findings_per_ground_line():
+    # PA-00659 pattern: displayed rate = the G4 rate, amount not quantity x rate - no ground makes the line right; the
+    # findings reported are those under every ground (the established arithmetic), never one ground's rate difference
+    U = _unit()
+    k, v, g = U._line("CW", "PG-01", "C.32.010", "7667.50", alts={"ground:G2": "7200.00", "ground:G4": "7672.50"},
+                      findings=["amount_arithmetic"])
+    for kk, rate in (("ground:G2", "2400.00"), ("ground:G4", "2557.50")):
+        g.r.alternatives[kk]["unit_rate"] = D(rate)
+    v.update({"rate_applied": D("2557.50"), "quantity": D("3")})
+    inv = U.Invoice("CW", "PG", {"application_total": D("7667.50"), "retention": D("383.37"), "net_payable": D("7284.13"),
+                                 "adjustment": D("0"), "retention_released": D("0")}, [(k, v, g)])
+    o = _o([inv], inv)
+    assert o["flagged"] == 1 and "rate_differs@PG-01" not in o["findings"] and "amount_arithmetic@PG-01" in o["findings"]

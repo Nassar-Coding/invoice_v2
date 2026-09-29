@@ -62,7 +62,7 @@ CATEGORY = {
     "no_admissible_document": "rate",
     "above_daily_limit": "limit",
     "rate_differs": "rate", "band_crossing_not_split": "rate",
-    "discount": "discount", "discount_split": "discount", "discount_sign": "discount",
+    "discount": "discount", "discount_split": "discount", "discount_sign": "discount", "value_differs": "arithmetic",
     "amount_arithmetic": "arithmetic", "header_arithmetic": "arithmetic",
     "adjustment_omitted": "adjustment", "release_omitted": "adjustment", "retention_arithmetic": "arithmetic",
     "adjustment_differs": "adjustment", "adjustment_unsupported": "adjustment",
@@ -71,7 +71,9 @@ CATEGORY = {
 CATEGORY_ORDER = ["identity", "term", "timing", "evidence", "signature", "evidence_mismatch", "unit", "quantity", "duplicate",
                   "eligibility", "limit", "rate", "discount", "arithmetic", "adjustment"]
 INFORMATIONAL = {"band_divided", "footage_band_divided"}      # the contract's own pricing state, not a defect
-PROCEDURAL = {"identity", "term", "timing"}
+# G5-B06: breaches with no monetary consequence of their own. 'term' is not among them: out-of-term work is not payable
+# (G3, closed) - a monetary consequence of the term, the cause of the value it changes
+PROCEDURAL = {"identity", "timing"}
 PAYMENT_ONLY = {"adjustment_omitted", "release_omitted", "retention_arithmetic", "adjustment_differs", "adjustment_unsupported",
                 "release_differs", "release_unsupported"}
 NOT_ESTABLISHED = {"engine_error", "input_unresolved", "no_admissible_result", "quantity_rule_missing",
@@ -408,6 +410,7 @@ class Engine:
             dims = line_dims(g)
             if "class" in dims:
                 fixed["class"] = ev["class"]
+            override = None
             if "ground" in dims:
                 fixed["ground"] = DEFAULT_FACTS["ground"]
                 if ev["ground"] == "consistent":
@@ -418,6 +421,10 @@ class Engine:
                         if ok_ and a_ == billed and not scenario_breaches(g, {**fixed, "ground": gv}, v, inv.contract):
                             fixed["ground"] = gv
                             break
+                    else:
+                        # no ground class makes the line right: its breaches are those that hold under EVERY ground (a
+                        # line's ground is its own fact, G5-B01) - never one ground's breach presented as established
+                        override = self._robust_ground_reasons(g, fixed, v, billed, inv.contract, grounds)
             if nominated_conditional(g) and not ev["nominated"].get(nomination_group(v), True):
                 # evidence scenario: the section is not nominated - the PD-210 charge is not chargeable (Cl.23)
                 vals[ref] = ZERO
@@ -430,6 +437,16 @@ class Engine:
             vals[ref] = a
             for f in established(g):
                 reasons.append((f, ref))
+            if override is not None:
+                reasons += [(f, ref) for f in override]
+                if ok and inv.contract == "DDS":
+                    svc_exp += a
+                elif ok:
+                    exp_total += a
+                else:
+                    formed = False
+                    bounds[ref] = (ZERO, None)
+                continue
             for f in scenario_breaches(g, fixed, v, inv.contract):
                 reasons.append((f, ref))
             if not ok:
@@ -443,14 +460,7 @@ class Engine:
                 continue
             if a != billed:
                 if not any(r[1] == ref and CATEGORY.get(r[0]) not in PROCEDURAL for r in reasons):
-                    # the line is wrong in this scenario: name it by the rule that makes it so (a state or G3 finding left
-                    # open across scenarios), else by what differs (quantity below the billed one, or the rate)
-                    open_f = [x.finding for x in g.state if x.status == "unresolved" and x.finding
-                              and x.finding not in INFORMATIONAL and x.finding in CATEGORY and x.finding != "rate_differs"]
-                    bq = D(v.get("quantity"))
-                    reasons.append((open_f[0] if open_f else
-                                    "quantity_above_record" if (q is not None and bq is not None and q < bq and q != 0)
-                                    else "rate_differs", ref))
+                    reasons.append((self._cause(g, fixed, v, q, a, billed, inv.contract), ref))
             if inv.contract == "DDS":
                 svc_exp += a
             else:
@@ -519,6 +529,48 @@ class Engine:
         wrong = self._wrong(reasons, total, billed_total, formed)
         return Scenario({**readings, **({"Q1": recipient} if recipient else {})}, wrong, total if formed else None,
                         reasons, formed, vals, bounds)
+
+    def _robust_ground_reasons(self, g, fixed: dict, v: dict, billed, contract: str, grounds: list) -> list:
+        """The line's breaches (beyond its established findings) common to every admissible ground class; where it is
+        wrong under every ground for different reasons, no_admissible_document."""
+        est = set(established(g))
+        per = []
+        for gv in grounds:
+            fx = {**fixed, "ground": gv}
+            q_, a_, ok_ = line_value(g, fx)
+            rs = set(scenario_breaches(g, fx, v, contract))
+            if ok_ and a_ != billed and not any(CATEGORY.get(f) not in PROCEDURAL for f in est | rs):
+                rs.add(self._cause(g, fx, v, q_, a_, billed, contract))
+            per.append(rs)
+        common = set.intersection(*per) if per else set()
+        if not any(CATEGORY.get(f) not in PROCEDURAL for f in est | common):
+            common.add("no_admissible_document")
+        return sorted(common)
+
+    def _cause(self, g, fixed: dict, v: dict, q, a, billed, contract: str) -> str:
+        """G5-B06: the obligation a line's differing value violates in this scenario, when no established finding
+        already names it - a state rule left open across scenarios; else what actually differs: the quantity (the
+        contract allows less than billed), the displayed rate (it is not the scenario's rate), the amount (it is not
+        quantity x displayed rate), the division at a band edge (rate and quantity right, amount not divided). Never
+        'rate' by default: a correctly priced line whose value another rule changes keeps that rule's cause."""
+        open_f = [x.finding for x in g.state if x.status == "unresolved" and x.finding and x.finding not in INFORMATIONAL
+                  and x.finding in CATEGORY and x.finding not in ("rate_differs", "amount_arithmetic")]
+        if open_f:
+            return open_f[0]
+        bq = D(v.get("quantity"))
+        if q is not None and bq is not None and q < bq:
+            return "quantity_above_record"
+        ra = D(v.get("rate_applied") if contract == "CW" else v.get("unit_rate"))
+        cands = [x for d, x in options(g) if all(fixed.get(k, y) == y for k, y in d.items())]
+        rates = {D(x.get("unit_rate")) for x in cands} - {None}
+        if ra is not None and len(rates) == 1 and ra not in rates:
+            return "rate_differs"
+        amt = D(v.get("amount"))
+        if ra is not None and bq is not None and amt is not None and bq * ra != amt:
+            return "amount_arithmetic"
+        # rate, quantity and arithmetic as displayed are right: the value differs by a division at a band edge (no single
+        # rate) or for a reason no single check names - reported as such, never given a rate category
+        return "band_crossing_not_split" if not rates else "value_differs"
 
     def _account(self, by: dict, readings: dict) -> tuple:
         """(lo, hi) of an account {reading label: {min, max}} under the scenario's decided and open readings."""
