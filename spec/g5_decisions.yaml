@@ -179,7 +179,7 @@ decisions:
     effect_key: Q10
   - id: DS-900-VAT
     status: decided (source)
-    reading: "DDS Cl.38 (p8): discount = 4% of the excess of the services sum over 250,000.00, rounded half-even (Cl.17), one negative DS-900 charge, per invoice (P11); Cl.36 net = charges incl. DS-900; Cl.39 VAT 15% of net rounded half-even; Cl.40 total = net + VAT. Recomputed from the expected services sum."
+    reading: "DDS Cl.38 (p8): discount = 4% of the excess of the services sum over 250,000.00, rounded half-even (Cl.17), one negative DS-900 charge, per invoice (P11); Cl.36 net = charges incl. DS-900; Cl.39 VAT 15% of net rounded half-even; Cl.40 total = net + VAT. Recomputed from the expected services sum. The invoice's own DS-900 content (G5-B05, correction round) is checked explicitly: a single charge (discount_split), negative (discount_sign), the amount on its own services above the threshold with half-even rounding, none at or below it (discount), a zero DS-900 line being no charge; the line's well (line_well_differs_from_invoice); its contribution to net and VAT through the header check. Not imposed on it: service date, report, unit, section, quantity x rate - ordinary-service obligations; Cl.38 is a special amount rule, not a Schedule 1 service (the audit's quantity-7 / rate -1 probe is not made an obligation)."
     effect_key: totals
   - id: retention
     status: decided (source)

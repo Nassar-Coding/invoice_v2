@@ -62,7 +62,7 @@ CATEGORY = {
     "no_admissible_document": "rate",
     "above_daily_limit": "limit",
     "rate_differs": "rate", "band_crossing_not_split": "rate",
-    "discount": "discount",
+    "discount": "discount", "discount_split": "discount", "discount_sign": "discount",
     "amount_arithmetic": "arithmetic", "header_arithmetic": "arithmetic",
     "adjustment_omitted": "adjustment", "release_omitted": "adjustment", "retention_arithmetic": "arithmetic",
     "adjustment_differs": "adjustment", "adjustment_unsupported": "adjustment",
@@ -388,6 +388,7 @@ class Engine:
         reasons = []
         vals = {}
         bounds = {}
+        ds_lines = []
         formed = True
         billed_lines = ZERO
         svc_exp, svc_bill, ds_bill = ZERO, ZERO, ZERO
@@ -399,6 +400,7 @@ class Engine:
             code = g.g3.code
             if inv.contract == "DDS" and code == "DS-900":
                 ds_bill += billed
+                ds_lines.append((billed, ref, v))
                 continue
             if inv.contract == "DDS":
                 svc_bill += billed          # the invoice's own services, valued or not (its DS-900 check, Cl.38)
@@ -473,9 +475,21 @@ class Engine:
             total = exp_total
         else:
             billed_total = D(h.get("invoice_total"))
-            ds_on_billed = -half_even((svc_bill - 250000) * Decimal("0.04")) if svc_bill > 250000 else ZERO
-            if ds_bill != ds_on_billed:
+            # G5-B05 - DS-900 (Cl.38 p8; P11): a SINGLE NEGATIVE charge of 4% of the services above 250,000, rounded half
+            # to even; none at or below it. Checked on the invoice's own services: cardinality, sign, amount, threshold,
+            # rounding; its contribution to net and VAT by the header check below. A zero DS-900 line is no charge. The
+            # ordinary-service obligations (date, report, unit, section, quantity x rate) are not imposed on it: Cl.38 is
+            # a special amount rule, not a Schedule 1 service (spec/g5_decisions.yaml totals).
+            due = -half_even((svc_bill - 250000) * Decimal("0.04")) if svc_bill > 250000 else ZERO
+            charged = [(a, ref) for a, ref, _v in ds_lines if a != 0]
+            if len(charged) > 1:
+                reasons.append(("discount_split", None))
+            reasons += [("discount_sign", ref) for a, ref in charged if a > 0]
+            if ds_bill != due:
                 reasons.append(("discount", None))
+            well = h.get("well_name")
+            reasons += [("line_well_differs_from_invoice", ref) for _a, ref, v in ds_lines
+                        if v.get("well_name") and well and v.get("well_name") != well]
             if D(h.get("net_amount")) != billed_lines or D(h.get("vat_amount")) != half_even((D(h.get("net_amount")) or ZERO) * Decimal("0.15")) \
                     or billed_total != (D(h.get("net_amount")) or ZERO) + (D(h.get("vat_amount")) or ZERO):
                 reasons.append(("header_arithmetic", None))

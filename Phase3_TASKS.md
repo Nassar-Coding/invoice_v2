@@ -197,6 +197,7 @@ annotation texts handed to the owner). Report: Phase3_G4_G5_corrections.md.
   accounts. Population: every adjustment/release field is 0.00 - no outcome changes.
 - [x] G5-B04 Local alternatives namespaced by their evidence group (order@item/date, earlier@group, stands@group,
   stands-run@group, alloc@well/date); independent groups combine; PD-210 allocations under Q7 C; Z6 joins legal combinations.
-- [ ] G5-B05 DS-900 checked for single charge, sign, amount, threshold and rounding.
+- [x] G5-B05 DS-900 checked for single charge, sign, amount, threshold and rounding (discount_split, discount_sign,
+  discount; the line's well); ordinary-service obligations not imposed; Z3 DS-900 oracle in exact rationals.
 - [ ] G5-B06 Findings attributed to the violated obligation; no fabricated rate category; Z4 separates monetary and procedural.
 - [ ] Population and submission regenerated; all G0-G5 checks and tests in a fresh clone; report; SHAs and tag texts.

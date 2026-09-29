@@ -340,6 +340,31 @@ def perturb_billing(w):
     return w2
 
 
+def ds900_errors(out: dict, eng: Engine) -> list[str]:
+    """G5-B05, recomputed here in exact rationals from the claim lines: Cl.38 requires one negative DS-900 charge of 4%
+    of the invoice's services above 250,000 (half-even), none at or below; every departure - two or more charges, a
+    positive one, a wrong sum - must be a discount finding of the outcome."""
+    errs = []
+    for i, o in out.items():
+        if o["contract"] != "DDS":
+            continue
+        inv = eng.inv["DDS"].get(i)
+        if inv is None:
+            continue
+        ds = [D(v.get("amount")) or Decimal(0) for _k, v, g in inv.lines if g.g3.code == "DS-900"]
+        svc = sum((D(v.get("amount")) or Decimal(0) for _k, v, g in inv.lines if g.g3.code != "DS-900"), Decimal(0))
+        due = -_half_even_frac((Fraction(svc) - 250000) * Fraction(4, 100)) if svc > 250000 else Fraction(0)
+        fs = {f.split("@")[0] for f in o["findings"]}
+        charged = [x for x in ds if x != 0]
+        if len(charged) > 1 and "discount_split" not in fs:
+            errs.append(f"{i}: {len(charged)} DS-900 charges (Cl.38: one) and no discount_split finding")
+        if any(x > 0 for x in charged) and "discount_sign" not in fs:
+            errs.append(f"{i}: a positive DS-900 charge and no discount_sign finding")
+        if Fraction(sum(ds, Decimal(0))) != due and "discount" not in fs:
+            errs.append(f"{i}: DS-900 {sum(ds, Decimal(0))} against {float(due):.2f} due and no discount finding")
+    return errs
+
+
 def payment_errors(out: dict, eng: Engine) -> list[str]:
     """G5-B03, from G4's accounts and recipients directly: a claimed adjustment or release that differs from an exact
     account on its sole recipient, or appears on a document that is no candidate recipient under any reading, is a
@@ -610,7 +635,7 @@ def main() -> int:
         ("Z1 one outcome per template invoice; submission.csv in the template format", lambda: z1(serial, ids, headers, fresh["submission.csv"])),
         ("Z2 every invoice has a status for each of the twelve checks over exactly its claim lines", lambda: z2(serial, eng, w)),
         ("Z3 findings and evidence trail: flag <-> findings, category = root categories; payment fields reconciled to "
-         "G4's accounts and recipients", lambda: z3(serial) + payment_errors(out, eng)),
+         "G4's accounts and recipients", lambda: z3(serial) + payment_errors(out, eng) + ds900_errors(out, eng)),
         ("Z4 monetary and procedural outcomes distinct; billing never authority for an expected total", lambda: z4(serial, perturbed, facts_changed) + admissible_errors(out, eng) + unformed_branch_errors()),
         ("Z5 independently reviewed invoices agree (or carry a live settlement); inputs before outputs (git)",
          lambda: z5(cmp_, disp) + ([] if json.loads((OUT / "sample_comparison.json").read_text()) ==

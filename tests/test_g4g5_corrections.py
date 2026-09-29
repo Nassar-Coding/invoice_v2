@@ -768,3 +768,65 @@ def test_g5b03_payment_oracle_passes_fixed_and_fails_gate5():
     errs = vg5.payment_errors(out2, e2)
     assert any("no reading makes the recipient" in x for x in errs) and any("not the 45A recipient" in x for x in errs)
     assert any("R1: adjustment 0.01, the account 60508.18" in x for x in errs)
+
+
+# ---------------------------------------------------------------------------------------------------------- G5-B05
+def _ds_inv(no, ds_amounts, svc="300000.00"):
+    """Services of `svc` (one line, correctly priced) and the given DS-900 lines; header coherent with the lines."""
+    U = _unit()
+    lines = [U._line("DDS", f"{no}-001", "DD-101", svc, svc)]
+    lines += [U._line("DDS", f"{no}-{i + 2:03d}", "DS-900", a) for i, a in enumerate(ds_amounts)]
+    return U._dds(no, lines)
+
+
+def test_g5b05_ds900_single_negative_charge():
+    ok = _ds_inv("S1", ["-2000.00"])                     # 4% of (300,000 - 250,000), one negative charge
+    assert _o([ok], ok)["flagged"] == 0
+    split = _ds_inv("S2", ["-1000.00", "-1000.00"])      # the audit's MDS-00018 pattern: the sum right, two charges
+    o = _o([split], split)
+    assert o["flagged"] == 1 and "discount_split" in o["findings"] and o["error_category"] == "discount"
+    assert o["expected_total"] == D("342700.00")         # judged total unchanged: a breach with no monetary effect
+    offset = _ds_inv("S3", ["-2000.00", "500.00", "-500.00"])
+    o = _o([offset], offset)
+    assert {"discount_split", "discount_sign"} <= {f.split("@")[0] for f in o["findings"]}
+    omitted = _ds_inv("S4", [])
+    assert "discount" in _o([omitted], omitted)["findings"]
+    wrong = _ds_inv("S5", ["-2000.01"])
+    assert "discount" in _o([wrong], wrong)["findings"]
+    positive = _ds_inv("S6", ["2000.00"])
+    assert {"discount", "discount_sign"} <= {f.split("@")[0] for f in _o([positive], positive)["findings"]}
+
+
+def test_g5b05_threshold_and_rounding():
+    at = _ds_inv("T1", [], svc="250000.00")               # exactly the threshold: Cl.38 'exceeds' - no charge due
+    assert _o([at], at)["flagged"] == 0
+    at_charged = _ds_inv("T2", ["-0.04"], svc="250001.00")
+    assert _o([at_charged], at_charged)["flagged"] == 0  # 4% of 1.00 = 0.04
+    half = _ds_inv("T3", ["-0.02"], svc="250000.50")     # 4% of 0.50 = 0.02
+    assert _o([half], half)["flagged"] == 0
+    zero_line = _ds_inv("T4", ["0.00"], svc="200000.00")  # a zero DS-900 line where none is due is no charge
+    assert _o([zero_line], zero_line)["flagged"] == 0
+
+
+def test_g5b05_control_gate5_passes_the_split():
+    old5 = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+    inv = _ds_inv("S2", ["-1000.00", "-1000.00"])
+    e = old5.Engine.__new__(old5.Engine)
+    e.policy, e.inv, e.stands, e.inv_date, e.a3, e.release = old5.Policy(), {"CW": {}, "DDS": {"S2": inv}}, {}, {}, \
+        {"CW": {}, "DDS": {}}, {}
+    assert e.outcome(inv)["flagged"] == 0
+
+
+
+def test_g5b05_ds900_oracle_passes_fixed_and_fails_gate5():
+    import verify_g5 as vg5
+    invs = [_ds_inv("S2", ["-1000.00", "-1000.00"]), _ds_inv("S6", ["2000.00"]), _ds_inv("S1", ["-2000.00"])]
+    U = _unit()
+    e = U._engine(invs)
+    assert vg5.ds900_errors({i.id: e.outcome(i) for i in invs}, e) == []
+    old5 = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+    e2 = old5.Engine.__new__(old5.Engine)
+    e2.policy, e2.inv, e2.stands, e2.inv_date, e2.a3, e2.release = old5.Policy(), {"CW": {}, "DDS": {i.id: i for i in invs}}, \
+        {}, {}, {"CW": {}, "DDS": {}}, {}
+    errs = vg5.ds900_errors({i.id: e2.outcome(i) for i in invs}, e2)
+    assert any("S2: 2 DS-900 charges" in x for x in errs) and any("S6: a positive DS-900" in x for x in errs)
