@@ -340,6 +340,41 @@ def perturb_billing(w):
     return w2
 
 
+def payment_errors(out: dict, eng: Engine) -> list[str]:
+    """G5-B03, from G4's accounts and recipients directly: a claimed adjustment or release that differs from an exact
+    account on its sole recipient, or appears on a document that is no candidate recipient under any reading, is a
+    finding of the outcome (never passed because it is nonzero)."""
+    errs = []
+    rel = eng.release or {}
+    rec = rel.get("recipient")
+    rel_cands = ({rec} if isinstance(rec, str) else set(rec.get("tie") or rec.get("not_established") or [])
+                 if isinstance(rec, dict) else set())
+    for i, o in out.items():
+        inv = eng.inv[o["contract"]].get(i)
+        h = (inv.header if inv else None) or {}
+        fs = {f.split("@")[0] for f in o["findings"]}
+        adj = D(h.get("adjustment")) or Decimal(0)
+        a3 = eng.a3[o["contract"]]
+        cands = {x for q, xs in a3.items() if not q.startswith("_") for x in xs}
+        if adj != 0 and i not in cands and "adjustment_unsupported" not in fs:
+            errs.append(f"{i}: adjustment {adj} on a document no reading makes the recipient, and no finding")
+        reads = [q for q in a3 if not q.startswith("_")]
+        t = a3.get("_total") or {}
+        vals = {(v["min"], v["max"]) for v in (t.get("by_reading") or {}).values()}
+        if reads and all(a3[q] == [i] for q in reads) and len(vals) == 1 and not t.get("lines_not_established"):
+            lo, hi = next(iter(vals))
+            if lo == hi and adj != D(lo) and not fs & {"adjustment_omitted", "adjustment_differs"}:
+                errs.append(f"{i}: adjustment {adj}, the account {lo}, and no finding")
+        if o["contract"] == "CW":
+            r = D(h.get("retention_released")) or Decimal(0)
+            if r != 0 and i not in rel_cands and "release_unsupported" not in fs:
+                errs.append(f"{i}: release {r} on an application that is not the 45A recipient, and no finding")
+            if rec == i and isinstance(rel.get("released"), str) and r != D(rel["released"]) and \
+                    not fs & {"release_omitted", "release_differs"}:
+                errs.append(f"{i}: release {r}, the account {rel['released']}, and no finding")
+    return errs
+
+
 # ============================================================================== Z5
 def z5(result: dict, dispositions: dict, first_commit=git_first_commit, before=strictly_before) -> list[str]:
     errs = []
@@ -574,7 +609,8 @@ def main() -> int:
     checks = [
         ("Z1 one outcome per template invoice; submission.csv in the template format", lambda: z1(serial, ids, headers, fresh["submission.csv"])),
         ("Z2 every invoice has a status for each of the twelve checks over exactly its claim lines", lambda: z2(serial, eng, w)),
-        ("Z3 findings and evidence trail: flag <-> findings, category = root categories", lambda: z3(serial)),
+        ("Z3 findings and evidence trail: flag <-> findings, category = root categories; payment fields reconciled to "
+         "G4's accounts and recipients", lambda: z3(serial) + payment_errors(out, eng)),
         ("Z4 monetary and procedural outcomes distinct; billing never authority for an expected total", lambda: z4(serial, perturbed, facts_changed) + admissible_errors(out, eng) + unformed_branch_errors()),
         ("Z5 independently reviewed invoices agree (or carry a live settlement); inputs before outputs (git)",
          lambda: z5(cmp_, disp) + ([] if json.loads((OUT / "sample_comparison.json").read_text()) ==

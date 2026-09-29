@@ -65,13 +65,33 @@ CATEGORY = {
     "discount": "discount",
     "amount_arithmetic": "arithmetic", "header_arithmetic": "arithmetic",
     "adjustment_omitted": "adjustment", "release_omitted": "adjustment", "retention_arithmetic": "arithmetic",
+    "adjustment_differs": "adjustment", "adjustment_unsupported": "adjustment",
+    "release_differs": "adjustment", "release_unsupported": "adjustment",
 }
 CATEGORY_ORDER = ["identity", "term", "timing", "evidence", "signature", "evidence_mismatch", "unit", "quantity", "duplicate",
                   "eligibility", "limit", "rate", "discount", "arithmetic", "adjustment"]
 INFORMATIONAL = {"band_divided", "footage_band_divided"}      # the contract's own pricing state, not a defect
 PROCEDURAL = {"identity", "term", "timing"}
-PAYMENT_ONLY = {"adjustment_omitted", "release_omitted", "retention_arithmetic"}
-NOT_ESTABLISHED = {"engine_error", "input_unresolved", "no_admissible_result", "quantity_rule_missing"}
+PAYMENT_ONLY = {"adjustment_omitted", "release_omitted", "retention_arithmetic", "adjustment_differs", "adjustment_unsupported",
+                "release_differs", "release_unsupported"}
+NOT_ESTABLISHED = {"engine_error", "input_unresolved", "no_admissible_result", "quantity_rule_missing",
+                   "adjustment_not_established", "release_not_established"}
+
+
+def payment_check(kind: str, billed: Decimal, expected: tuple, recipient: bool) -> list:
+    """G5-B03: a payment field (the A3/31A/36A adjustment, the 45A release) reconciled to the amount G4's account gives
+    this invoice in the scenario - (lo, hi) exact or a range across readings the account leaves open, (None, None) where
+    the account is not established - not to zero versus nonzero. Not the recipient in the scenario: nothing is due."""
+    lo, hi = expected
+    if lo is None:
+        return [(f"{kind}_not_established", None)] if (recipient or billed != 0) else []
+    if lo <= billed <= hi and lo == hi:
+        return []
+    if not recipient:
+        return [(f"{kind}_unsupported", None)]
+    if lo <= billed <= hi:
+        return [(f"{kind}_not_established", None)]
+    return [(f"{kind}_omitted" if billed == 0 else f"{kind}_differs", None)]
 
 
 def half_even(x: Decimal) -> Decimal:
@@ -356,7 +376,8 @@ class Engine:
         return cands
 
     # -------------------------------------------------------------------------------------------- one scenario
-    def evaluate(self, inv: Invoice, readings: dict, recipient: str | None, ev: dict | None = None) -> Scenario:
+    def evaluate(self, inv: Invoice, readings: dict, recipient: str | None, ev: dict | None = None,
+                 release_to: bool = False) -> Scenario:
         """One scenario: the readings, the Q1 recipient and an evidence scenario ev = {'class': a well class or None,
         'nominated': {section group: bool}, 'ground': 'fallback' | 'consistent'} for the facts whose documents are not
         supplied. 'consistent' gives each civil line (its ground is its own fact) a ground class under which it is right,
@@ -447,8 +468,8 @@ class Engine:
                     (D(h.get("retention_released")) or ZERO)
                 if D(h.get("net_payable")) != net:
                     reasons.append(("retention_arithmetic", None))
-            if self.release and self.release.get("recipient") == inv.id and (D(h.get("retention_released")) or ZERO) == 0:
-                reasons.append(("release_omitted", None))
+            reasons += payment_check("release", D(h.get("retention_released")) or ZERO,
+                                     self._release_amount(readings) if release_to else (ZERO, ZERO), release_to)
             total = exp_total
         else:
             billed_total = D(h.get("invoice_total"))
@@ -461,14 +482,23 @@ class Engine:
             ds = -half_even((svc_exp - 250000) * Decimal("0.04")) if svc_exp > 250000 else ZERO
             adj = ZERO
             if recipient and p.q2 == "B":
-                adj = self._a3_difference(inv.contract)
+                lo_, hi_ = self._a3_amount(inv.contract, readings)
+                if lo_ is None or lo_ != hi_:
+                    formed = False           # Q2 B: the adjustment inside the total is not established - never an endpoint
+                    reasons.append(("adjustment_not_established", None))
+                else:
+                    adj = lo_
             net = svc_exp + adj + ds
             total = net + half_even(net * Decimal("0.15"))
-        if recipient:
-            if (D(h.get("adjustment")) or ZERO) == 0:
-                reasons.append(("adjustment_omitted", None))
-            if p.q2 == "B" and inv.contract == "CW":
-                total = total + self._a3_difference(inv.contract)
+        reasons += payment_check("adjustment", D(h.get("adjustment")) or ZERO,
+                                 self._a3_amount(inv.contract, readings) if recipient else (ZERO, ZERO), bool(recipient))
+        if recipient and p.q2 == "B" and inv.contract == "CW":
+            lo_, hi_ = self._a3_amount(inv.contract, readings)
+            if lo_ is None or lo_ != hi_:
+                formed = False
+                reasons.append(("adjustment_not_established", None))
+            else:
+                total = total + lo_
         if billed_total is not None and formed and total != billed_total:
             if not any(CATEGORY.get(r[0]) not in PROCEDURAL | {"adjustment"} for r in reasons):
                 reasons.append(("header_arithmetic", None))
@@ -476,11 +506,40 @@ class Engine:
         return Scenario({**readings, **({"Q1": recipient} if recipient else {})}, wrong, total if formed else None,
                         reasons, formed, vals, bounds)
 
-    def _a3_difference(self, contract: str) -> Decimal:
-        t = self.a3[contract].get("_total") or {}
-        by = t.get("by_reading", {})
-        v = by.get("Q12:A") or by.get("") or next(iter(by.values()), {"min": "0"})
-        return Decimal(v["min"])
+    def _account(self, by: dict, readings: dict) -> tuple:
+        """(lo, hi) of an account {reading label: {min, max}} under the scenario's decided and open readings."""
+        fixed = {**self.policy.decided, **readings}
+        hit = [v for k, v in by.items() if all(fixed.get(d, x) == x for d, x in dims_of(k or None).items())]
+        if not hit:
+            return None, None
+        return min(Decimal(v["min"]) for v in hit), max(Decimal(v["max"]) for v in hit)
+
+    def _a3_amount(self, contract: str, readings: dict) -> tuple:
+        t = self.a3[contract].get("_total")
+        if not t:
+            return ZERO, ZERO
+        if t.get("lines_not_established"):
+            return None, None       # a line's difference is not established: the account is not
+        return self._account(t.get("by_reading", {}), readings)
+
+    def _release_amount(self, readings: dict) -> tuple:
+        r = (self.release or {}).get("released")
+        if r is None:
+            return None, None
+        if isinstance(r, str):
+            return Decimal(r), Decimal(r)
+        return self._account(r.get("by_reading", {}), readings)
+
+    def release_scenarios(self, inv: Invoice) -> list:
+        """G5-B03: whether this application receives the 45A release, per G4's recipient - one application, a same-day
+        tie or a set whose submission dates are not established (each candidate the recipient in one scenario)."""
+        if inv.contract != "CW" or not self.release:
+            return [False]
+        rec = self.release.get("recipient")
+        if rec == inv.id:
+            return [True]
+        cands = rec.get("tie") or rec.get("not_established") if isinstance(rec, dict) else None
+        return [True, False] if cands and inv.id in cands else [False]
 
     def _wrong(self, reasons, total, billed_total, formed) -> bool:
         if self.policy.q9 == "B":
@@ -545,26 +604,31 @@ class Engine:
         names = sorted(od)
         combos = [dict(zip(names, c)) for c in itertools.product(*[od[n] for n in names])] or [{}]
         q1 = self.q1_scenarios(inv)
-        recips = [None] + q1 if p.q1 == "open" else (q1 or [None])
+        # 'not the recipient' is a scenario only where some Q1 reading (or a tie) leaves the adjustment to another document
+        readings_q1 = [q for q in self.a3[inv.contract] if not q.startswith("_") and (p.q1 == "open" or q == f"Q1:{p.q1}")]
+        sole = bool(readings_q1) and all(self.a3[inv.contract][q] == [inv.id] for q in readings_q1)
+        recips = (q1 if sole else [None] + q1) if p.q1 == "open" else (q1 or [None])
         fact_dep = classes != [None] or any("ground" in line_dims(g) for _k, _v, g in inv.lines)
         nomination = bool(self.nomination_groups(inv))
         labels = []
         for c in combos:
             rd = {k: v for k, v in c.items() if k != "class"}
-            for r in recips:
+            for r, rel_to in [(r, x) for r in recips for x in self.release_scenarios(inv)]:
                 cls = c.get("class")
                 evs = self.evidence_scenarios(inv, [cls] if cls is not None else classes)
                 if p.facts == "default":
                     evs = [self.fallback(inv, cls)]
-                cons = [self.evaluate(inv, rd, r, e) for e in evs]
-                fb = self.evaluate(inv, rd, r, self.fallback(inv, cls)) if (fact_dep or nomination) else cons[0]
+                cons = [self.evaluate(inv, rd, r, e, rel_to) for e in evs]
+                fb = self.evaluate(inv, rd, r, self.fallback(inv, cls), rel_to) if (fact_dep or nomination) else cons[0]
                 right = [s for s in cons if not s.wrong]
                 if right:
                     robust = []
                 else:
                     common = set.intersection(*[set(s.reasons) for s in cons])
                     robust = [x for x in fb.reasons if x in common] or [("no_admissible_document", None)]
-                labels.append({"label": {**c, **({"Q1": r} if r else {})}, "wrong": not right, "reasons": robust,
+                multi = len(self.release_scenarios(inv)) > 1
+                labels.append({"label": {**c, **({"Q1": r} if r else {}), **({"R45": "recipient" if rel_to else "not"} if multi else {})},
+                               "wrong": not right, "reasons": robust,
                                "fb": fb, "cons": cons,
                                "formed": fb.formed and all(s.formed for s in cons)})
         wrong_all = all(x["wrong"] for x in labels)
@@ -636,7 +700,8 @@ class Engine:
                                    "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
                                    if (fact_dep or nomination) else "contract value under the working reading"),
                 "findings": sorted({f"{r[0]}@{r[1]}" if r[1] else r[0] for r in evid if r[0] not in NOT_ESTABLISHED}),
-                "not_established": sorted({f"{r[0]}@{r[1]}" if r[1] else r[0] for r in evid if r[0] in NOT_ESTABLISHED}),
+                "not_established": sorted({f"{r[0]}@{r[1]}" if r[1] else r[0] for r in evid + work["fb"].reasons
+                                           if r[0] in NOT_ESTABLISHED}),
                 "totals": sorted(str(t) for t in totals), "formed": formed,
                 "expected_under": work["label"], "line_values": {k: (None if a is None else str(a)) for k, a in pick.line_values.items()}}
 

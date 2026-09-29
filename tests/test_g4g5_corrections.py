@@ -662,3 +662,109 @@ def test_g5b02_z4_unformed_branch_fails_with_gate5(monkeypatch):
     errs = vg5.unformed_branch_errors()
     assert any("moves with the billed amount" in x for x in errs) and any("exports 2117.50" in x for x in errs)
 
+
+
+# ---------------------------------------------------------------------------------------------------------- G5-B03
+def _cw_inv(no, adj="0.00", rel="0.00", total="100.00"):
+    U = _unit()
+    t = D(total)
+    ret = (t * D("0.05")).quantize(D("0.01"), rounding="ROUND_DOWN")
+    head = {"application_total": t, "retention": ret, "adjustment": D(adj), "retention_released": D(rel),
+            "net_payable": t + D(adj) - ret + D(rel)}
+    return U.Invoice("CW", no, head, [U._line("CW", f"{no}-01", "A.11.010", total, total)])
+
+
+def _pay(invs, target, a3=None, release=None):
+    U = _unit()
+    e = U._engine(invs, a3=a3 or {"CW": {}, "DDS": {}})
+    e.release = release or {}
+    return e.outcome(target)
+
+
+A3_CW = {"CW": {"Q1:A": ["R1"], "Q1:B": ["R1"], "_total": {"by_reading": {"": {"min": "60508.18", "max": "60508.18"}},
+                                                           "lines_not_established": 0}}, "DDS": {}}
+
+
+def test_g5b03_adjustment_reconciled_to_the_account_not_to_nonzero():
+    # recipient R1: one cent does not discharge a 60,508.18 adjustment (the audit's PA-00443 perturbation)
+    o = _pay([_cw_inv("R1", adj="0.01")], _cw_inv("R1", adj="0.01"), a3=A3_CW)
+    assert o["flagged"] == 1 and "adjustment_differs" in o["findings"] and o["error_category"] == "adjustment"
+    o = _pay([_cw_inv("R1", adj="60508.18")], _cw_inv("R1", adj="60508.18"), a3=A3_CW)
+    assert o["flagged"] == 0
+    o = _pay([_cw_inv("R1")], _cw_inv("R1"), a3=A3_CW)
+    assert o["flagged"] == 1 and "adjustment_omitted" in o["findings"]
+    # not the recipient: an adjustment of 12,345.67 has no account behind it (the audit's PA-00047 perturbation)
+    o = _pay([_cw_inv("P47", adj="12345.67")], _cw_inv("P47", adj="12345.67"), a3=A3_CW)
+    assert o["flagged"] == 1 and "adjustment_unsupported" in o["findings"]
+
+
+def test_g5b03_zero_account_is_not_an_omission():
+    a3 = {"CW": {"Q1:A": ["R1"], "Q1:B": ["R1"], "_total": {"by_reading": {"": {"min": "0.00", "max": "0.00"}},
+                                                            "lines_not_established": 0}}, "DDS": {}}
+    assert _pay([_cw_inv("R1")], _cw_inv("R1"), a3=a3)["flagged"] == 0
+    rel = {"recipient": "R1", "released": "0.00"}
+    assert _pay([_cw_inv("R1")], _cw_inv("R1"), release=rel)["flagged"] == 0     # correctly zero release account
+
+
+def test_g5b03_release_reconciled_to_amount_recipient_and_tie():
+    rel = {"recipient": "R1", "released": "192.49"}
+    assert _pay([_cw_inv("R1", rel="192.49")], _cw_inv("R1", rel="192.49"), release=rel)["flagged"] == 0
+    o = _pay([_cw_inv("R1", rel="0.01")], _cw_inv("R1", rel="0.01"), release=rel)        # PA-00678-style partial
+    assert o["flagged"] == 1 and "release_differs" in o["findings"]
+    o = _pay([_cw_inv("P47", rel="12345.67")], _cw_inv("P47", rel="12345.67"), release=rel)   # not the recipient
+    assert o["flagged"] == 1 and "release_unsupported" in o["findings"]
+    # CW-H10 tie: PA-9A003 and PA-9A004 submitted the same first day after completion; both show zero release
+    tie = {"recipient": {"tie": ["T3", "T4"]}, "released": "192.49"}
+    for no in ("T3", "T4"):
+        o = _pay([_cw_inv("T3"), _cw_inv("T4")], _cw_inv(no), release=tie)
+        assert o["flagged"] == 1 and o["confidence"] == D("0.50") and "release_omitted" in o["findings"]
+    # a release range (readings disagree on the amount) inside which the billed figure lies is not established
+    rng = {"recipient": "R1", "released": {"by_reading": {"": {"min": "96.15", "max": "192.49"}}}}
+    o = _pay([_cw_inv("R1", rel="150.00")], _cw_inv("R1", rel="150.00"), release=rng)
+    assert o["flagged"] == 0 and "release_not_established" in o["not_established"]
+
+
+def test_g5b03_control_gate5_checks_presence_only():
+    old5 = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+    U = _unit()
+
+    def run(inv, a3=None, release=None):
+        e = old5.Engine.__new__(old5.Engine)
+        e.policy, e.inv, e.stands, e.inv_date = old5.Policy(), {"CW": {inv.id: inv}, "DDS": {}}, {}, {}
+        e.a3, e.release = a3 or {"CW": {}, "DDS": {}}, release or {}
+        return e.outcome(inv)
+    assert run(_cw_inv("R1", adj="0.01"), a3=A3_CW)["flagged"] == 0                     # one cent passes
+    assert run(_cw_inv("P47", adj="12345.67"), a3=A3_CW)["flagged"] == 0                 # unsupported adjustment passes
+    assert run(_cw_inv("T3"), release={"recipient": {"tie": ["T3", "T4"]}, "released": "192.49"})["flagged"] == 0
+
+
+def test_g5b03_drilling_adjustment_path():
+    U = _unit()
+    a3 = {"CW": {}, "DDS": {"Q1:A": ["DR1"], "Q1:B": ["DR1"], "_total": {"by_reading": {"": {"min": "1234.56", "max": "1234.56"}},
+                                                                         "lines_not_established": 0}}}
+    ok = U._dds("DR1", [U._line("DDS", "DR1-001", "DD-101", "1000.00", "1000.00")], header_extra={"adjustment": D("1234.56")})
+    assert _pay([ok], ok, a3=a3)["flagged"] == 0
+    bad = U._dds("DR1", [U._line("DDS", "DR1-001", "DD-101", "1000.00", "1000.00")], header_extra={"adjustment": D("1.00")})
+    o = _pay([bad], bad, a3=a3)
+    assert o["flagged"] == 1 and "adjustment_differs" in o["findings"]
+    other = U._dds("DX", [U._line("DDS", "DX-001", "DD-101", "1000.00", "1000.00")], header_extra={"adjustment": D("5.00")})
+    assert "adjustment_unsupported" in _pay([other], other, a3=a3)["findings"]
+
+
+def test_g5b03_payment_oracle_passes_fixed_and_fails_gate5():
+    import verify_g5 as vg5
+    U = _unit()
+    rel = {"recipient": "R1", "released": "192.49"}
+    invs = [_cw_inv("R1", rel="0.01", adj="0.01"), _cw_inv("P47", adj="12345.67", rel="12345.67")]
+    e = U._engine(invs, a3=A3_CW)
+    e.release = rel
+    out = {i.id: e.outcome(i) for i in invs}
+    assert vg5.payment_errors(out, e) == []
+    old5 = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+    e2 = old5.Engine.__new__(old5.Engine)
+    e2.policy, e2.inv, e2.stands, e2.inv_date, e2.a3, e2.release = old5.Policy(), {"CW": {i.id: i for i in invs}, "DDS": {}}, \
+        {}, {}, A3_CW, rel
+    out2 = {i.id: e2.outcome(i) for i in invs}
+    errs = vg5.payment_errors(out2, e2)
+    assert any("no reading makes the recipient" in x for x in errs) and any("not the 45A recipient" in x for x in errs)
+    assert any("R1: adjustment 0.01, the account 60508.18" in x for x in errs)

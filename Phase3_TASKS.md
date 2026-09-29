@@ -191,7 +191,10 @@ annotation texts handed to the owner). Report: Phase3_G4_G5_corrections.md.
   expected_bounds; export EXPORT-U = the lower bound, named in expected_basis); DS-900/VAT aggregation kept; the
   invoice's own billed services now include unvalued lines in its DS-900 check (defect found). Z4 executes the
   unformed branch on the audit's raw input. Population: no unformed invoice; flags unchanged (CW 85, DDS 125).
-- [ ] G5-B03 Adjustments and releases reconciled to G4's actual amounts, recipients and ties.
+- [x] G5-B03 Adjustments and releases reconciled to G4's actual amounts, recipients and ties (exact / range / not
+  established; omitted, differs, unsupported; release recipient ties and undated candidates as scenarios; 'not the
+  recipient' only where a reading or tie allows it; Q2 B never takes a range endpoint). Z3 payment oracle from G4's
+  accounts. Population: every adjustment/release field is 0.00 - no outcome changes.
 - [x] G5-B04 Local alternatives namespaced by their evidence group (order@item/date, earlier@group, stands@group,
   stands-run@group, alloc@well/date); independent groups combine; PD-210 allocations under Q7 C; Z6 joins legal combinations.
 - [ ] G5-B05 DS-900 checked for single charge, sign, amount, threshold and rounding.
