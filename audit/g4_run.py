@@ -21,6 +21,7 @@ from collections import Counter, defaultdict
 from decimal import Decimal
 
 from . import g4_cw, g4_dds
+from .g4_core import base
 from .common import ROOT
 from .g3_run import run_all
 
@@ -119,7 +120,7 @@ def _lines_with(st, pred) -> list[str]:
 
 
 def _dim_lines(st, dim) -> list[str]:
-    return _lines_with(st, lambda g: any(dim == p.split(":", 1)[0] for k in g.r.alternatives for p in k.split("|")))
+    return _lines_with(st, lambda g: any(dim == base(p.split(":", 1)[0]) for k in g.r.alternatives for p in k.split("|")))
 
 
 def _amount_under(st, dim) -> dict:
@@ -170,12 +171,14 @@ def decision_scopes(st: dict) -> dict:
         "G4-D12_HC630_per_run": {"runs_with_more_than_one_charge": [g for g in dds.groups if g["group"].startswith("DDS-HC630")]},
         "G4-D13_footage": {"lines_repriced": _lines_with(dds, lambda g: any(x.family == "footage" and x.status != "pass"
                                                                                for x in g.state)),
-                           "max_metres_before_any_line": str(max((Decimal(v) for f in dds.footage.values() for v in f.values()),
-                                                                 default=Decimal(0)))},
+                           "max_metres_before_any_line": str(max((Decimal(v[0]) for f in dds.footage.values() for v in f.values()),
+                                                                 default=Decimal(0))),
+                           "segments_with_open_upper_bound": sum(1 for f in dds.footage.values() for v in f.values()
+                                                                 if v[1] is None)},
         "G4-D14_pd210_overlaps": {"groups_with_overlap": [g for g in dds.groups if g.get("overlaps")]},
         "G4-D15_loss_once": {"loss_lines": len(_lines_with(dds, lambda g: any(x.family == "loss_event" for x in g.state))),
                              "repeated": unresolved(dds, "loss_event", "loss_repeated") + finding(dds, "loss_event", "loss_repeated")},
-        "Q7C_stands": {"lines": _dim_lines(dds, "stands")},
+        "Q7C_stands": {"lines": _dim_lines(dds, "stands"), "pd210_allocation_lines": _dim_lines(dds, "alloc")},
     }
 
 

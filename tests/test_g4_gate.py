@@ -167,8 +167,9 @@ def test_y3_fails_when_footage_does_not_restart(cw02, dds06):
     st = _st(dds06)
     well, acc = next((w, a) for w, a in st["DDS"].footage.items() if a)
     k = next(k for k in acc if k.endswith("Q14:A|Q11:A"))
-    acc[k] = str(Decimal(acc[k]) + 7)
-    assert any("the recount gives" in e for e in vg.footage_reset_errors(st["DDS"]))
+    lo, hi = acc[k]
+    acc[k] = [str(Decimal(lo) + 7), hi]
+    assert any("the unique-metre recount gives" in e for e in vg.footage_reset_errors(st["DDS"]))
 
 
 # ---------------------------------------------------------------------------------------------------------- Y4

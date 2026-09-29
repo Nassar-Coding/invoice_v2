@@ -521,7 +521,8 @@
  },
  "G4-D13_footage": {
   "lines_repriced": [],
-  "max_metres_before_any_line": "5156"
+  "max_metres_before_any_line": "5156",
+  "segments_with_open_upper_bound": 0
  },
  "G4-D14_pd210_overlaps": {
   "groups_with_overlap": []
@@ -538,6 +539,7 @@
    "MDS-00580-046",
    "MDS-01654-069",
    "MDS-01654-078"
-  ]
+  ],
+  "pd210_allocation_lines": []
  }
 }

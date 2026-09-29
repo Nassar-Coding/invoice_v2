@@ -22,6 +22,7 @@ DS-900, VAT and invoice totals are G5's.
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 from dataclasses import dataclass, field
 from decimal import Decimal
 
@@ -124,9 +125,8 @@ def run(w, g3res: dict, T=None, a3_rerun: bool = True) -> DdsState:
     for comp in _union(rel):
         _once(comp, w, T, st)
     _hc630_runs(lines, st)
-    _pd210_intervals(lines, T, st)
+    _pd210(w, lines, T, st)
     _daily_limits(lines, T, st)
-    _footage(w, lines, T, st)
     if a3_rerun:
         _a3(w, lines, T, st)
     return st
@@ -313,72 +313,212 @@ def _opts(r) -> dict:
     return {None: {"unit_rate": r.unit_rate, "allowed_quantity": r.allowed_quantity, "amount": r.amount, "trace": r.trace}}
 
 
-def _pd210_intervals(lines, T, st: DdsState) -> None:
-    """Cl.29 allows PD-210 more than once on a day for different depth intervals; the same metres charged twice are not
-    (Cl.23: each part states its depths). Overlapping intervals of one well-day: one charge keeps the metres."""
-    days = {}
+MAX_ALLOC = 256      # joint allocations enumerated per well-day; beyond it the members carry honest bounds (unresolved)
+
+
+def _interval(m: Line):
+    f, t = m.v.get("depth_from_m"), m.v.get("depth_to_m")
+    return (f, t) if f is not None and t is not None and t > f else None
+
+
+def _segments(ms: list) -> list[tuple]:
+    """Elementary segments of the union of the members' intervals: [(a, b, [members covering it])]."""
+    pts = sorted({x for m in ms for x in _interval(m)})
+    out = []
+    for a, b in zip(pts, pts[1:]):
+        cov = [m for m in ms if _interval(m)[0] <= a and b <= _interval(m)[1]]
+        if cov:
+            out.append((a, b, cov))
+    return out
+
+
+def _alloc_label(assign: dict) -> str:
+    """The value of an allocation dimension: each contested segment and the charge that keeps it (no ':' or '|')."""
+    return ";".join(f"{a}-{b}>{ref}" for (a, b), ref in sorted(assign.items())) or "none"
+
+
+def alloc_dim(well: str, date) -> str:
+    """The allocation dimension of one well-day, namespaced by its evidence group (no ':' or '|' in the name)."""
+    return f"alloc@{well}/{date}"
+
+
+def _pd210(w, lines, T, st: DdsState) -> None:
+    """PD-210 state per well (G4-B01, G4-B02 correction round).
+
+    1. Allocation (Cl.23 p6; Cl.29 p7). PD-210 may be charged more than once on a day for DIFFERENT depth intervals; the
+       same metres are charged once. The intervals of one well-day are cut at every boundary into elementary segments;
+       a segment covered by more than one admissible charge is contested and belongs to exactly one of them. Which one
+       is not stated (Q7 C; G5 applies the owner's earlier-invoice rule): every assignment of every contested segment
+       is a scenario - the complete joint domain, including several keepers at once, zero for a charge whose metres
+       are all kept by others, and exact duplicates. Beyond MAX_ALLOC assignments the members carry honest bounds.
+    2. Annual footage (Sch 2 Part 2 p17; 3A p35). The metres already drilled in the Contract Year are counted over
+       UNIQUE metres: under Q11 A the union of the admissible PD-210 intervals (a contested segment once, whoever keeps
+       it), under Q11 B the Part A depths of the reports; Q14 A/B the Contract Year. A charge whose date or metres are
+       not established stays a possible earlier contributor (a range, never omitted); a price that depends on it is
+       unresolved.
+    3. Valuation. A charge's value in a scenario is the sum, over the segments it keeps, of each depth-band piece at the
+       band rate taken at its annual percentage (half to even, Cl.17). A charge that keeps its whole interval at 100%
+       under every reading keeps its G3 value."""
+    wells = {}
     for ln in lines:
-        if ln.code == "PD-210" and ln.well and ln.date:
-            days.setdefault((ln.well, ln.date), []).append(ln)
-    for (well, date), ms in days.items():
-        ms = [m for m in ms if m.g.g3.payable is not False]
-        known = [m for m in ms if m.v.get("depth_from_m") is not None and m.v.get("depth_to_m") is not None]
-        over = [(a, b) for i, a in enumerate(known) for b in known[i + 1:]
-                if max(a.v["depth_from_m"], b.v["depth_from_m"]) < min(a.v["depth_to_m"], b.v["depth_to_m"])]
-        gid = f"DDS-PD210:{well}|{date}"
-        if len(ms) > 1:
-            st.groups.append({"group": gid, "members": [m.ref for m in ms], "overlaps": [[a.ref, b.ref] for a, b in over],
-                              "rule": "Cl.23 (p6); Cl.29 (p7)"})
-        if not over:
-            for m in ms:
-                if len(ms) > 1:
-                    m.g.add("duplicate", "pass", "DDS-R16", "Cl.23 (p6); Cl.29 (p7)",
-                            detail="PD-210 charged more than once on the day for different depth intervals (allowed)", ledger=gid)
-            continue
-        inv = {m.key for pair in over for m in pair}
-        for m in ms:
-            if m.key not in inv:
-                continue
-            others = [o for pair in over for o in pair if m in pair and o is not m]
-            opts = {}
-            for keeper in [m] + others:
-                for k3, a in _opts(m.g.g3).items():
-                    lab = label_of({**dims_of(k3), "stands": keeper.ref})
-                    if keeper is m:
-                        opts[lab] = a
+        if ln.code == "PD-210" and ln.well:
+            wells.setdefault(ln.well, []).append(ln)
+    reports = {}
+    for d in w.ddr.values():
+        a = d.parts.get("A", {})
+        if d.well in wells and d.date and a.get("Depth start (m MD)") is not None and a.get("Depth end (m MD)") is not None:
+            reports.setdefault(d.well, []).append((d.date, Decimal(a["Depth start (m MD)"]), Decimal(a["Depth end (m MD)"])))
+    edge = T.annual_bands[0][0]
+    for well, ms in wells.items():
+        adm = [m for m in ms if m.g.g3.payable is not False]
+        placed = [m for m in adm if m.date and _interval(m)]
+        loose = [m for m in adm if m not in placed]            # date or depths not established: possible contributors
+        days = {}
+        for m in placed:
+            days.setdefault(m.date, []).append(m)
+        # ---------------------------------------------------------------- 1. joint allocation per well-day
+        alloc = {}          # date -> {"segs": [...], "combos": [assign dict] or None (too many), "gid": ...}
+        for date, dms in days.items():
+            segs = _segments(dms)
+            contested = [(a, b, cov) for a, b, cov in segs if len(cov) > 1]
+            gid = f"DDS-PD210:{well}|{date}"
+            n = 1
+            for _a, _b, cov in contested:
+                n *= len(cov)
+            combos = None
+            if contested and n <= MAX_ALLOC:
+                combos = []
+                for choice in itertools.product(*[cov for _a, _b, cov in contested]):
+                    combos.append({(a, b): c.ref for (a, b, _cov), c in zip(contested, choice)})
+            alloc[date] = {"segs": segs, "contested": contested, "combos": combos if contested else [{}], "gid": gid, "n": n}
+            if len(dms) > 1:
+                st.groups.append({"group": gid, "members": [m.ref for m in dms],
+                                  "overlaps": [[f"{a}-{b}", [c.ref for c in cov]] for a, b, cov in contested],
+                                  "union_m": str(sum((b - a for a, b, _c in segs), Decimal(0))),
+                                  "allocations": n if contested else 1, "rule": "Cl.23 (p6); Cl.29 (p7)"})
+        # ---------------------------------------------------------------- 2. annual positions over unique metres
+        # position of each unique segment: (lo, hi) metres already drilled in its Contract Year before it
+        loose_m = []
+        for m in loose:
+            q = m.g.g3.allowed_quantity
+            if q is None and m.date:
+                q = sum((max(Decimal(0), e - s) for dd, s, e in reports.get(well, []) if dd == m.date), Decimal(0)) or None
+            loose_m.append((m, q))
+        pos = {}
+        for q14 in ("A", "B"):
+            for q11 in ("A", "B"):
+                useg = sorted(((date, a, b) for date, al in alloc.items() for a, b, _c in al["segs"]))
+                for date, a, b in useg:
+                    cy = _cy(date, q14, T)
+                    if cy is None:
                         continue
-                    lo, hi = m.v["depth_from_m"], m.v["depth_to_m"]
-                    ko, kh = keeper.v["depth_from_m"], keeper.v["depth_to_m"]
-                    rest = [(lo, min(hi, ko)), (max(lo, kh), hi)]
-                    rest = [(p, q) for p, q in rest if q > p]
-                    if not rest:
-                        opts[lab] = {"unit_rate": None, "allowed_quantity": Decimal(0), "amount": Decimal("0.00"),
-                                     "trace": list(a["trace"]) + [{"op": "note", "label": f"G4: the metres {lo}-{hi} are charged by "
-                                                                   f"{keeper.ref} (Cl.29: not twice)", "source": "Cl.23 (p6); Cl.29 (p7)"}]}
-                    elif m.g.g3.allowed_quantity == hi - lo and not m.g.g3.alternatives:
-                        t = Trace()
-                        t.steps = [s for s in a["trace"] if s["op"] not in ("part", "sum_parts", "amount")]
-                        t.note(f"G4: {keeper.ref} charges {max(lo, ko)}-{min(hi, kh)} m; the rest of this interval is charged here",
-                               "Cl.23 (p6); Cl.29 (p7)")
-                        q = Decimal(0)
-                        for p0, p1 in rest:
-                            for band, pa, pb, rate in g3_dds.pd210_parts(p0, p1, T):
-                                t.part(f"band {band}: {pa}-{pb} m", pb - pa, rate, "Sch 2 (p17); Cl.23 (p6); Cl.17 (p6)", mode="half_even")
-                                q += pb - pa
-                        amt = t.total("amount = sum of depth-band parts", "Cl.23 (p6)")
-                        opts[lab] = {"unit_rate": None, "allowed_quantity": q, "amount": amt, "trace": t.steps}
+                    if q11 == "A":
+                        lo = sum((b2 - a2 for d2, a2, b2 in useg if _cy(d2, q14, T) == cy and (d2, a2) < (date, a)), Decimal(0))
+                        hi = lo
+                        for m, q in loose_m:                    # could be earlier in the same Contract Year
+                            if m.date is None or (_cy(m.date, q14, T) == cy and m.date <= date):
+                                hi = None if q is None or hi is None else hi + q
                     else:
-                        opts[lab] = {"unit_rate": None, "allowed_quantity": None, "amount": None, "trace": [], "unknown": True}
-            if any(v.get("unknown") for v in opts.values()):
-                m.g.r.payable, m.g.r.amount_status, m.g.r.amount, m.g.r.alternatives = None, "unresolved", None, {}
-                m.g.r.conditions = [{"dimension": "state", "owner": "G5", "basis": "overlapping PD-210 intervals: the value of the "
-                                     "metres not charged twice is not established"}]
-            else:
-                apply_options(m.g, opts, {}, "Cl.29")
-                m.g.r.payable = True
-            m.g.add("duplicate", "unresolved", "DDS-R16", "Cl.23 (p6); Cl.29 (p7)", "charged_twice",
-                    f"PD-210 intervals overlap on {date}: the same metres are charged twice; which charge keeps them is not "
-                    "stated (Q7 C) - each carried", gid)
+                        lo = sum((max(Decimal(0), e - s) for dd, s, e in reports.get(well, []) if _cy(dd, q14, T) == cy and dd < date),
+                                 Decimal(0))
+                        lo += sum((max(Decimal(0), min(e, a) - s) for dd, s, e in reports.get(well, []) if dd == date), Decimal(0))
+                        hi = lo
+                    pos[(date, a, b, q14, q11)] = (lo, hi)
+        st.footage[well] = {f"{date}|{a}-{b}|Q14:{q14}|Q11:{q11}": [str(lo), None if hi is None else str(hi)]
+                            for (date, a, b, q14, q11), (lo, hi) in pos.items()}
+        # ---------------------------------------------------------------- 3. valuation per charge
+        for m in placed:
+            al = alloc[m.date]
+            f0, t0 = _interval(m)
+            mine = [(a, b) for a, b, cov in al["segs"] if m in cov]
+            contested_mine = any(m in cov for _a, _b, cov in al["contested"])
+            all_100 = all(r is not None and r[1] is not None and r[1] + (b - a) <= edge
+                          for (a, b) in mine for q14 in ("A", "B") for q11 in ("A", "B")
+                          for r in [pos.get((m.date, a, b, q14, q11))]) or _cy(m.date, "A", T) is None
+            if not contested_mine and all_100:
+                if len(al["segs"]) > 1 or len(days[m.date]) > 1:
+                    m.g.add("duplicate", "pass", "DDS-R16", "Cl.23 (p6); Cl.29 (p7)",
+                            detail="PD-210 charged more than once on the day for different depth intervals (allowed)", ledger=al["gid"])
+                m.g.add("footage", "pass", "DDS-R12", "Sch 2 Part 2 (p17); 3A (p35)",
+                        detail="100% under every reading (Q11, Q14), unique metres counted once")
+                continue
+            g = m.g
+            exact = not g.g3.alternatives and g.g3.allowed_quantity == t0 - f0
+            if not exact or al["combos"] is None:
+                _pd210_unresolved(m, "the charge's metres are not its full stated interval (25A tolerance or alternatives)" if not exact
+                                  else f"{al['n']} joint allocations of the contested metres exceed {MAX_ALLOC}: bounds only", al)
+                continue
+            opts, divided, unknown = {}, set(), False
+            for combo in al["combos"]:
+                kept = [(a, b) for a, b in mine if combo.get((a, b), m.ref) == m.ref]
+                for q14 in ("A", "B"):
+                    for q11 in ("A", "B"):
+                        t = Trace()
+                        t.steps = [x for x in g.g3.trace if x["op"] not in ("part", "sum_parts", "amount")]
+                        if al["contested"]:
+                            t.note(f"G4 allocation {_alloc_label(combo)}: this charge keeps "
+                                   f"{', '.join(f'{a}-{b}' for a, b in kept) or 'no metres'} (Cl.23, Cl.29: each metre charged once)",
+                                   "Cl.23 (p6); Cl.29 (p7)")
+                        qty = Decimal(0)
+                        for a, b in kept:
+                            r = pos.get((m.date, a, b, q14, q11))
+                            if r is None:                   # outside the term: G3 decides payability
+                                r = (Decimal(0), Decimal(0))
+                            lo, hi = r
+                            if hi is None or _pct_set(lo, b - a, T) != _pct_set(hi, b - a, T):
+                                unknown = True
+                                continue
+                            t.note(f"G4 annual footage: {lo} m already drilled on {m.well} in the Contract Year before {a} m "
+                                   f"(Q14:{q14}, Q11:{q11}; unique metres)", "Sch 2 Part 2 (p17); 3A (p35)")
+                            p = lo
+                            for band, pa, pb, rate in g3_dds.pd210_parts(a, b, T):
+                                for q, pct in _annual_segments(p, pb - pa, T):
+                                    rr = half_even(rate * pct / 100)
+                                    t.part(f"band {band}: {q} m of {pa}-{pb} m at {pct}% of {rate} = {rr}", q, rr,
+                                           "Sch 2 (p17); Sch 2 Part 2 (p17); Cl.17 (p6): half to even", mode="half_even")
+                                    if pct != 100:
+                                        divided.add((id(combo), q14, q11))
+                                p += pb - pa
+                            qty += b - a
+                        amt = t.total("amount = sum of depth and footage parts", "Cl.23 (p6); Sch 2 Part 2 (p17)") if qty else Decimal("0.00")
+                        lab = {"Q14": q14, "Q11": q11}
+                        if al["contested"]:
+                            lab[alloc_dim(well, m.date)] = _alloc_label(combo)
+                        opts[label_of(lab)] = {"unit_rate": None, "allowed_quantity": qty, "amount": amt, "trace": t.steps}
+            if unknown:
+                _pd210_unresolved(m, "an earlier charge's date or metres are not established and the annual percentage depends "
+                                     "on them", al)
+                continue
+            apply_options(g, opts, {"Q11": ("G5", "Sch 2 Part 2 (p17) 'metres already drilled on the well': the PD-210 metres "
+                                                  "charged (A) or every metre drilled (B); spec/open_questions.yaml Q11"),
+                                    alloc_dim(well, m.date): ("G5", "Cl.23 (p6), Cl.29 (p7): the same metres are charged once; which "
+                                                                 "charge keeps each contested segment is not stated (Q7 C)")},
+                          "PD-210 state")
+            g.r.payable = True
+            if al["contested"]:
+                g.add("duplicate", "unresolved", "DDS-R16", "Cl.23 (p6); Cl.29 (p7)", "charged_twice",
+                      f"PD-210 intervals overlap on {m.date}: contested metres are charged once; {al['n']} allocations carried",
+                      al["gid"])
+            n_readings = 4 * max(1, len(al["combos"]))
+            status = "pass" if not divided else "finding" if len(divided) == n_readings else "unresolved"
+            g.add("footage", status, "DDS-R12", "Sch 2 Part 2 (p17); 3A (p35)", "footage_band_divided" if divided else None,
+                  f"annual footage over unique metres ({n_readings} scenarios)")
+        for m in loose:
+            m.g.add("footage", "n/a", "DDS-R12", "Sch 2 Part 2 (p17)",
+                    detail="the charge's date or depths are not established: carried as a possible earlier contributor (range)")
+
+
+def _pct_set(start: Decimal, qty: Decimal, T) -> tuple:
+    return tuple(pct for _q, pct in _annual_segments(start, qty, T))
+
+
+def _pd210_unresolved(m: Line, why: str, al: dict) -> None:
+    g = m.g
+    g.r.payable, g.r.amount_status, g.r.amount, g.r.alternatives = None, "unresolved", None, {}
+    g.r.conditions = [c for c in g.r.conditions if c["dimension"] == "nomination"] + [
+        {"dimension": "state", "owner": "G5", "basis": f"PD-210 state not established: {why}"}]
+    g.add("footage", "unresolved", "DDS-R12", "Cl.23 (p6); Cl.29 (p7); Sch 2 Part 2 (p17)", "charged_twice"
+          if al["contested"] else "footage_band_divided", why, al["gid"])
 
 
 def _daily_limits(lines, T, st: DdsState) -> None:
@@ -429,52 +569,6 @@ def _cy(date, q14, T):
     return "CY1" if date < T.commencement.replace(year=T.commencement.year + 1) else "CY2"
 
 
-def _footage(w, lines, T, st: DdsState) -> None:
-    """Schedule 2 Part 2: metres already drilled on the well in the Contract Year before each PD-210 interval, under Q11
-    (A: the PD-210 metres charged; B: every metre drilled on the well, Part A depths) and Q14 (A: new Contract Year on
-    1 January 2026; B: none). A reading under which any metre lies above 40,000 re-prices the line."""
-    wells = {}
-    for ln in lines:
-        if ln.code == "PD-210" and ln.well:
-            wells.setdefault(ln.well, []).append(ln)
-    days = {}
-    for d in w.ddr.values():
-        a = d.parts.get("A", {})
-        if d.well in wells and d.date and a.get("Depth start (m MD)") is not None and a.get("Depth end (m MD)") is not None:
-            days.setdefault(d.well, []).append((d.date, Decimal(a["Depth start (m MD)"]), Decimal(a["Depth end (m MD)"])))
-    for well, ms in wells.items():
-        ms.sort(key=lambda m: (m.date or dt.date.max, m.v.get("depth_from_m") or Decimal(0), m.idx))
-        before = {}
-        for q14 in ("A", "B"):
-            for q11 in ("A", "B"):
-                for m in ms:
-                    cy = _cy(m.date, q14, T)
-                    f0 = m.v.get("depth_from_m")
-                    if cy is None or f0 is None:
-                        continue
-                    if q11 == "A":
-                        prior = sum(((o.g.g3.allowed_quantity or Decimal(0)) for o in ms if o is not m and o.g.g3.payable
-                                     and _cy(o.date, q14, T) == cy and (o.date, o.v.get("depth_from_m") or 0) < (m.date, f0)),
-                                    Decimal(0))
-                    else:
-                        prior = sum((max(Decimal(0), e - s) for dd, s, e in days.get(well, []) if _cy(dd, q14, T) == cy and dd < m.date),
-                                    Decimal(0))
-                        prior += sum((max(Decimal(0), min(e, f0) - s) for dd, s, e in days.get(well, []) if dd == m.date), Decimal(0))
-                    before[(m.key, q14, q11)] = prior
-        edge = T.annual_bands[0][0]
-        st.footage[well] = {f"{st_ref(st, k)}|Q14:{a}|Q11:{b}": str(v) for (k, a, b), v in before.items()}
-        for m in ms:
-            vals = {k: v for k, v in before.items() if k[0] == m.key}
-            if not vals or m.g.r.payable is False:
-                continue
-            qty = m.g.g3.allowed_quantity or Decimal(0)
-            if all(v + qty <= edge for v in vals.values()):
-                m.g.add("footage", "pass", "DDS-R12", "Sch 2 Part 2 (p17); 3A (p35)",
-                        detail=f"at most {max(vals.values()) + qty} m in the Contract Year under every reading (Q11, Q14): 100%")
-                continue
-            _footage_reprice(m, vals, T)
-
-
 def _annual_segments(start: Decimal, qty: Decimal, T):
     out, a = [], Decimal(0)
     for top, pct in T.annual_bands:
@@ -484,44 +578,6 @@ def _annual_segments(start: Decimal, qty: Decimal, T):
             out.append((q, pct))
         a = hi
     return out
-
-
-def _footage_reprice(m: Line, vals: dict, T) -> None:
-    """Price the interval's metres by depth band (Sch 2) and by the metres already drilled in the Contract Year (Part 2):
-    each piece at the depth rate taken at its percentage, rounded half to even, and the amount in cents (Cl.17)."""
-    g = m.g
-    f0, t0 = m.v.get("depth_from_m"), m.v.get("depth_to_m")
-    if g.g3.alternatives or f0 is None or t0 is None or g.g3.allowed_quantity != t0 - f0:
-        g.r.payable, g.r.amount_status, g.r.amount, g.r.alternatives = None, "unresolved", None, {}
-        g.r.conditions = [{"dimension": "state", "owner": "G5", "basis": "annual footage above 40,000 m on a charge whose metres are "
-                           "not placed by its depths: the percentage of each metre is not established"}]
-        g.add("footage", "unresolved", "DDS-R12", "Sch 2 Part 2 (p17)", "footage_band_divided", "not established")
-        return
-    opts, divided = {}, set()
-    for (key, q14, q11), prior in vals.items():
-        t = Trace()
-        t.steps = [s for s in g.g3.trace if s["op"] not in ("part", "sum_parts", "amount")]
-        t.note(f"G4 annual footage: {prior} m already drilled on {m.well} in the Contract Year (Q14:{q14}, Q11:{q11})",
-               "Sch 2 Part 2 (p17); 3A (p35)")
-        pos = prior
-        for band, pa, pb, rate in g3_dds.pd210_parts(f0, t0, T):
-            for q, pct in _annual_segments(pos, pb - pa, T):
-                r = half_even(rate * pct / 100)
-                t.part(f"band {band}: {q} m of {pa}-{pb} m at {pct}% of {rate} = {r}", q, r,
-                       "Sch 2 (p17); Sch 2 Part 2 (p17); Cl.17 (p6): half to even", mode="half_even")
-                if pct != 100:
-                    divided.add((q14, q11))
-            pos += pb - pa
-        amt = t.total("amount = sum of depth and footage parts", "Cl.23 (p6); Sch 2 Part 2 (p17)")
-        opts[label_of({"Q14": q14, "Q11": q11})] = {"unit_rate": None, "allowed_quantity": g.g3.allowed_quantity, "amount": amt,
-                                                    "trace": t.steps}
-    apply_options(g, opts, {"Q11": ("G5", "Sch 2 Part 2 (p17) 'metres already drilled on the well': the PD-210 metres "
-                                          "charged (A) or every metre drilled (B); spec/open_questions.yaml Q11")}, "footage")
-    g.r.payable = True
-    status = "pass" if not divided else "finding" if len(divided) == len(vals) else "unresolved"
-    g.add("footage", status, "DDS-R12", "Sch 2 Part 2 (p17); 3A (p35)", "footage_band_divided" if divided else None,
-          "metres above 40,000 in the Contract Year priced at the Part 2 percentage" +
-          ("" if status != "unresolved" else " under some readings only (Q11, Q14)"))
 
 
 def _a3(w, lines, T, st: DdsState) -> None:

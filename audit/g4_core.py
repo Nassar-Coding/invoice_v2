@@ -17,7 +17,14 @@ from decimal import ROUND_HALF_EVEN, Decimal
 from .g3_core import LineResult
 
 CENT = Decimal("0.01")
-READING_DIMS = {"Q4", "Q5-DD120", "Q5-RM530", "Q5-HC630", "Q11", "Q12", "Q14", "Q6", "Q6-day0", "order", "stands", "earlier"}
+READING_DIMS = {"Q4", "Q5-DD120", "Q5-RM530", "Q5-HC630", "Q11", "Q12", "Q14", "Q6", "Q6-day0", "order", "stands", "earlier",
+                "stands-run", "alloc"}
+
+
+def base(dim: str) -> str:
+    """The kind of a dimension: a local choice is namespaced by the evidence group it governs ('order@<ledger>/<date>',
+    'stands@<group>', 'alloc@<well>/<date>'); its kind is the part before '@'."""
+    return dim.split("@", 1)[0]
 OWNER = {   # who decides a dimension G4 leaves open (the value is carried under each alternative)
     "Q12": ("G5", "3A (p32): whether the civil count restarts on 5 January 2026 (anniversary) or runs on through the "
                   "extension (no new Contract Year); spec/open_questions.yaml Q12, kept open at G4"),
@@ -33,6 +40,8 @@ OWNER = {   # who decides a dimension G4 leaves open (the value is carried under
                     "'application number and then line number' is one alternative (a convention), every other order another"),
     "stands": ("G5", "DDS Cl.26, 27, 29, 31 (p7): the service is charged once, but no clause says which of two admissible "
                      "charges is the one that stands (CW Cl.44's later-copy rule is not imported: Q7 C)"),
+    "alloc": ("G5", "DDS Cl.23 (p6), Cl.29 (p7): PD-210 metres are charged once; which charge keeps each contested segment of "
+                    "a well-day is not stated (Q7 C) - every joint allocation carried"),
     "earlier": ("G5", "CW Cl.44 (p8): 'the later measurement shall be disallowed', but these applications were submitted on the "
                       "same day: which measurement is the later is not established (no contractual tie-breaker)"),
 }
@@ -160,11 +169,11 @@ def apply_options(g: G4Line, options: dict, basis: dict, reason: str) -> None:
         r.conditions = [c for c in r.conditions if c["dimension"] in kept | {"nomination"}]
         for d in sorted(kept):
             if d not in {c["dimension"] for c in r.conditions}:
-                owner, why = basis.get(d) or OWNER.get(d) or old_conditions.get(d, {}).get("owner", "G5"), None
+                owner, why = basis.get(d) or OWNER.get(base(d)) or old_conditions.get(d, {}).get("owner", "G5"), None
                 if isinstance(owner, tuple):
                     owner, why = owner
                 r.conditions.append({"dimension": d, "owner": owner, "basis": why or basis.get(d + ":basis") or reason})
-        r.amount_status = "alternatives" if kept & READING_DIMS else "conditional"
+        r.amount_status = "alternatives" if {base(k) for k in kept} & READING_DIMS else "conditional"
     if any(c["dimension"] == "nomination" for c in r.conditions) and r.amount_status == "determined":
         r.amount_status = "conditional"
 

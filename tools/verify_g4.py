@@ -14,7 +14,9 @@ allocation and replay tests pass; no duplicate event or adjustment is counted tw
      CY2); every entry's count before it is the sum of the counts before it in the ledger; every drilling footage
      accumulator starts at zero per well and Contract Year (Q14 A: 1 January 2026) and adds each charged interval once.
   Y4 allocation: every duplicate / once-only group leaves exactly one charge standing under every alternative, never a
-     charge off its contractual day; a daily limit binds the quantity that stands; the A3 difference of every protected
+     charge off its contractual day; every PD-210 well-day carries the complete joint allocation domain over its interval
+     coverage (one scenario per assignment of each contested segment to one covering charge) and under every scenario
+     the kept metres sum to the union of the day's intervals, each charge within its own interval (G4-B02); a daily limit binds the quantity that stands; the A3 difference of every protected
      line is posted on exactly one document per reading (a same-day tie stays open, never posted twice); the 45A
      release is posted once.
   Y5 replay: a second run gives identical results (determinism); a correction to an early measurement (the first line
@@ -218,31 +220,119 @@ def y3(cw, dds, T=None) -> list[str]:
     return errs
 
 
+def _pd210_raw(dds) -> dict:
+    """{well: [(date, from, to, ref)]} of the admissible PD-210 charges with a date and depths, from the claims."""
+    out = defaultdict(list)
+    for g in dds.lines.values():
+        c = _claim(g)
+        if g.g3.code != "PD-210" or g.g3.payable is False:
+            continue
+        f, t, d = D(c.get("depth_from_m")), D(c.get("depth_to_m")), c.get("service_date")
+        if d and f is not None and t is not None and t > f:
+            out[c.get("well_name")].append((d, f, t, g.g3.line_ref))
+    return out
+
+
+def _union(intervals) -> list[tuple]:
+    """Merge [(from, to)] into disjoint covering intervals (independent of the engine's segmentation)."""
+    out = []
+    for f, t in sorted(intervals):
+        if out and f <= out[-1][1]:
+            out[-1] = (out[-1][0], max(out[-1][1], t))
+        else:
+            out.append((f, t))
+    return out
+
+
 def footage_reset_errors(dds) -> list[str]:
-    """Independent recount of the Q11 A accumulator: before each PD-210 line of a well = the payable PD-210 metres of the
-    same well charged earlier (service date, then start depth) in the same Contract Year (Q14 A restarts on the first
-    anniversary of the Commencement Date, Q14 B never) - so it restarts at zero and counts each interval once."""
+    """Independent recount of the Q11 A accumulator over UNIQUE metres (G4-B01): per well and Contract Year, the metres
+    already drilled before each unique segment = the length of the union of the admissible PD-210 intervals of earlier
+    days plus the union below the segment on its own day. The engine's segments of a day must partition that day's union
+    exactly (a metre counted once, however many charges state it), and every position must equal the recount."""
     errs = []
     T = dds_terms()
-    lines = {g.g3.line_ref: g for g in dds.lines.values()}
+    raw = _pd210_raw(dds)
     for well, acc in dds.footage.items():
-        for q14 in ("A", "B"):
-            items = []
-            for k, v in acc.items():
-                ref, a, b = k.split("|")
-                if a == f"Q14:{q14}" and b == "Q11:A":
-                    c = _claim(lines[ref])
-                    items.append((c.get("service_date"), D(c.get("depth_from_m")), ref, D(v)))
-            items.sort(key=lambda x: (x[0], x[1]))
-            run = defaultdict(lambda: ZERO)
-            for date, _d0, ref, before in items:
-                cy = g4_dds._cy(date, q14, T)
-                if before != run[cy]:
-                    errs.append(f"footage {well} Q14:{q14} {cy}: {ref} starts at {before}, the recount gives {run[cy]}")
-                    break
+        by_day = defaultdict(list)
+        for d, f, t, _r in raw.get(well, []):
+            by_day[d].append((f, t))
+        segs = defaultdict(list)
+        for k, v in acc.items():
+            date, ab, q14, q11 = k.split("|")
+            a, b = (D(x) for x in ab.split("-"))
+            segs[(date, q14, q11)].append((a, b, D(v[0]), None if v[1] is None else D(v[1])))
+        for d, ivs in by_day.items():
+            union_len = sum((t - f for f, t in _union(ivs)), ZERO)
+            for q14 in ("Q14:A", "Q14:B"):
+                got = segs.get((str(d), q14, "Q11:A"), [])
+                if g4_dds._cy(d, q14[-1], T) is None:
+                    continue
+                if sum((b - a for a, b, _lo, _hi in got), ZERO) != union_len:
+                    errs.append(f"footage {well} {d} {q14}: segments sum to {sum((b - a for a, b, _l, _h in got), ZERO)} m, "
+                                f"the day's unique metres are {union_len} m")
+                for a, b, lo, _hi in got:
+                    cy = g4_dds._cy(d, q14[-1], T)
+                    expect = sum((sum((t - f for f, t in _union(v2)), ZERO) for d2, v2 in by_day.items()
+                                  if d2 < d and g4_dds._cy(d2, q14[-1], T) == cy), ZERO)
+                    expect += sum((min(t, a) - f for f, t in _union(ivs) if f < a), ZERO)
+                    if lo != expect:
+                        errs.append(f"footage {well} {d} {a}-{b} {q14}: starts at {lo}, the unique-metre recount gives {expect}")
+                        break
+    return errs
+
+
+def pd210_coverage_errors(dds) -> list[str]:
+    """G4-B02 oracle: for every PD-210 well-day whose intervals overlap, every allocation the engine carries charges the
+    day's unique metres exactly once (sum of kept metres = union length, each charge at most its interval), and the
+    number of allocations equals the independent count of ways to give every contested elementary segment to one of the
+    charges covering it."""
+    errs = []
+    lines = {g.g3.line_ref: g for g in dds.lines.values()}
+    raw = _pd210_raw(dds)
+    for well, items in raw.items():
+        days = defaultdict(list)
+        for d, f, t, ref in items:
+            days[d].append((f, t, ref))
+        for d, ivs in days.items():
+            pts = sorted({x for f, t, _r in ivs for x in (f, t)})
+            expect_n, contested = 1, False
+            for a, b in zip(pts, pts[1:]):
+                k = sum(1 for f, t, _r in ivs if f <= a and b <= t)
+                if k > 1:
+                    contested = True
+                    expect_n *= k
+            if not contested:
+                continue
+            union_len = sum((t - f for f, t in _union([(f, t) for f, t, _r in ivs])), ZERO)
+            dim = g4_dds.alloc_dim(well, d)
+            kept = defaultdict(lambda: defaultdict(set))
+            unresolved = False
+            for f, t, ref in ivs:
                 g = lines[ref]
-                if g.g3.payable:
-                    run[cy] += g.g3.allowed_quantity or ZERO
+                if g.r.payable is None:
+                    unresolved = True
+                    continue
+                for k, v in g.r.alternatives.items():
+                    dd = dims_of(k)
+                    if dim in dd:
+                        kept[dd[dim]][ref].add(D(v.get("allowed_quantity")))
+            if unresolved and not kept:
+                continue                      # honest bounds (unresolved), not a finite domain presented as complete
+            if len(kept) != expect_n:
+                errs.append(f"PD-210 {well} {d}: {len(kept)} allocations carried, the joint domain has {expect_n}")
+            for val, per in kept.items():
+                tot = ZERO
+                for f, t, ref in ivs:
+                    qs = per.get(ref)
+                    if not qs or len(qs) != 1:
+                        errs.append(f"PD-210 {well} {d} [{val}]: {ref} has no single kept quantity")
+                        continue
+                    q = next(iter(qs))
+                    if q > t - f:
+                        errs.append(f"PD-210 {well} {d} [{val}]: {ref} keeps {q} m of a {t - f} m interval")
+                    tot += q
+                if tot != union_len:
+                    errs.append(f"PD-210 {well} {d} [{val}]: {tot} m charged for {union_len} unique metres")
     return errs
 
 
@@ -255,14 +345,15 @@ def y4(cw, dds) -> list[str]:
     lines_dds = {g.g3.line_ref: g for g in dds.lines.values()}
     for grp in dds.groups:
         ms = [lines_dds[m] for m in grp["members"] if m in lines_dds]
-        if grp["group"].startswith("DDS-PD210") and not grp.get("overlaps"):
-            continue
+        if grp["group"].startswith("DDS-PD210"):
+            continue                          # metre coverage, not one charge per group (pd210_coverage_errors)
         for ref in (grp.get("not_on_day") or {}):
             if lines_dds[ref].r.payable is not False:
                 errs.append(f"{grp['group']}: {ref} is charged off its contractual day and still stands")
         dim = "stands-run" if any("stands-run" in dims_of(k) for g in ms for k in g.r.alternatives) else "stands"
         errs += _one_stands([g for g in ms if g.g3.line_ref in grp.get("candidates", grp["members"])], grp["group"], dim,
                             reading=("Q5-HC630", "per BHA run (Sch 8)") if grp["group"].startswith("DDS-HC630") else None)
+    errs += pd210_coverage_errors(dds)
     errs += limit_errors(cw, dds)
     errs += a3_posting_errors(cw) + a3_posting_errors(dds)
     rel = cw.retention.get("release")
@@ -459,14 +550,17 @@ def y6(cw, dds, without_a3: dict | None = None) -> list[str]:
         g = next((g for g in cw.lines.values() if g.g3.line_ref == x["line"]), None)
         if g is not None and g.r.payable is False:
             errs.append(f"P23: {x['line']} deducted from {x.get('next_valuation')} and also excluded from its own valuation")
-    # DDS: each PD-210 line once per footage accumulator
+    # DDS: every metre once in the footage accumulator - no two segments of a well-day overlap (G4-B01)
     for well, acc in dds.footage.items():
-        refs = defaultdict(int)
+        seen = defaultdict(list)
         for k in acc:
-            ref, q14, q11 = k.split("|")
-            refs[(ref, q14, q11)] += 1
-        if any(n > 1 for n in refs.values()):
-            errs.append(f"footage {well}: a line counted twice")
+            date, ab, q14, q11 = k.split("|")
+            a, b = (D(x) for x in ab.split("-"))
+            seen[(date, q14, q11)].append((a, b))
+        for key, segs in seen.items():
+            segs.sort()
+            if any(b1 > a2 for (_a1, b1), (a2, _b2) in zip(segs, segs[1:])):
+                errs.append(f"footage {well} {key}: a metre counted twice")
     return errs
 
 
@@ -593,7 +687,7 @@ def main() -> int:
          lambda: y2(w, res, st)),
         ("Y3 resets: every band ledger and footage accumulator starts at zero in its Contract Year and sums without gaps",
          lambda: y3(st["CW"], st["DDS"])),
-        ("Y4 allocation: one charge stands per group under every alternative; limits bind; A3 and 45A posted on one document",
+        ("Y4 allocation: one charge stands per group under every alternative; PD-210 metres allocated once over the complete joint domain; limits bind; A3 and 45A posted on one document",
          lambda: y4(st["CW"], st["DDS"])),
         ("Y5 replay: deterministic rerun; a corrected early measurement replays every later ledger entry and nothing else",
          lambda: y5(w, res, st)),

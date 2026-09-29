@@ -162,3 +162,27 @@ artifact; no G6/G7; no tag moves.
 - [x] G5.4 tools/verify_g5.py exit checks, each with a negative control; falsification; regression vs gate4.
 - [x] G5.5 Phase3_G5.md; all G0-G5 checks in a fresh clone; gate5 SHA and annotation.
   - Done: 2,806 outcomes (CW 88 / 900 flagged, DDS 125 / 1,906); 25 sampled invoices, 8 isolated readers, 48/50 agree, 2 settled; verify_g5 Z1-Z9 PASS; 20 negative controls, 10 falsification invoices; fixes: bill-dependent expected total on reading-disagreement invoices (Z4), check 6 coverage, Q9-4, category attribution, Q7 C same-day tie, g5_decisions YAML. Report: Phase3_G5.md.
+
+## G4/G5 correction round — audit Phase3_G4_G5_audit_Agent2.md (G4 NOT PASS at gate4 9fa5514; G5 NOT PASS at gate5 13eb768; ten frozen blockers)
+Order: the G4 blockers first, then G5 regenerated from the corrected G4 before any G5 fix (G5 results on old G4 state are
+not evidence). Q12 and the 9.8% civil rate were upheld and are left as they are. Every blocker is fixed as a class, its
+demonstrated variants rerun through the production pipeline, and a negative control shows the tagged gate4/gate5 code
+failing the corrected oracle (tests/test_g4g5_corrections.py). Boundary: no G6/G7; no tag moves (gate4-r1/gate5-r1 SHAs and
+annotation texts handed to the owner). Report: Phase3_G4_G5_corrections.md.
+- [x] G4-B01 Annual PD-210 footage counts each metre once under every carried reading; repricing keeps the preceding
+  allocation (one PD-210 model: elementary segments per well-day, positions over unique metres, allocation kept).
+- [x] G4-B02 PD-210 overlap allocation is the complete joint domain over interval coverage (each contested segment to
+  exactly one covering charge; every combination a scenario, alloc@well/date; honest unresolved bounds above 256); the
+  verify_g4 oracle checks metres (coverage = union, each charge within its interval, allocations = product of cover counts).
+- [ ] G4-B03 Unknown chronology stays a possible contributor/candidate: civil bands, duplicates, A3 and 45A recipients
+  and release, DDS once-only and A3 recipients, G5 Q7 C standing (no omission, no sentinel dates).
+- [ ] G4-B04 Deferred rate and arithmetic checks completed against each established band state (per scenario); a
+  correct amount never makes a wrong rate pass; split bands and genuine alternatives preserved.
+- [ ] G5 regenerated from corrected G4; flag counts per contract before/after with each change explained.
+- [ ] G5-B01 Claim-stated class, ground and nomination never select the contract value; named unresolved-output policy.
+- [ ] G5-B02 No billed or zero substitution for unvalued lines; unknown/bounded totals explicit; DS-900/VAT aggregation kept.
+- [ ] G5-B03 Adjustments and releases reconciled to G4's actual amounts, recipients and ties.
+- [ ] G5-B04 Local alternatives namespaced by their evidence group; independent groups combine.
+- [ ] G5-B05 DS-900 checked for single charge, sign, amount, threshold and rounding.
+- [ ] G5-B06 Findings attributed to the violated obligation; no fabricated rate category; Z4 separates monetary and procedural.
+- [ ] Population and submission regenerated; all G0-G5 checks and tests in a fresh clone; report; SHAs and tag texts.

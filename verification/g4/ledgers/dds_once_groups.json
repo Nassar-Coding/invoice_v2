@@ -21307,48 +21307,14 @@
   "not_on_day": {}
  },
  {
-  "group": "DDS-PD210:NGP-WS-106|2025-01-20",
-  "members": [
-   "MDS-00037-063",
-   "MDS-00037-064"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-BD-194|2025-01-18",
-  "members": [
-   "MDS-00042-011",
-   "MDS-00042-012"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
   "group": "DDS-PD210:NGP-WS-141|2025-01-18",
   "members": [
    "MDS-00043-011",
    "MDS-00043-012"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-HA-052|2025-01-25",
-  "members": [
-   "MDS-00047-074",
-   "MDS-00047-075"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-070|2025-01-21",
-  "members": [
-   "MDS-00049-011",
-   "MDS-00049-012"
-  ],
-  "overlaps": [],
+  "union_m": "188",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21358,33 +21324,30 @@
    "MDS-00066-087"
   ],
   "overlaps": [],
+  "union_m": "151",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-QA-070|2025-02-01",
+  "group": "DDS-PD210:NGP-BD-194|2025-01-18",
   "members": [
-   "MDS-00075-057",
-   "MDS-00075-058"
+   "MDS-00042-011",
+   "MDS-00042-012"
   ],
   "overlaps": [],
+  "union_m": "124",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-QA-001|2025-01-30",
+  "group": "DDS-PD210:NGP-WS-106|2025-01-20",
   "members": [
-   "MDS-00077-011",
-   "MDS-00077-012"
+   "MDS-00037-063",
+   "MDS-00037-064"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-HA-052|2025-02-08",
-  "members": [
-   "MDS-00087-085",
-   "MDS-00087-086"
-  ],
-  "overlaps": [],
+  "union_m": "178",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21394,15 +21357,63 @@
    "MDS-00094-015"
   ],
   "overlaps": [],
+  "union_m": "112",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-HA-142|2025-02-24",
+  "group": "DDS-PD210:NGP-QA-070|2025-01-21",
   "members": [
-   "MDS-00133-068",
-   "MDS-00133-069"
+   "MDS-00049-011",
+   "MDS-00049-012"
   ],
   "overlaps": [],
+  "union_m": "190",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-070|2025-02-01",
+  "members": [
+   "MDS-00075-057",
+   "MDS-00075-058"
+  ],
+  "overlaps": [],
+  "union_m": "104",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-HA-052|2025-01-25",
+  "members": [
+   "MDS-00047-074",
+   "MDS-00047-075"
+  ],
+  "overlaps": [],
+  "union_m": "178",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-HA-052|2025-02-08",
+  "members": [
+   "MDS-00087-085",
+   "MDS-00087-086"
+  ],
+  "overlaps": [],
+  "union_m": "151",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-001|2025-01-30",
+  "members": [
+   "MDS-00077-011",
+   "MDS-00077-012"
+  ],
+  "overlaps": [],
+  "union_m": "149",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21412,24 +21423,19 @@
    "MDS-00145-025"
   ],
   "overlaps": [],
+  "union_m": "154",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-QA-002|2025-03-02",
+  "group": "DDS-PD210:NGP-HA-142|2025-02-24",
   "members": [
-   "MDS-00153-068",
-   "MDS-00153-069"
+   "MDS-00133-068",
+   "MDS-00133-069"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-178|2025-03-04",
-  "members": [
-   "MDS-00160-061",
-   "MDS-00160-062"
-  ],
-  "overlaps": [],
+  "union_m": "211",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21439,15 +21445,19 @@
    "MDS-00164-038"
   ],
   "overlaps": [],
+  "union_m": "195",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-WS-019|2025-03-07",
+  "group": "DDS-PD210:NGP-QA-178|2025-03-04",
   "members": [
-   "MDS-00172-056",
-   "MDS-00172-057"
+   "MDS-00160-061",
+   "MDS-00160-062"
   ],
   "overlaps": [],
+  "union_m": "214",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21457,6 +21467,19 @@
    "MDS-00196-074"
   ],
   "overlaps": [],
+  "union_m": "128",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-002|2025-03-02",
+  "members": [
+   "MDS-00153-068",
+   "MDS-00153-069"
+  ],
+  "overlaps": [],
+  "union_m": "133",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21466,6 +21489,19 @@
    "MDS-00201-030"
   ],
   "overlaps": [],
+  "union_m": "142",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-019|2025-03-07",
+  "members": [
+   "MDS-00172-056",
+   "MDS-00172-057"
+  ],
+  "overlaps": [],
+  "union_m": "211",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21475,6 +21511,8 @@
    "MDS-00208-041"
   ],
   "overlaps": [],
+  "union_m": "156",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21484,15 +21522,8 @@
    "MDS-00238-042"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-054|2025-04-09",
-  "members": [
-   "MDS-00272-024",
-   "MDS-00272-025"
-  ],
-  "overlaps": [],
+  "union_m": "207",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21502,6 +21533,8 @@
    "MDS-00273-054"
   ],
   "overlaps": [],
+  "union_m": "148",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21511,42 +21544,8 @@
    "MDS-00276-012"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-BD-037|2025-04-17",
-  "members": [
-   "MDS-00291-037",
-   "MDS-00291-038"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-161|2025-04-21",
-  "members": [
-   "MDS-00297-063",
-   "MDS-00297-064"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-054|2025-04-21",
-  "members": [
-   "MDS-00301-027",
-   "MDS-00301-028"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-BD-020|2025-04-24",
-  "members": [
-   "MDS-00307-051",
-   "MDS-00307-052"
-  ],
-  "overlaps": [],
+  "union_m": "186",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21556,15 +21555,41 @@
    "MDS-00311-015"
   ],
   "overlaps": [],
+  "union_m": "111",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-WS-126|2025-04-24",
+  "group": "DDS-PD210:NGP-QA-054|2025-04-09",
   "members": [
-   "MDS-00316-011",
-   "MDS-00316-012"
+   "MDS-00272-024",
+   "MDS-00272-025"
   ],
   "overlaps": [],
+  "union_m": "122",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-054|2025-04-21",
+  "members": [
+   "MDS-00301-027",
+   "MDS-00301-028"
+  ],
+  "overlaps": [],
+  "union_m": "109",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-BD-037|2025-04-17",
+  "members": [
+   "MDS-00291-037",
+   "MDS-00291-038"
+  ],
+  "overlaps": [],
+  "union_m": "122",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21574,15 +21599,19 @@
    "MDS-00325-082"
   ],
   "overlaps": [],
+  "union_m": "104",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-WS-161|2025-05-03",
+  "group": "DDS-PD210:NGP-BD-020|2025-04-24",
   "members": [
-   "MDS-00346-014",
-   "MDS-00346-015"
+   "MDS-00307-051",
+   "MDS-00307-052"
   ],
   "overlaps": [],
+  "union_m": "147",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21592,6 +21621,41 @@
    "MDS-00348-040"
   ],
   "overlaps": [],
+  "union_m": "154",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-161|2025-04-21",
+  "members": [
+   "MDS-00297-063",
+   "MDS-00297-064"
+  ],
+  "overlaps": [],
+  "union_m": "213",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-161|2025-05-03",
+  "members": [
+   "MDS-00346-014",
+   "MDS-00346-015"
+  ],
+  "overlaps": [],
+  "union_m": "137",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-126|2025-04-24",
+  "members": [
+   "MDS-00316-011",
+   "MDS-00316-012"
+  ],
+  "overlaps": [],
+  "union_m": "165",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21601,33 +21665,8 @@
    "MDS-00352-064"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-HA-073|2025-05-09",
-  "members": [
-   "MDS-00356-022",
-   "MDS-00356-023"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-HA-197|2025-05-14",
-  "members": [
-   "MDS-00364-071",
-   "MDS-00364-072"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-004|2025-05-17",
-  "members": [
-   "MDS-00376-056",
-   "MDS-00376-057"
-  ],
-  "overlaps": [],
+  "union_m": "140",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21637,15 +21676,30 @@
    "MDS-00395-044"
   ],
   "overlaps": [],
+  "union_m": "151",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-WS-127|2025-05-27",
+  "group": "DDS-PD210:NGP-HA-073|2025-05-09",
   "members": [
-   "MDS-00406-056",
-   "MDS-00406-057"
+   "MDS-00356-022",
+   "MDS-00356-023"
   ],
   "overlaps": [],
+  "union_m": "199",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-HA-197|2025-05-14",
+  "members": [
+   "MDS-00364-071",
+   "MDS-00364-072"
+  ],
+  "overlaps": [],
+  "union_m": "216",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21655,6 +21709,19 @@
    "MDS-00411-014"
   ],
   "overlaps": [],
+  "union_m": "92",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-004|2025-05-17",
+  "members": [
+   "MDS-00376-056",
+   "MDS-00376-057"
+  ],
+  "overlaps": [],
+  "union_m": "183",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21664,6 +21731,19 @@
    "MDS-00424-038"
   ],
   "overlaps": [],
+  "union_m": "114",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-127|2025-05-27",
+  "members": [
+   "MDS-00406-056",
+   "MDS-00406-057"
+  ],
+  "overlaps": [],
+  "union_m": "129",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21673,24 +21753,8 @@
    "MDS-00445-038"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-074|2025-06-17",
-  "members": [
-   "MDS-00462-056",
-   "MDS-00462-057"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-HA-145|2025-06-18",
-  "members": [
-   "MDS-00467-050",
-   "MDS-00467-051"
-  ],
-  "overlaps": [],
+  "union_m": "171",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21700,6 +21764,30 @@
    "MDS-00481-041"
   ],
   "overlaps": [],
+  "union_m": "87",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-074|2025-06-17",
+  "members": [
+   "MDS-00462-056",
+   "MDS-00462-057"
+  ],
+  "overlaps": [],
+  "union_m": "122",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-HA-145|2025-06-18",
+  "members": [
+   "MDS-00467-050",
+   "MDS-00467-051"
+  ],
+  "overlaps": [],
+  "union_m": "132",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21709,6 +21797,8 @@
    "MDS-00509-015"
   ],
   "overlaps": [],
+  "union_m": "133",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21718,6 +21808,8 @@
    "MDS-00513-025"
   ],
   "overlaps": [],
+  "union_m": "167",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21727,24 +21819,8 @@
    "MDS-00524-025"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-HA-215|2025-07-15",
-  "members": [
-   "MDS-00535-076",
-   "MDS-00535-077"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-022|2025-07-20",
-  "members": [
-   "MDS-00551-080",
-   "MDS-00551-081"
-  ],
-  "overlaps": [],
+  "union_m": "183",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21754,33 +21830,30 @@
    "MDS-00570-014"
   ],
   "overlaps": [],
+  "union_m": "120",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-HA-075|2025-07-29",
+  "group": "DDS-PD210:NGP-HA-215|2025-07-15",
   "members": [
-   "MDS-00583-024",
-   "MDS-00583-025"
+   "MDS-00535-076",
+   "MDS-00535-077"
   ],
   "overlaps": [],
+  "union_m": "171",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-HA-146|2025-07-30",
+  "group": "DDS-PD210:NGP-WS-022|2025-07-20",
   "members": [
-   "MDS-00590-011",
-   "MDS-00590-012"
+   "MDS-00551-080",
+   "MDS-00551-081"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-BD-057|2025-08-04",
-  "members": [
-   "MDS-00596-056",
-   "MDS-00596-057"
-  ],
-  "overlaps": [],
+  "union_m": "141",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21790,15 +21863,19 @@
    "MDS-00599-028"
   ],
   "overlaps": [],
+  "union_m": "83",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-HA-075|2025-08-11",
+  "group": "DDS-PD210:NGP-HA-146|2025-07-30",
   "members": [
-   "MDS-00616-039",
-   "MDS-00616-040"
+   "MDS-00590-011",
+   "MDS-00590-012"
   ],
   "overlaps": [],
+  "union_m": "169",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21808,6 +21885,41 @@
    "MDS-00624-027"
   ],
   "overlaps": [],
+  "union_m": "94",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-HA-075|2025-07-29",
+  "members": [
+   "MDS-00583-024",
+   "MDS-00583-025"
+  ],
+  "overlaps": [],
+  "union_m": "198",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-HA-075|2025-08-11",
+  "members": [
+   "MDS-00616-039",
+   "MDS-00616-040"
+  ],
+  "overlaps": [],
+  "union_m": "152",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-BD-057|2025-08-04",
+  "members": [
+   "MDS-00596-056",
+   "MDS-00596-057"
+  ],
+  "overlaps": [],
+  "union_m": "177",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21817,15 +21929,8 @@
    "MDS-00633-054"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-HA-216|2025-08-20",
-  "members": [
-   "MDS-00637-063",
-   "MDS-00637-064"
-  ],
-  "overlaps": [],
+  "union_m": "156",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21835,24 +21940,8 @@
    "MDS-00638-027"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-182|2025-08-24",
-  "members": [
-   "MDS-00644-076",
-   "MDS-00644-077"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-023|2025-08-26",
-  "members": [
-   "MDS-00654-041",
-   "MDS-00654-042"
-  ],
-  "overlaps": [],
+  "union_m": "185",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21862,6 +21951,19 @@
    "MDS-00664-055"
   ],
   "overlaps": [],
+  "union_m": "115",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-HA-216|2025-08-20",
+  "members": [
+   "MDS-00637-063",
+   "MDS-00637-064"
+  ],
+  "overlaps": [],
+  "union_m": "195",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21871,24 +21973,19 @@
    "MDS-00676-015"
   ],
   "overlaps": [],
+  "union_m": "155",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-HA-076|2025-09-03",
+  "group": "DDS-PD210:NGP-WS-182|2025-08-24",
   "members": [
-   "MDS-00681-011",
-   "MDS-00681-012"
+   "MDS-00644-076",
+   "MDS-00644-077"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-HA-112|2025-09-06",
-  "members": [
-   "MDS-00682-050",
-   "MDS-00682-051"
-  ],
-  "overlaps": [],
+  "union_m": "208",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21898,24 +21995,19 @@
    "MDS-00684-083"
   ],
   "overlaps": [],
+  "union_m": "125",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-WS-094|2025-09-06",
+  "group": "DDS-PD210:NGP-QA-023|2025-08-26",
   "members": [
-   "MDS-00689-024",
-   "MDS-00689-025"
+   "MDS-00654-041",
+   "MDS-00654-042"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-BD-040|2025-09-10",
-  "members": [
-   "MDS-00692-037",
-   "MDS-00692-038"
-  ],
-  "overlaps": [],
+  "union_m": "133",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21925,24 +22017,19 @@
    "MDS-00708-044"
   ],
   "overlaps": [],
+  "union_m": "96",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-QA-058|2025-09-19",
+  "group": "DDS-PD210:NGP-HA-112|2025-09-06",
   "members": [
-   "MDS-00712-076",
-   "MDS-00712-077"
+   "MDS-00682-050",
+   "MDS-00682-051"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-094|2025-09-19",
-  "members": [
-   "MDS-00719-072",
-   "MDS-00719-073"
-  ],
-  "overlaps": [],
+  "union_m": "127",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21952,24 +22039,63 @@
    "MDS-00721-080"
   ],
   "overlaps": [],
+  "union_m": "113",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-BD-165|2025-09-23",
+  "group": "DDS-PD210:NGP-WS-094|2025-09-06",
   "members": [
-   "MDS-00736-024",
-   "MDS-00736-025"
+   "MDS-00689-024",
+   "MDS-00689-025"
   ],
   "overlaps": [],
+  "union_m": "186",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-BD-217|2025-09-29",
+  "group": "DDS-PD210:NGP-WS-094|2025-09-19",
   "members": [
-   "MDS-00746-068",
-   "MDS-00746-069"
+   "MDS-00719-072",
+   "MDS-00719-073"
   ],
   "overlaps": [],
+  "union_m": "111",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-HA-076|2025-09-03",
+  "members": [
+   "MDS-00681-011",
+   "MDS-00681-012"
+  ],
+  "overlaps": [],
+  "union_m": "214",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-BD-040|2025-09-10",
+  "members": [
+   "MDS-00692-037",
+   "MDS-00692-038"
+  ],
+  "overlaps": [],
+  "union_m": "205",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-058|2025-09-19",
+  "members": [
+   "MDS-00712-076",
+   "MDS-00712-077"
+  ],
+  "overlaps": [],
+  "union_m": "189",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -21979,42 +22105,30 @@
    "MDS-00767-045"
   ],
   "overlaps": [],
+  "union_m": "150",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-WS-183|2025-10-04",
+  "group": "DDS-PD210:NGP-BD-165|2025-09-23",
   "members": [
-   "MDS-00770-037",
-   "MDS-00770-038"
+   "MDS-00736-024",
+   "MDS-00736-025"
   ],
   "overlaps": [],
+  "union_m": "216",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-WS-130|2025-10-10",
+  "group": "DDS-PD210:NGP-BD-217|2025-09-29",
   "members": [
-   "MDS-00792-011",
-   "MDS-00792-012"
+   "MDS-00746-068",
+   "MDS-00746-069"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-BD-024|2025-10-17",
-  "members": [
-   "MDS-00800-050",
-   "MDS-00800-051"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-HA-077|2025-10-16",
-  "members": [
-   "MDS-00801-037",
-   "MDS-00801-038"
-  ],
-  "overlaps": [],
+  "union_m": "172",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22024,6 +22138,19 @@
    "MDS-00804-015"
   ],
   "overlaps": [],
+  "union_m": "80",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-183|2025-10-04",
+  "members": [
+   "MDS-00770-037",
+   "MDS-00770-038"
+  ],
+  "overlaps": [],
+  "union_m": "131",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22033,15 +22160,30 @@
    "MDS-00809-014"
   ],
   "overlaps": [],
+  "union_m": "137",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-QA-113|2025-10-26",
+  "group": "DDS-PD210:NGP-WS-130|2025-10-10",
   "members": [
-   "MDS-00829-024",
-   "MDS-00829-025"
+   "MDS-00792-011",
+   "MDS-00792-012"
   ],
   "overlaps": [],
+  "union_m": "136",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-HA-077|2025-10-16",
+  "members": [
+   "MDS-00801-037",
+   "MDS-00801-038"
+  ],
+  "overlaps": [],
+  "union_m": "187",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22051,15 +22193,30 @@
    "MDS-00836-081"
   ],
   "overlaps": [],
+  "union_m": "114",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-WS-166|2025-11-04",
+  "group": "DDS-PD210:NGP-BD-024|2025-10-17",
   "members": [
-   "MDS-00852-037",
-   "MDS-00852-038"
+   "MDS-00800-050",
+   "MDS-00800-051"
   ],
   "overlaps": [],
+  "union_m": "185",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-113|2025-10-26",
+  "members": [
+   "MDS-00829-024",
+   "MDS-00829-025"
+  ],
+  "overlaps": [],
+  "union_m": "175",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22069,6 +22226,8 @@
    "MDS-00853-073"
   ],
   "overlaps": [],
+  "union_m": "96",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22078,24 +22237,8 @@
    "MDS-00857-027"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-BD-218|2025-11-11",
-  "members": [
-   "MDS-00864-071",
-   "MDS-00864-072"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-131|2025-11-16",
-  "members": [
-   "MDS-00879-063",
-   "MDS-00879-064"
-  ],
-  "overlaps": [],
+  "union_m": "124",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22105,15 +22248,30 @@
    "MDS-00891-027"
   ],
   "overlaps": [],
+  "union_m": "144",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-QA-025|2025-11-22",
+  "group": "DDS-PD210:NGP-WS-166|2025-11-04",
   "members": [
-   "MDS-00895-071",
-   "MDS-00895-072"
+   "MDS-00852-037",
+   "MDS-00852-038"
   ],
   "overlaps": [],
+  "union_m": "158",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-BD-218|2025-11-11",
+  "members": [
+   "MDS-00864-071",
+   "MDS-00864-072"
+  ],
+  "overlaps": [],
+  "union_m": "193",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22123,6 +22281,19 @@
    "MDS-00916-015"
   ],
   "overlaps": [],
+  "union_m": "103",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-131|2025-11-16",
+  "members": [
+   "MDS-00879-063",
+   "MDS-00879-064"
+  ],
+  "overlaps": [],
+  "union_m": "186",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22132,24 +22303,8 @@
    "MDS-00923-012"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-025|2025-12-06",
-  "members": [
-   "MDS-00942-026",
-   "MDS-00942-027"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-167|2025-12-11",
-  "members": [
-   "MDS-00951-063",
-   "MDS-00951-064"
-  ],
-  "overlaps": [],
+  "union_m": "216",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22159,6 +22314,41 @@
    "MDS-00960-016"
   ],
   "overlaps": [],
+  "union_m": "159",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-025|2025-11-22",
+  "members": [
+   "MDS-00895-071",
+   "MDS-00895-072"
+  ],
+  "overlaps": [],
+  "union_m": "187",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-025|2025-12-06",
+  "members": [
+   "MDS-00942-026",
+   "MDS-00942-027"
+  ],
+  "overlaps": [],
+  "union_m": "138",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-167|2025-12-11",
+  "members": [
+   "MDS-00951-063",
+   "MDS-00951-064"
+  ],
+  "overlaps": [],
+  "union_m": "220",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22168,24 +22358,8 @@
    "MDS-01019-012"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-HA-097|2026-01-08",
-  "members": [
-   "MDS-01029-037",
-   "MDS-01029-038"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-043|2026-01-06",
-  "members": [
-   "MDS-01031-011",
-   "MDS-01031-012"
-  ],
-  "overlaps": [],
+  "union_m": "157",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22195,15 +22369,8 @@
    "MDS-01036-038"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-043|2026-01-17",
-  "members": [
-   "MDS-01061-014",
-   "MDS-01061-015"
-  ],
-  "overlaps": [],
+  "union_m": "173",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22213,6 +22380,41 @@
    "MDS-01074-059"
   ],
   "overlaps": [],
+  "union_m": "147",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-043|2026-01-06",
+  "members": [
+   "MDS-01031-011",
+   "MDS-01031-012"
+  ],
+  "overlaps": [],
+  "union_m": "156",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-043|2026-01-17",
+  "members": [
+   "MDS-01061-014",
+   "MDS-01061-015"
+  ],
+  "overlaps": [],
+  "union_m": "118",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-HA-097|2026-01-08",
+  "members": [
+   "MDS-01029-037",
+   "MDS-01029-038"
+  ],
+  "overlaps": [],
+  "union_m": "179",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22222,24 +22424,8 @@
    "MDS-01075-012"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-010|2026-01-29",
-  "members": [
-   "MDS-01089-051",
-   "MDS-01089-052"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-HA-203|2026-01-29",
-  "members": [
-   "MDS-01097-011",
-   "MDS-01097-012"
-  ],
-  "overlaps": [],
+  "union_m": "198",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22249,6 +22435,30 @@
    "MDS-01106-058"
   ],
   "overlaps": [],
+  "union_m": "100",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-010|2026-01-29",
+  "members": [
+   "MDS-01089-051",
+   "MDS-01089-052"
+  ],
+  "overlaps": [],
+  "union_m": "176",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-HA-203|2026-01-29",
+  "members": [
+   "MDS-01097-011",
+   "MDS-01097-012"
+  ],
+  "overlaps": [],
+  "union_m": "150",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22258,15 +22468,8 @@
    "MDS-01143-051"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-204|2026-02-27",
-  "members": [
-   "MDS-01178-024",
-   "MDS-01178-025"
-  ],
-  "overlaps": [],
+  "union_m": "202",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22276,6 +22479,8 @@
    "MDS-01182-040"
   ],
   "overlaps": [],
+  "union_m": "157",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22285,42 +22490,8 @@
    "MDS-01183-023"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-221|2026-03-09",
-  "members": [
-   "MDS-01198-061",
-   "MDS-01198-062"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-BD-062|2026-03-10",
-  "members": [
-   "MDS-01208-024",
-   "MDS-01208-025"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-134|2026-03-14",
-  "members": [
-   "MDS-01213-068",
-   "MDS-01213-069"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-204|2026-03-12",
-  "members": [
-   "MDS-01219-014",
-   "MDS-01219-015"
-  ],
-  "overlaps": [],
+  "union_m": "125",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22330,6 +22501,41 @@
    "MDS-01222-027"
   ],
   "overlaps": [],
+  "union_m": "127",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-204|2026-02-27",
+  "members": [
+   "MDS-01178-024",
+   "MDS-01178-025"
+  ],
+  "overlaps": [],
+  "union_m": "175",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-204|2026-03-12",
+  "members": [
+   "MDS-01219-014",
+   "MDS-01219-015"
+  ],
+  "overlaps": [],
+  "union_m": "110",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-BD-062|2026-03-10",
+  "members": [
+   "MDS-01208-024",
+   "MDS-01208-025"
+  ],
+  "overlaps": [],
+  "union_m": "144",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22339,6 +22545,30 @@
    "MDS-01244-016"
   ],
   "overlaps": [],
+  "union_m": "87",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-221|2026-03-09",
+  "members": [
+   "MDS-01198-061",
+   "MDS-01198-062"
+  ],
+  "overlaps": [],
+  "union_m": "201",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-134|2026-03-14",
+  "members": [
+   "MDS-01213-068",
+   "MDS-01213-069"
+  ],
+  "overlaps": [],
+  "union_m": "220",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22348,24 +22578,8 @@
    "MDS-01251-031"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-187|2026-04-11",
-  "members": [
-   "MDS-01303-011",
-   "MDS-01303-012"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-HA-063|2026-04-14",
-  "members": [
-   "MDS-01306-037",
-   "MDS-01306-038"
-  ],
-  "overlaps": [],
+  "union_m": "123",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22375,24 +22589,30 @@
    "MDS-01308-012"
   ],
   "overlaps": [],
+  "union_m": "200",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-BD-135|2026-04-17",
+  "group": "DDS-PD210:NGP-WS-187|2026-04-11",
   "members": [
-   "MDS-01310-050",
-   "MDS-01310-051"
+   "MDS-01303-011",
+   "MDS-01303-012"
   ],
   "overlaps": [],
+  "union_m": "159",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-WS-205|2026-04-16",
+  "group": "DDS-PD210:NGP-HA-063|2026-04-14",
   "members": [
-   "MDS-01312-035",
-   "MDS-01312-036"
+   "MDS-01306-037",
+   "MDS-01306-038"
   ],
   "overlaps": [],
+  "union_m": "170",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22402,6 +22622,19 @@
    "MDS-01340-015"
   ],
   "overlaps": [],
+  "union_m": "99",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-205|2026-04-16",
+  "members": [
+   "MDS-01312-035",
+   "MDS-01312-036"
+  ],
+  "overlaps": [],
+  "union_m": "217",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22411,6 +22644,19 @@
    "MDS-01358-040"
   ],
   "overlaps": [],
+  "union_m": "98",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-BD-135|2026-04-17",
+  "members": [
+   "MDS-01310-050",
+   "MDS-01310-051"
+  ],
+  "overlaps": [],
+  "union_m": "174",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22420,42 +22666,8 @@
    "MDS-01360-051"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-HA-100|2026-05-07",
-  "members": [
-   "MDS-01372-024",
-   "MDS-01372-025"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-029|2026-05-09",
-  "members": [
-   "MDS-01374-048",
-   "MDS-01374-049"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-153|2026-05-14",
-  "members": [
-   "MDS-01387-050",
-   "MDS-01387-051"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-BD-046|2026-05-18",
-  "members": [
-   "MDS-01394-063",
-   "MDS-01394-064"
-  ],
-  "overlaps": [],
+  "union_m": "216",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22465,6 +22677,19 @@
    "MDS-01399-029"
   ],
   "overlaps": [],
+  "union_m": "134",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-HA-100|2026-05-07",
+  "members": [
+   "MDS-01372-024",
+   "MDS-01372-025"
+  ],
+  "overlaps": [],
+  "union_m": "168",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22474,24 +22699,30 @@
    "MDS-01412-015"
   ],
   "overlaps": [],
+  "union_m": "132",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-WS-136|2026-05-27",
+  "group": "DDS-PD210:NGP-WS-029|2026-05-09",
   "members": [
-   "MDS-01426-051",
-   "MDS-01426-052"
+   "MDS-01374-048",
+   "MDS-01374-049"
   ],
   "overlaps": [],
+  "union_m": "212",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-QA-188|2026-05-27",
+  "group": "DDS-PD210:NGP-WS-153|2026-05-14",
   "members": [
-   "MDS-01429-024",
-   "MDS-01429-025"
+   "MDS-01387-050",
+   "MDS-01387-051"
   ],
   "overlaps": [],
+  "union_m": "178",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22501,6 +22732,19 @@
    "MDS-01430-014"
   ],
   "overlaps": [],
+  "union_m": "149",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-BD-046|2026-05-18",
+  "members": [
+   "MDS-01394-063",
+   "MDS-01394-064"
+  ],
+  "overlaps": [],
+  "union_m": "219",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22510,15 +22754,19 @@
    "MDS-01435-029"
   ],
   "overlaps": [],
+  "union_m": "135",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-BD-223|2026-06-03",
+  "group": "DDS-PD210:NGP-QA-188|2026-05-27",
   "members": [
-   "MDS-01446-037",
-   "MDS-01446-038"
+   "MDS-01429-024",
+   "MDS-01429-025"
   ],
   "overlaps": [],
+  "union_m": "160",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22528,6 +22776,19 @@
    "MDS-01457-072"
   ],
   "overlaps": [],
+  "union_m": "116",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-136|2026-05-27",
+  "members": [
+   "MDS-01426-051",
+   "MDS-01426-052"
+  ],
+  "overlaps": [],
+  "union_m": "174",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22537,6 +22798,19 @@
    "MDS-01475-028"
   ],
   "overlaps": [],
+  "union_m": "146",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-BD-223|2026-06-03",
+  "members": [
+   "MDS-01446-037",
+   "MDS-01446-038"
+  ],
+  "overlaps": [],
+  "union_m": "137",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22546,6 +22820,8 @@
    "MDS-01489-014"
   ],
   "overlaps": [],
+  "union_m": "151",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22555,33 +22831,8 @@
    "MDS-01490-038"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-BD-083|2026-06-21",
-  "members": [
-   "MDS-01498-037",
-   "MDS-01498-038"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-101|2026-06-24",
-  "members": [
-   "MDS-01511-011",
-   "MDS-01511-012"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-BD-119|2026-06-28",
-  "members": [
-   "MDS-01514-050",
-   "MDS-01514-051"
-  ],
-  "overlaps": [],
+  "union_m": "180",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22591,15 +22842,8 @@
    "MDS-01518-012"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-065|2026-07-05",
-  "members": [
-   "MDS-01536-048",
-   "MDS-01536-049"
-  ],
-  "overlaps": [],
+  "union_m": "217",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22609,15 +22853,52 @@
    "MDS-01555-027"
   ],
   "overlaps": [],
+  "union_m": "157",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-QA-137|2026-07-17",
+  "group": "DDS-PD210:NGP-BD-083|2026-06-21",
   "members": [
-   "MDS-01569-056",
-   "MDS-01569-057"
+   "MDS-01498-037",
+   "MDS-01498-038"
   ],
   "overlaps": [],
+  "union_m": "130",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-101|2026-06-24",
+  "members": [
+   "MDS-01511-011",
+   "MDS-01511-012"
+  ],
+  "overlaps": [],
+  "union_m": "184",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-BD-119|2026-06-28",
+  "members": [
+   "MDS-01514-050",
+   "MDS-01514-051"
+  ],
+  "overlaps": [],
+  "union_m": "136",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-065|2026-07-05",
+  "members": [
+   "MDS-01536-048",
+   "MDS-01536-049"
+  ],
+  "overlaps": [],
+  "union_m": "183",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22627,6 +22908,8 @@
    "MDS-01570-029"
   ],
   "overlaps": [],
+  "union_m": "130",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22636,15 +22919,19 @@
    "MDS-01572-012"
   ],
   "overlaps": [],
+  "union_m": "214",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-QA-224|2026-07-25",
+  "group": "DDS-PD210:NGP-QA-137|2026-07-17",
   "members": [
-   "MDS-01594-035",
-   "MDS-01594-036"
+   "MDS-01569-056",
+   "MDS-01569-057"
   ],
   "overlaps": [],
+  "union_m": "199",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22654,33 +22941,19 @@
    "MDS-01597-081"
   ],
   "overlaps": [],
+  "union_m": "124",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-HA-014|2026-07-26",
+  "group": "DDS-PD210:NGP-QA-224|2026-07-25",
   "members": [
-   "MDS-01600-026",
-   "MDS-01600-027"
+   "MDS-01594-035",
+   "MDS-01594-036"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-102|2026-07-27",
-  "members": [
-   "MDS-01607-011",
-   "MDS-01607-012"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-155|2026-08-04",
-  "members": [
-   "MDS-01622-037",
-   "MDS-01622-038"
-  ],
-  "overlaps": [],
+  "union_m": "190",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22690,33 +22963,19 @@
    "MDS-01626-046"
   ],
   "overlaps": [],
+  "union_m": "130",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-BD-173|2026-08-06",
+  "group": "DDS-PD210:NGP-HA-014|2026-07-26",
   "members": [
-   "MDS-01629-011",
-   "MDS-01629-012"
+   "MDS-01600-026",
+   "MDS-01600-027"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-QA-102|2026-08-08",
-  "members": [
-   "MDS-01630-040",
-   "MDS-01630-041"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-BD-031|2026-08-09",
-  "members": [
-   "MDS-01634-024",
-   "MDS-01634-025"
-  ],
-  "overlaps": [],
+  "union_m": "193",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22726,6 +22985,52 @@
    "MDS-01639-027"
   ],
   "overlaps": [],
+  "union_m": "106",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-102|2026-07-27",
+  "members": [
+   "MDS-01607-011",
+   "MDS-01607-012"
+  ],
+  "overlaps": [],
+  "union_m": "199",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-102|2026-08-08",
+  "members": [
+   "MDS-01630-040",
+   "MDS-01630-041"
+  ],
+  "overlaps": [],
+  "union_m": "124",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-BD-173|2026-08-06",
+  "members": [
+   "MDS-01629-011",
+   "MDS-01629-012"
+  ],
+  "overlaps": [],
+  "union_m": "172",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-155|2026-08-04",
+  "members": [
+   "MDS-01622-037",
+   "MDS-01622-038"
+  ],
+  "overlaps": [],
+  "union_m": "160",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22735,24 +23040,19 @@
    "MDS-01657-040"
   ],
   "overlaps": [],
+  "union_m": "121",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-QA-138|2026-08-23",
+  "group": "DDS-PD210:NGP-BD-031|2026-08-09",
   "members": [
-   "MDS-01666-063",
-   "MDS-01666-064"
+   "MDS-01634-024",
+   "MDS-01634-025"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-208|2026-08-28",
-  "members": [
-   "MDS-01686-053",
-   "MDS-01686-054"
-  ],
-  "overlaps": [],
+  "union_m": "135",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22762,24 +23062,19 @@
    "MDS-01688-012"
   ],
   "overlaps": [],
+  "union_m": "163",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-BD-103|2026-09-01",
+  "group": "DDS-PD210:NGP-WS-208|2026-08-28",
   "members": [
-   "MDS-01691-086",
-   "MDS-01691-087"
+   "MDS-01686-053",
+   "MDS-01686-054"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-HA-156|2026-09-08",
-  "members": [
-   "MDS-01725-011",
-   "MDS-01725-012"
-  ],
-  "overlaps": [],
+  "union_m": "150",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22789,33 +23084,41 @@
    "MDS-01727-041"
   ],
   "overlaps": [],
+  "union_m": "117",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-BD-085|2026-09-14",
+  "group": "DDS-PD210:NGP-QA-138|2026-08-23",
   "members": [
-   "MDS-01736-035",
-   "MDS-01736-036"
+   "MDS-01666-063",
+   "MDS-01666-064"
   ],
   "overlaps": [],
+  "union_m": "180",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-BD-121|2026-09-15",
+  "group": "DDS-PD210:NGP-BD-103|2026-09-01",
   "members": [
-   "MDS-01740-037",
-   "MDS-01740-038"
+   "MDS-01691-086",
+   "MDS-01691-087"
   ],
   "overlaps": [],
+  "union_m": "136",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-HA-032|2026-09-17",
+  "group": "DDS-PD210:NGP-HA-156|2026-09-08",
   "members": [
-   "MDS-01753-011",
-   "MDS-01753-012"
+   "MDS-01725-011",
+   "MDS-01725-012"
   ],
   "overlaps": [],
+  "union_m": "178",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22825,6 +23128,30 @@
    "MDS-01760-027"
   ],
   "overlaps": [],
+  "union_m": "127",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-BD-085|2026-09-14",
+  "members": [
+   "MDS-01736-035",
+   "MDS-01736-036"
+  ],
+  "overlaps": [],
+  "union_m": "151",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-BD-121|2026-09-15",
+  "members": [
+   "MDS-01740-037",
+   "MDS-01740-038"
+  ],
+  "overlaps": [],
+  "union_m": "138",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22834,6 +23161,19 @@
    "MDS-01773-066"
   ],
   "overlaps": [],
+  "union_m": "120",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-HA-032|2026-09-17",
+  "members": [
+   "MDS-01753-011",
+   "MDS-01753-012"
+  ],
+  "overlaps": [],
+  "union_m": "140",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22843,6 +23183,8 @@
    "MDS-01782-054"
   ],
   "overlaps": [],
+  "union_m": "140",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22852,33 +23194,8 @@
    "MDS-01799-087"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-226|2026-10-10",
-  "members": [
-   "MDS-01818-011",
-   "MDS-01818-012"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-068|2026-10-12",
-  "members": [
-   "MDS-01822-011",
-   "MDS-01822-012"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-157|2026-10-22",
-  "members": [
-   "MDS-01852-011",
-   "MDS-01852-012"
-  ],
-  "overlaps": [],
+  "union_m": "209",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22888,33 +23205,19 @@
    "MDS-01853-024"
   ],
   "overlaps": [],
+  "union_m": "114",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-QA-033|2026-10-28",
+  "group": "DDS-PD210:NGP-WS-226|2026-10-10",
   "members": [
-   "MDS-01856-063",
-   "MDS-01856-064"
+   "MDS-01818-011",
+   "MDS-01818-012"
   ],
   "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-068|2026-10-25",
-  "members": [
-   "MDS-01857-027",
-   "MDS-01857-028"
-  ],
-  "overlaps": [],
-  "rule": "Cl.23 (p6); Cl.29 (p7)"
- },
- {
-  "group": "DDS-PD210:NGP-WS-122|2026-10-27",
-  "members": [
-   "MDS-01858-050",
-   "MDS-01858-051"
-  ],
-  "overlaps": [],
+  "union_m": "143",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22924,24 +23227,52 @@
    "MDS-01860-029"
   ],
   "overlaps": [],
+  "union_m": "128",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-QA-050|2026-10-26",
+  "group": "DDS-PD210:NGP-WS-068|2026-10-12",
   "members": [
-   "MDS-01861-024",
-   "MDS-01861-025"
+   "MDS-01822-011",
+   "MDS-01822-012"
   ],
   "overlaps": [],
+  "union_m": "163",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
-  "group": "DDS-PD210:NGP-WS-192|2026-11-03",
+  "group": "DDS-PD210:NGP-WS-068|2026-10-25",
   "members": [
-   "MDS-01874-074",
-   "MDS-01874-075"
+   "MDS-01857-027",
+   "MDS-01857-028"
   ],
   "overlaps": [],
+  "union_m": "107",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-157|2026-10-22",
+  "members": [
+   "MDS-01852-011",
+   "MDS-01852-012"
+  ],
+  "overlaps": [],
+  "union_m": "136",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-033|2026-10-28",
+  "members": [
+   "MDS-01856-063",
+   "MDS-01856-064"
+  ],
+  "overlaps": [],
+  "union_m": "157",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22951,6 +23282,19 @@
    "MDS-01894-050"
   ],
   "overlaps": [],
+  "union_m": "126",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-122|2026-10-27",
+  "members": [
+   "MDS-01858-050",
+   "MDS-01858-051"
+  ],
+  "overlaps": [],
+  "union_m": "129",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  },
  {
@@ -22960,6 +23304,30 @@
    "MDS-01896-014"
   ],
   "overlaps": [],
+  "union_m": "126",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-QA-050|2026-10-26",
+  "members": [
+   "MDS-01861-024",
+   "MDS-01861-025"
+  ],
+  "overlaps": [],
+  "union_m": "142",
+  "allocations": 1,
+  "rule": "Cl.23 (p6); Cl.29 (p7)"
+ },
+ {
+  "group": "DDS-PD210:NGP-WS-192|2026-11-03",
+  "members": [
+   "MDS-01874-074",
+   "MDS-01874-075"
+  ],
+  "overlaps": [],
+  "union_m": "145",
+  "allocations": 1,
   "rule": "Cl.23 (p6); Cl.29 (p7)"
  }
 ]
