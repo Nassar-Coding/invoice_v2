@@ -28,7 +28,7 @@ from decimal import Decimal
 
 from . import g3_dds, terms
 from .g3_core import Trace, headers_by_id, result_keys
-from .g4_core import G4Line, apply_options, dims_of, half_even, label_of, not_payable
+from .g4_core import G4Line, apply_options, dims_of, half_even, label_of, not_payable, recipient_of
 
 RUN_EVENTS = {"DD-111": "last", "LW-420": "first"}                     # Cl.26
 WELL_EVENTS = {"MB-701": "first", "DD-140": "first", "MB-702": "last", "LW-430": "last"}   # Cl.27
@@ -124,6 +124,7 @@ def run(w, g3res: dict, T=None, a3_rerun: bool = True) -> DdsState:
             rel.setdefault(("loss", ln.well, c, e.get("Lost in hole run")), []).append(ln)
     for comp in _union(rel):
         _once(comp, w, T, st)
+    _undated_repeats(lines, rel, st)
     _hc630_runs(lines, st)
     _pd210(w, lines, T, st)
     _daily_limits(lines, T, st)
@@ -184,7 +185,12 @@ def _once(comp: list[Line], w, T, st: DdsState) -> None:
                 m.g.add("well_event", "unresolved", "DDS-R15", "Cl.27 (p7)", "well_event_not_on_its_day",
                         "no Daily Drilling Report of the well is supplied: its first and last days are not established")
                 continue
-            if m.date != day:
+            if m.date is None:
+                # G4-B03: a charge whose date is not established may be on the well's day: it stays a candidate, and
+                # whether it is on its day is not established (never a finding by comparing a missing date)
+                m.g.add("well_event", "unresolved", "DDS-R15", "Cl.27 (p7)", "well_event_not_on_its_day",
+                        f"{code} is charged once on the well's {WELL_EVENTS[code]} day ({day}); the charge's date is not established")
+            elif m.date != day:
                 notes[m.key] = ("well_event_not_on_its_day", f"{code} is charged once for the well on its {WELL_EVENTS[code]} day "
                                 f"({day}, the {WELL_EVENTS[code]} Daily Drilling Report of {m.well}); charged on {m.date}")
                 continue
@@ -254,6 +260,43 @@ def _once(comp: list[Line], w, T, st: DdsState) -> None:
             m.g.r.payable = True
         elif m.key not in notes and m.g.g3.payable is False:
             m.g.add(fam, "n/a", "DDS-R16", rule, detail="not payable at G3: not a charge that could stand")
+
+
+def _undated_repeats(lines, rel: dict, st: DdsState) -> None:
+    """G4-B03: a charge (other than PD-210, whose metres are handled by interval) whose service date is not established
+    may be for the same well-day as any dated charge of its service on the well (Cl.29): each such well-day group gains
+    it as a possible standing charge. A dated charge keeps its value only in the scenarios in which it stands; which
+    stands is left to Q7 C (G5), where a candidate of unknown date or submission can never be the one chosen."""
+    undated = [ln for ln in lines if ln.code and ln.code not in ("DS-900", "PD-210") and ln.date is None and ln.well
+               and ln.g.g3.payable is not False]
+    for u in undated:
+        for key, ms in rel.items():
+            if key[0] != "day" or (key[1], key[3]) != (u.well, u.code):
+                continue
+            kept = [m for m in ms if m.g.r.payable is not False]
+            if not kept:
+                continue
+            gid = f"DDS-ONCE:{u.code}|{u.well}|{key[2]}|undated"
+            refs = [m.ref for m in kept] + [u.ref]
+            st.groups.append({"group": gid, "members": refs, "candidates": refs, "possible": [u.ref], "rule": "Cl.29 (p7)",
+                              "not_on_day": {}})
+            for m in kept:
+                opts = _opts(m.g.r)
+                new = {}
+                for k, a in opts.items():
+                    d = dims_of(k)
+                    if "stands" not in d:
+                        new[label_of({**d, "stands": m.ref})] = a
+                    else:
+                        new[k] = a
+                    new[label_of({**{x: y for x, y in d.items() if x != "stands"}, "stands": u.ref})] = {
+                        "unit_rate": None, "allowed_quantity": Decimal(0), "amount": Decimal("0.00"),
+                        "trace": list(a.get("trace") or []) + [{"op": "note", "label": f"G4: not chargeable if {u.ref} (date not "
+                                                                "established) is for the same well-day and stands", "source": "Cl.29 (p7)"}]}
+                apply_options(m.g, new, {}, "Cl.29")
+                m.g.r.payable = True
+                m.g.add("duplicate", "unresolved", "DDS-R16", "Cl.29 (p7)", "charged_twice",
+                        f"{u.ref} charges {u.code} on {u.well} with no service date: it may be the same well-day", gid)
 
 
 HC_COUNT, HC_RUN = "count (Cl.30)", "per BHA run (Sch 8)"
@@ -617,6 +660,7 @@ def _a3(w, lines, T, st: DdsState) -> None:
         after = [(d, k) for d, k in subs if d > ins.issued]
         first = lambda xs: ([k for d, k in xs if d == xs[0][0]] if xs else [])  # noqa: E731
         fa, fb = first(on_or_after), first(after)
+        undated = sorted(k for k, h in heads.items() if not h.get("invoice_date"))       # G4-B03: possible recipients
         per_well = {}
         for ln in eligible:
             wl = ln.well
@@ -625,13 +669,13 @@ def _a3(w, lines, T, st: DdsState) -> None:
             xs = sorted((h["invoice_date"], k) for k, h in heads.items() if h.get("well_name") == wl and h.get("invoice_date")
                         and h["invoice_date"] >= ins.issued)
             f = first(xs)
-            per_well[wl] = f[0] if len(f) == 1 else ({"tie": f} if f else None)
+            per_well[wl] = recipient_of(f, sorted(k for k, h in heads.items() if h.get("well_name") == wl and not h.get("invoice_date")))
         from .g4_cw import _sum_options
         st.adjustments.append({
             "instrument": ins.id, "issued": str(ins.issued), "effective": str(min(e for _c, e, _v in ins.rate_rows)),
             "eligible_lines": len(eligible), "by_line": by_line, "total": _sum_options(by_line),
-            "recipient": {"Q1:A (36A: first invoice submitted on or after the date of issue)": fa[0] if len(fa) == 1 else ({"tie": fa} if fa else None),
-                          "Q1:B (A3: first invoice submitted after the date of issue)": fb[0] if len(fb) == 1 else ({"tie": fb} if fb else None),
+            "recipient": {"Q1:A (36A: first invoice submitted on or after the date of issue)": recipient_of(fa, undated),
+                          "Q1:B (A3: first invoice submitted after the date of issue)": recipient_of(fb, undated),
                           "Q1:C (each well's own first invoice on or after the date of issue)": per_well},
             "wells_without_recipient_under_C": sorted(k for k, v in per_well.items() if v is None),
             "posted": "once per reading; under C once per well (the difference on that well's services); a tie stays open (Q1)",

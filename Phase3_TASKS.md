@@ -174,7 +174,7 @@ annotation texts handed to the owner). Report: Phase3_G4_G5_corrections.md.
 - [x] G4-B02 PD-210 overlap allocation is the complete joint domain over interval coverage (each contested segment to
   exactly one covering charge; every combination a scenario, alloc@well/date; honest unresolved bounds above 256); the
   verify_g4 oracle checks metres (coverage = union, each charge within its interval, allocations = product of cover counts).
-- [ ] G4-B03 Unknown chronology stays a possible contributor/candidate: civil bands, duplicates, A3 and 45A recipients
+- [x] G4-B03 Unknown chronology stays a possible contributor/candidate: civil bands, duplicates, A3 and 45A recipients
   and release, DDS once-only and A3 recipients, G5 Q7 C standing (no omission, no sentinel dates).
 - [ ] G4-B04 Deferred rate and arithmetic checks completed against each established band state (per scenario); a
   correct amount never makes a wrong rate pass; split bands and genuine alternatives preserved.

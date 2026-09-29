@@ -200,3 +200,14 @@ def product_labels(*dimsets) -> list[dict]:
     """Every combination of dimension values: dimsets are lists of (dim, [values])."""
     names = [d for d, _ in dimsets]
     return [dict(zip(names, combo)) for combo in itertools.product(*[v for _, v in dimsets])]
+
+
+def recipient_of(first: list, undated: list):
+    """The one document a posting goes to (A3 difference, 45A release) from the dated documents tied first and the
+    documents whose submission date is not established (G4-B03): any undated one may have been submitted first, so
+    with any of them the recipient is not established - never chosen by omitting them or by a sentinel date."""
+    if undated:
+        return {"not_established": sorted(set(first) | set(undated)), "dated_first": list(first), "undated": list(undated)}
+    if not first:
+        return None
+    return first[0] if len(first) == 1 else {"tie": list(first)}

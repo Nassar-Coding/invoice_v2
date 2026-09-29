@@ -149,12 +149,18 @@ def standing_map(w, st: dict, inv_date: dict) -> dict:
 
             def order(ref):
                 no = ref.rsplit("-", 1)[0]
-                return (inv_date.get((c, no)) or "9999", no, ref)
+                return (inv_date.get((c, no)), no, ref)
             dim = "stands-run" if grp["group"].startswith("DDS-HC630") and any(
                 "stands-run" in dims_of(a) for m in cands for a in lines[m][1].r.alternatives) else "stands"
-            first = sorted(cands, key=order)[0]
+            # G4-B03: a candidate on an invoice whose submission date is not established may be the earliest - it is
+            # never ordered last by a sentinel date; with one, which charge stands is not established (open), and so it
+            # is where the earliest candidate is only possibly of the same well-day (its service date not established)
+            dated = sorted((m for m in cands if order(m)[0]), key=order)
+            undated = [m for m in cands if not order(m)[0]]
+            first = dated[0] if dated else cands[0]
             # a charge on another invoice submitted the same day: which invoice is earlier is not established (open)
-            tie = any(order(m)[0] == order(first)[0] and order(m)[1] != order(first)[1] for m in cands)
+            tie = bool(undated) or first in grp.get("possible", []) or any(
+                order(m)[0] == order(first)[0] and order(m)[1] != order(first)[1] for m in dated)
             for m in cands:
                 out.setdefault(lines[m][0], {})[dim] = (first, tie)
     return out
@@ -211,6 +217,8 @@ def a3_recipients(st: dict, contract: str) -> dict:
                 continue                     # rejected from source (spec/g5_decisions.yaml Q1)
             if isinstance(rec, dict) and "tie" in rec:
                 out[q] = list(rec["tie"])
+            elif isinstance(rec, dict) and "not_established" in rec:
+                out[q] = list(rec["not_established"])      # G4-B03: a submission date not established - open like a tie
             elif rec:
                 out[q] = [rec]
         out["_total"] = a["total"]

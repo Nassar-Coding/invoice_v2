@@ -439,6 +439,7 @@
    "recipient": "PA-00678",
    "submitted": "2026-10-28",
    "earlier_applications": 898,
+   "possibly_earlier_applications": [],
    "released": {
     "by_reading": {
      "Q12:A|Q6-day0:A": {
@@ -460,6 +461,7 @@
     }
    },
    "not_established_count": 0,
+   "chronology_not_established": [],
    "later_applications_without_release": [
     "PA-00375"
    ],

@@ -35,7 +35,7 @@ from decimal import ROUND_DOWN, Decimal
 
 from . import g3_cw, terms
 from .g3_core import Trace, headers_by_id, result_keys
-from .g4_core import G4Line, apply_options, dims_of, label_of, not_payable
+from .g4_core import G4Line, apply_options, dims_of, label_of, not_payable, recipient_of
 
 Q3_RECORD = {"record_missing", "record_wrong_series", "record_unsigned", "record_date_mismatch", "record_area_mismatch",
              "record_area_unresolved", "item_not_supported_by_record"}
@@ -95,6 +95,7 @@ class CwState:
     adjustments: list = field(default_factory=list)
     p23: list = field(default_factory=list)
     retention: dict = field(default_factory=dict)
+    undated: dict = field(default_factory=dict)      # ledger -> measurements without a work date (possible contributors)
 
 
 # ------------------------------------------------------------------------------------------------ 1 duplicates
@@ -154,6 +155,26 @@ def duplicates(lines: list[Line], w, T, st: CwState) -> dict:
                 out[m.key] = {"group": gid, "standing": cands[0].key, "ties": None}
             else:
                 out[m.key] = {"group": gid, "standing": None, "ties": [c.key for c in cands]}
+    # G4-B03: a measurement whose work date is not established may be of the same date as any dated measurement of its
+    # item and work area; where it may also have been submitted no later, it may be the earlier measurement and the dated
+    # one disallowed (Cl.44). The dated measurement then stands only in the scenario in which it is the earlier one.
+    undated = [u for u in lines if u.date is None and u.item and u.area and u.g.g3.payable is not False]
+    for x in lines:
+        if x.date is None or not x.item or not x.area:
+            continue
+        maybe = [u for u in undated if (u.item, u.area) == (x.item, x.area) and u is not x
+                 and (u.submitted is None or x.submitted is None or u.submitted <= x.submitted)]
+        if not maybe:
+            continue
+        d = out.get(x.key)
+        if d and d["standing"] is not None and d["standing"] != x.key:
+            continue                                   # disallowed whatever the undated measurement's date
+        ties = (d["ties"] if d and d["ties"] else [x.key]) + [u.key for u in maybe]
+        gid = (d["group"] if d else f"CW-DUP:{x.item}|{x.area}|{x.date}") + "|undated"
+        st.duplicates.append({"group": gid, "members": [x.ref] + [u.ref for u in maybe], "earlier": [x.ref] + [u.ref for u in maybe],
+                              "possible": [u.ref for u in maybe],
+                              "rule": "Cl.44 (p8): the work date of " + ", ".join(u.ref for u in maybe) + " is not established"})
+        out[x.key] = {"group": gid, "standing": None, "ties": ties, "possible": [u.key for u in maybe]}
     return out
 
 
@@ -365,6 +386,10 @@ def _bands(lines: list[Line], outcome: dict, T, st: CwState, dup: dict | None = 
     Returns {line key: {(q12, q6): {order label or None: {'start': (lo, hi), 'parts': [...] or None}}}}."""
     res = {}
     band_lines = [ln for ln in lines if ln.item in T.banded]
+    # G4-B03: a measurement whose work date is not established may lie before any dated measurement of its item in any
+    # Contract Year: it is a possible contributor to every ledger of its item - nothing at the low end, its count at the
+    # high end - never omitted (omission would assert that it contributes nothing)
+    undated = [ln for ln in band_lines if ln.date is None]
     for q12 in ("A", "B"):
         for q6 in ("A", "B"):
             ledgers = {}
@@ -373,10 +398,16 @@ def _bands(lines: list[Line], outcome: dict, T, st: CwState, dup: dict | None = 
                 if cy is None:
                     continue
                 ledgers.setdefault((ln.item, cy), []).append(ln)
+            for u in undated:
+                for cy in ("CY1", "CY2") if q12 == "A" else ("CY1",):
+                    ledgers.setdefault((u.item, cy), [])
             for (item, cy), members in ledgers.items():
                 members.sort(key=Line.conv)
                 edges = T.band_edges[item]
-                lo = hi = Decimal(0)
+                loose = [u for u in undated if u.item == item]
+                lo, hi = Decimal(0), sum((_count_range(u, outcome[u.key], q6, T)[1] for u in loose), Decimal(0))
+                if loose:
+                    st.undated[f"{item}|{cy}|Q12:{q12}|Q6:{q6}"] = {"lines": [u.ref for u in loose], "high": str(hi)}
                 entries = []
                 i = 0
                 while i < len(members):
@@ -411,7 +442,12 @@ def _bands(lines: list[Line], outcome: dict, T, st: CwState, dup: dict | None = 
                             d = (dup or {}).get(m.key)
                             sa, sb = (tie_start.setdefault(d["group"], (a, b)) if d and d.get("ties") and m.key in d["ties"]
                                       else (a, b))
-                            parts = _band_parts(sa, pay, edges) if (pay is not None and sa == sb and not unordered) else None
+                            # a division is established where every start in the range gives it (the bands are
+                            # intervals: the same parts at both ends of the range are the parts at every start between)
+                            parts = None
+                            if pay is not None and not unordered:
+                                pa = _band_parts(sa, pay, edges)
+                                parts = pa if (sa == sb or (sb < INF and pa == _band_parts(sb, pay, edges))) else None
                             res.setdefault(m.key, {}).setdefault((q12, q6), {})[olab] = {
                                 "start": (sa, sb), "parts": parts, "count": c, "cy": cy, "ledger": f"{item}|{cy}|Q12:{q12}|Q6:{q6}"}
                             if oi == 0:
@@ -434,7 +470,9 @@ def _tie_counts(grp: list, cnt: dict, outcome: dict, q6: str, T, dup: dict) -> N
         d = dup.get(m.key)
         if d and d.get("ties") and m.key in d["ties"]:
             ties.setdefault(d["group"], []).append(m)
-    for members in ties.values():
+    for gid, members in ties.items():
+        if len(members) < len(next(dup[m.key]["ties"] for m in members)):
+            continue            # a tied measurement outside this date (an undated one): the member's own range stands
         full = []
         for m in members:
             kept = [v for k, v in outcome[m.key].items() if "rejected" not in v and dims_of(k).get("Q6") in (None, q6)]
@@ -482,8 +520,10 @@ def _value(ln: Line, oc: dict, bands: dict | None, T, dup: dict, exc: dict) -> N
             g.add("duplicate", "finding", "CW-R17", "Cl.44 (p8)", "duplicate_measurement", next(iter(oc.values()))["detail"], d["group"])
         elif rej:
             g.add("duplicate", "unresolved", "CW-R17", "Cl.44 (p8)", "duplicate_measurement",
-                  "measured more than once, and the applications were submitted the same day: which is the later measurement is "
-                  "not established (no contractual tie-breaker)", d["group"])
+                  ("a measurement of the same item and work area whose work date is not established may be of the same date "
+                   "and earlier: whether this measurement stands is not established" if d.get("possible") else
+                   "measured more than once, and the applications were submitted the same day: which is the later measurement "
+                   "is not established (no contractual tie-breaker)"), d["group"])
         else:
             g.add("duplicate", "pass", "CW-R17", "Cl.44 (p8)", detail="the earliest of the repeated measurements: it stands", ledger=d["group"])
     if e:
@@ -668,14 +708,13 @@ def _a3(w, lines: list[Line], outcome: dict, ledgers: dict, T, st: CwState) -> N
         after = [k for d, k in subs if d > ins.issued]
         first_a = [k for d, k in subs if on_or_after and d == apps[on_or_after[0]]["application_date"]]
         first_b = [k for d, k in subs if after and d == apps[after[0]]["application_date"]]
+        undated = sorted(k for k, a in apps.items() if not a.get("application_date"))
         total = _sum_options(by_line)
         st.adjustments.append({
             "instrument": ins.id, "issued": str(ins.issued), "effective": str(min(e for _c, e, _v in ins.rate_rows)),
             "eligible_lines": len(eligible), "by_line": by_line, "total": total,
-            "recipient": {"Q1:A (31A: first application submitted on or after the date of issue)":
-                          first_a[0] if len(first_a) == 1 else ({"tie": first_a} if first_a else None),
-                          "Q1:B (A3: first application submitted after the date of issue)":
-                          first_b[0] if len(first_b) == 1 else ({"tie": first_b} if first_b else None)},
+            "recipient": {"Q1:A (31A: first application submitted on or after the date of issue)": recipient_of(first_a, undated),
+                          "Q1:B (A3: first application submitted after the date of issue)": recipient_of(first_b, undated)},
             "posted": "once, on the recipient under each reading; a tie has no contractual tie-breaker and stays open (Q1)",
             "basis": "31A (p32); A3 (p43); SoV (p38); submitted applications as the proxy for 'already certified' (no "
                      "certificates supplied)"})
@@ -757,12 +796,15 @@ def _sum_options(by_line: dict) -> dict:
 # ------------------------------------------------------------------------------------------------ 6 P23
 def _p23(lines: list[Line], st: CwState) -> None:
     subs = sorted({(ln.submitted, ln.app_no) for ln in lines if ln.submitted and ln.app_no})
+    undated = sorted({ln.app_no for ln in lines if ln.app_no and not ln.submitted})
     for ln in lines:
         r = ln.g.g3
         if "Q3:A" not in r.readings or r.payable is not False:
             continue
         nxt = [a for d, a in subs if ln.submitted and d > ln.submitted]
-        st.p23.append({"line": ln.ref, "application": ln.app_no, "next_valuation": nxt[0] if nxt else None,
+        st.p23.append({"line": ln.ref, "application": ln.app_no,
+                       "next_valuation": recipient_of(nxt[:1], [a for a in undated if a != ln.app_no]) if ln.submitted
+                       else {"not_established": [], "why": "the application's own submission date is not established"},
                        "status": "not posted",
                        "basis": "Q3 reading A (decided at G3): the item is not payable in its own valuation until its record is "
                                 "delivered (Cl.46), so it was never included in a valuation; P23 deducts only an amount that was "
@@ -810,13 +852,18 @@ def _retention(lines: list[Line], apps: dict, T, st: CwState) -> None:
                    "total": single_or_range(s_["by_reading"], lambda x: x) if known else None,
                    "retention": single_or_range(s_["by_reading"], ret) if known else None}
     subs = sorted((h.values["application_date"], no) for no, h in apps.items() if h.values.get("application_date"))
+    # G4-B03: an application whose submission date is not established may have been submitted before the first dated
+    # one after completion (a possible recipient, or a possible earlier application whose retention is released) or
+    # after it: it is carried as both, never omitted
+    undated = sorted(no for no, h in apps.items() if not h.values.get("application_date"))
     after = [(d, no) for d, no in subs if d > T.completion]
     release = None
-    if after:
-        day = after[0][0]
+    if after or undated:
+        day = after[0][0] if after else None
         tied = [no for d, no in after if d == day]
-        earlier = [no for d, no in subs if d < day]
-        unknown = [no for no in earlier if tot[no] is None]
+        earlier = [no for d, no in subs if day is None or d < day]
+        maybe = list(undated)
+        unknown = [no for no in earlier + maybe if tot[no] is None]
         rel = lambda x: (x * T.release_fraction).quantize(Decimal("0.01"), rounding=ROUND_DOWN)  # noqa: E731
         present = {}
         for no in earlier:
@@ -829,18 +876,23 @@ def _retention(lines: list[Line], apps: dict, T, st: CwState) -> None:
             want = dict(zip(names, vals_))
             lab = label_of(want) or ""
             lo = hi = Decimal(0)
-            for no in earlier:
+            for no in earlier + maybe:
                 if tot[no] is None:
                     continue
                 pick = next(v for k, v in tot[no].items() if all(want.get(d) == x for d, x in dims_of(k or None).items()))
-                lo += ret(Decimal(pick["min"]))
+                if no in earlier:
+                    lo += ret(Decimal(pick["min"]))
                 hi += ret(Decimal(pick["max"]))
             combos[lab] = {"min": str(rel(lo)), "max": str(rel(hi))}
-        release = {"recipient": tied[0] if len(tied) == 1 else {"tie": tied}, "submitted": str(day),
-                   "earlier_applications": len(earlier),
+        # the recipient is the first application submitted after completion: a dated one, or any undated one (none of them
+        # can be excluded); which is then not established
+        recipient = recipient_of(tied, maybe)
+        release = {"recipient": recipient, "submitted": str(day) if day else None,
+                   "earlier_applications": len(earlier), "possibly_earlier_applications": maybe,
                    "released": None if unknown else single_or_range(combos, lambda x: x),
                    "not_established": sorted(unknown)[:20], "not_established_count": len(unknown),
-                   "later_applications_without_release": [no for d, no in after if d > day],
+                   "chronology_not_established": maybe,
+                   "later_applications_without_release": [no for d, no in after if day is not None and d > day],
                    "basis": "45A (p32): 'On the first Application for Payment submitted after the Date for Completion as extended "
                             f"({T.completion}), one half of the retention held on all earlier Applications is released, rounded "
                             "down to the halala' - once; Cl.45 (p8) retention rounded down per application"}

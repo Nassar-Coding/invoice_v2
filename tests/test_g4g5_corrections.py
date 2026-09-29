@@ -136,3 +136,123 @@ def test_b02_band_interaction_duplicate_at_the_annual_edge():
     # the B01 fixture is also a contested segment at the annual edge: allocation and footage compose
     w, res, st = _with(g4_dds, h_b01_v1())
     assert vg4.pd210_coverage_errors(st["DDS"]) == []
+
+
+# ---------------------------------------------------------------------------------------------------------- G4-B03
+def _hist(hid, blank=None, field="application_date"):
+    import copy
+    import g4_histories as H
+    h = copy.deepcopy(next(x for x in H.CW_HISTORIES + H.DDS_HISTORIES if x["id"] == hid))
+    for d in h["documents"]:
+        if blank and (d["header"].get("application_no") == blank or d["header"].get("invoice_no") == blank):
+            d["header"][field] = ""
+    return h
+
+
+def _cw_with(engine_cw, h):
+    w, res, _st = F.run(h)
+    _claims(w)
+    vg4.load_heads(w)
+    return w, res, {"CW": engine_cw.run(w, res["CW"]), "DDS": g4_dds.run(w, res["DDS"])}
+
+
+def h_b03_band():
+    h = _hist("CW-H01")
+    h["documents"][0]["lines"][0]["work_date"] = ""          # the first 600 m2 B.22.010: work date not established
+    return h
+
+
+def test_b03_undated_band_measurement_is_a_possible_contributor():
+    w, res, st = _cw_with(g4_cw, h_b03_band())
+    L = F.by_ref(st, "CW")
+    later = L["PA-91001-01"]                                  # 500 m2: 37,250.00 without the 600 before it, 36,356.00 with
+    assert later.r.amount != D("37250.00") and later.r.amount_status == "unresolved" and later.r.payable is None
+    assert "band_state_unknown" in later.state_unresolved
+    # the 400 m2 of 10 March lies in band 1 whatever the undated 600 adds (0..600 + 400 <= 1,000): provably determined
+    assert D("29800.00") in F.amounts(L["PA-91002-02"])
+    assert vg4.y3(st["CW"], st["DDS"]) == [] and vg4.chronology_errors(st["CW"], st["DDS"]) == []
+
+
+def test_b03_control_gate4_omits_the_undated_measurement():
+    old = gate_module(GATE4, "audit/g4_cw.py", "g4_cw_gate4")
+    w, res, st = _cw_with(old, h_b03_band())
+    later = F.by_ref(st, "CW")["PA-91001-01"]
+    assert later.r.amount == D("37250.00") and later.r.amount_status == "determined"      # the audit's silent value
+    st["CW"].undated = {}
+    assert any("undated measurements" in e for e in vg4.chronology_errors(st["CW"], st["DDS"]))
+
+
+def test_b03_release_with_an_undated_application_is_not_established():
+    w, res, st = _cw_with(g4_cw, _hist("CW-H10", "PA-9A001"))
+    rel = st["CW"].retention["release"]
+    assert rel["recipient"]["not_established"] == ["PA-9A001", "PA-9A003"]
+    assert rel["released"] == {"by_reading": {"": {"min": "96.15", "max": "192.49"}}}       # never the bare 96.15
+    assert vg4.chronology_errors(st["CW"], st["DDS"]) == []
+    w, res, st = _cw_with(g4_cw, _hist("CW-H10"))
+    assert st["CW"].retention["release"]["recipient"] == "PA-9A003" and st["CW"].retention["release"]["released"] == "192.49"
+
+
+def test_b03_control_gate4_release_omits_the_undated_application():
+    old = gate_module(GATE4, "audit/g4_cw.py", "g4_cw_gate4")
+    w, res, st = _cw_with(old, _hist("CW-H10", "PA-9A001"))
+    rel = st["CW"].retention["release"]
+    assert rel["released"] == "96.15" and rel["not_established"] == [] and rel["recipient"] == "PA-9A003"
+    st["CW"].undated = {}
+    assert any("45A release recipient" in e for e in vg4.chronology_errors(st["CW"], st["DDS"]))
+
+
+def _g5(mod, h):
+    w, res, st = F.run(h)
+    e = mod.Engine(w, st)
+    return {no: e.outcome(i) for no, i in e.inv["DDS"].items()}, e
+
+
+def test_b03_undated_invoice_never_sorted_last_under_q7c():
+    from audit import g5_outcomes
+    out, e = _g5(g5_outcomes, _hist("DDS-H01", "MDS-90001", "invoice_date"))
+    o = out["MDS-90002"]
+    assert "stands" in o["open_readings"] and o["confidence"] != D("0.80")
+    # its own daily-limit breach makes it wrong whichever charge stands; the totals differ by the 4 March charge (Q9-5)
+    assert o["flagged"] == 1 and o["confidence"] == D("0.60") and len(o["totals"]) == 2
+    assert "stands" in out["MDS-90001"]["open_readings"] and out["MDS-90001"]["confidence"] == D("0.50")
+    k = next(k for k, v in e.stands.items() if "stands" in v)
+    assert e.stands[k]["stands"][1] is True                           # open, not a keeper chosen by a sentinel date
+
+
+def test_b03_control_gate5_sentinel_selects_a_keeper():
+    old = gate_module(GATE5, "audit/g5_outcomes.py", "g5_outcomes_gate5")
+    out, e = _g5(old, _hist("DDS-H01", "MDS-90001", "invoice_date"))
+    o = out["MDS-90002"]
+    assert "stands" not in o["open_readings"] and o["confidence"] == D("0.80")      # the audit's definite keeper
+    # the undated invoice's charge is treated as the later one: a definite repeat at 0.80
+    assert out["MDS-90001"]["flagged"] == 1 and out["MDS-90001"]["confidence"] == D("0.80")
+    assert "charged_twice@MDS-90001-002" in out["MDS-90001"]["findings"]
+    assert all(v["stands"][1] is False for v in e.stands.values() if "stands" in v)
+
+
+def test_b03_undated_civil_measurement_may_be_the_earlier_duplicate():
+    w, res, st = _cw_with(g4_cw, h_b03_band())
+    g = F.by_ref(st, "CW")["PA-91002-02"]
+    assert D("0.00") in F.amounts(g) and "duplicate_measurement" in g.state_unresolved
+
+
+def test_b03_undated_dds_charge_is_a_possible_repeat_and_well_event_not_a_finding():
+    h = _hist("DDS-H01")
+    h["documents"][1]["lines"][0]["service_date"] = ""                  # MDS-90002's 4 March DD-101: date not established
+    w, res, st = F.run(h)
+    L = F.by_ref(st, "DDS")
+    assert L["MDS-90002-001"].g3.payable is None                        # G3: the undated charge is not valued
+    # it may be for any of the well's dated DD-101 days: each dated charge stands only in the scenario it is the one kept
+    for ref in ("MDS-90001-001", "MDS-90001-002", "MDS-90002-002"):
+        assert F.amounts(L[ref]) == [D("0.00"), D("3694.70")] and "charged_twice" in L[ref].state_unresolved
+    poss = [gr for gr in st["DDS"].groups if gr.get("possible")]
+    assert len(poss) == 3 and all(gr["possible"] == ["MDS-90002-001"] for gr in poss)
+
+
+def test_b03_control_gate4_ignores_the_undated_dds_charge():
+    old = gate_module(GATE4, "audit/g4_dds.py", "g4_dds_gate4")
+    h = _hist("DDS-H01")
+    h["documents"][1]["lines"][0]["service_date"] = ""
+    w, res, st = _with(old, h)
+    assert F.amounts(F.by_ref(st, "DDS")["MDS-90001-002"]) == [D("3694.70")]     # determined: the possible repeat omitted
+

@@ -176,6 +176,56 @@ def y2(w, res, forward: dict, runner=run_state) -> list[str]:
     for order in ("reverse", "shuffle"):
         errs += _diff_states(base, snapshot_state(runner(w, res, order, a3_rerun=False)), order)
     errs += ledger_order_errors(forward["CW"])
+    errs += chronology_errors(forward["CW"], forward["DDS"])
+    return errs
+
+
+def chronology_errors(cw, dds) -> list[str]:
+    """G4-B03, independent of the engine's ordering: a measurement without a work date is listed as a possible contributor
+    in every band ledger of its item; a document whose submission date is not established is a possible recipient of
+    every posting (A3 under each reading, 45A release) - the recipient is then 'not established', never a single document
+    chosen by omitting it; a charge whose date is not established is never an established 'not on its day' finding."""
+    errs = []
+    T = cw_terms()
+    undated_band = defaultdict(set)
+    for g in cw.lines.values():
+        c = _claim(g)
+        if c.get("item_code") in T.banded and not c.get("work_date") and g.g3.payable is not False:
+            undated_band[c["item_code"]].add(g.g3.line_ref)
+    for lk in cw.ledgers:
+        item = lk.split("|")[0]
+        listed = set((cw.undated.get(lk) or {}).get("lines", []))
+        if listed != undated_band.get(item, set()):
+            errs.append(f"band ledger {lk}: undated measurements {sorted(undated_band.get(item, set()))} listed as {sorted(listed)}")
+    for item, refs in undated_band.items():
+        if not any(lk.startswith(item + "|") for lk in cw.ledgers):
+            errs.append(f"{item}: undated measurements {sorted(refs)} in no band ledger")
+    heads = {"CW": {}, "DDS": {}}
+    for st, c, no_f, d_f in ((cw, "CW", "application_no", "application_date"), (dds, "DDS", "invoice_no", "invoice_date")):
+        for g in st.lines.values():
+            cl = _claim(g)
+            if cl.get(no_f):
+                heads[c].setdefault(cl[no_f], set())
+        for no, h in (_HEADS.get(c) or {}).items():
+            heads[c][no] = bool(h.get(d_f))
+        undated = sorted(no for no, dated in heads[c].items() if dated is False)
+        if not undated:
+            continue
+        for a in st.adjustments:
+            for reading, rec in a["recipient"].items():
+                if reading.startswith("Q1:C"):
+                    continue
+                if not (isinstance(rec, dict) and set(undated) <= set(rec.get("not_established", []))):
+                    errs.append(f"{c} {a['instrument']} {reading}: recipient {rec} although {undated} have no submission date")
+        rel = (getattr(st, "retention", None) or {}).get("release") if c == "CW" else None
+        if rel is not None and not (isinstance(rel["recipient"], dict) and set(undated) <= set(rel["recipient"].get("not_established", []))):
+            errs.append(f"45A release recipient {rel['recipient']} although {undated} have no submission date")
+        if c == "CW" and rel is None and undated and cw.retention.get("per_application"):
+            errs.append(f"45A release omitted although {undated} may have been submitted after completion")
+    for g in dds.lines.values():
+        if not _claim(g).get("service_date") and any(x.finding == "well_event_not_on_its_day" and x.status == "finding"
+                                                    for x in g.state):
+            errs.append(f"{g.g3.line_ref}: 'not on its day' established although its date is not established")
     return errs
 
 
@@ -200,9 +250,12 @@ def y3(cw, dds, T=None) -> list[str]:
     for lk, entries in cw.ledgers.items():
         item, cy, q12, q6 = lk.split("|")
         keys[(item, q12, q6)].add(cy)
-        if entries and entries[0]["before"] != ["0", "0"]:
-            errs.append(f"band ledger {lk}: does not start at zero")
-        run_lo = run_hi = ZERO
+        # G4-B03: measurements without a work date are possible earlier contributors: the ledger starts at [0, their
+        # count], never at [0, 0] with them omitted (chronology_errors checks that none is omitted)
+        start_hi = D((cw.undated.get(lk) or {}).get("high", "0"))
+        if entries and entries[0]["before"] != ["0", str(start_hi)]:
+            errs.append(f"band ledger {lk}: does not start at zero (or at the undated measurements' range {start_hi})")
+        run_lo, run_hi = ZERO, start_hi
         for e in entries:
             if [D(e["before"][0]), D(e["before"][1])] != [run_lo, run_hi]:
                 errs.append(f"band ledger {lk}: {e['line']} starts at {e['before']}, the ledger before it sums to {run_lo}..{run_hi}")
@@ -452,8 +505,14 @@ def a3_posting_errors(st) -> list[str]:
                 errs.append(f"{a['instrument']} {reading}: posted on several documents {rec}")
             if isinstance(rec, dict) and "tie" in rec and len(rec["tie"]) < 2:
                 errs.append(f"{a['instrument']} {reading}: a 'tie' of one document")
+            if isinstance(rec, dict) and "not_established" in rec:
+                if not rec.get("undated"):
+                    errs.append(f"{a['instrument']} {reading}: recipient 'not established' with no undated document")
+                continue
             if isinstance(rec, dict) and "tie" not in rec:
                 for well, r in rec.items():
+                    if isinstance(r, dict) and "not_established" in r:
+                        continue
                     if isinstance(r, list):
                         errs.append(f"{a['instrument']} {reading} {well}: posted on several documents")
     return errs
@@ -574,6 +633,12 @@ def _date(g):
 
 
 _CLAIMS = {}
+_HEADS = {}           # contract -> {document number: header values} (claims), for the chronology oracle
+
+
+def load_heads(w) -> None:
+    for c, hk, no_f in (("CW", "cw_headers", "application_no"), ("DDS", "dds_headers", "invoice_no")):
+        _HEADS[c] = {r.values.get(no_f): r.values for r in w.claims.rows[hk] if r.values.get(no_f)}
 
 
 def _claim(g) -> dict:
@@ -675,6 +740,7 @@ def main() -> int:
         from audit.g3_core import result_keys
         for k, row in zip(result_keys(w.claims.rows[lk]), w.claims.rows[lk]):
             _CLAIMS[k] = row.values
+    load_heads(w)
     g3_before = {c: {k: json.dumps(r.to_json(), sort_keys=True, default=str) for k, r in rs.items()} for c, rs in res.items()}
     st = {"CW": g4_cw.run(w, res["CW"]), "DDS": g4_dds.run(w, res["DDS"])}
     cmp_ = HC.compare()
