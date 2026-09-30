@@ -259,7 +259,8 @@ def z4(out: dict, perturbed: dict | None = None, claims_changed: dict | None = N
                 errs.append(f"{i}: unformed total exported as {o['expected_total']} without its EXPORT-U lower bound {b}")
             continue
         # the exported figure (EXPORT-E): an admissible contract total - checked line by line by export_errors
-        if o["formed"] and D(o["expected_total"]) not in {D(t) for t in o.get("admissible_totals", [])}:
+        if o["formed"] and o.get("admissible_totals") is not None and \
+                D(o["expected_total"]) not in {D(t) for t in o["admissible_totals"]}:
             errs.append(f"{i}: exports {o['expected_total']}, which is none of its admissible totals {o['admissible_totals'][:4]}")
     if perturbed is not None:
         # every billed figure changed: the contract total (absent-document values) never moves; a row that depends on no

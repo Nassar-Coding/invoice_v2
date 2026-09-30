@@ -530,9 +530,11 @@ def test_g5b01_both_nomination_outcomes():
     bad = U._dds("N2", [_nom_line("N2-001", "1200.00"),
                         U._line("DDS", "N2-002", "DD-101", "500.00", "500.00")])
     o = _o([bad], bad)
-    # wrong whether or not the section is nominated (1,200 billed, 1,000 if nominated, 0 if not): flagged; the
-    # exported total rests on the absent nomination (500 + VAT), confidence 0.60 (the total depends on the call-off)
-    assert o["flagged"] == 1 and o["expected_total"] == D("575.00") and o["confidence"] == D("0.60")
+    # wrong whether or not the section is nominated (1,200 billed, 1,000 if nominated, 0 if not): flagged; exported
+    # under the export value (Q9-7 EXPORT-E: nominated - the value under which the charge exists), (1,000 + 500) + VAT,
+    # its difference named on the line; confidence 0.60 (the total depends on the call-off); EXPORT-D disclosed
+    assert o["flagged"] == 1 and o["expected_total"] == D("1725.00") and o["confidence"] == D("0.60")
+    assert D(o["contract_total"]) == D("575.00") and any(f.endswith("@N2-001") for f in o["findings"])
     assert "section_not_nominated@N2-001" not in o["findings"]          # evidence-dependent, never a finding
 
 
@@ -768,7 +770,7 @@ def test_g5b03_payment_oracle_passes_fixed_and_fails_gate5():
     out2 = {i.id: e2.outcome(i) for i in invs}
     errs = vg5.payment_errors(out2, e2)
     assert any("no reading makes the recipient" in x for x in errs) and any("not the 45A recipient" in x for x in errs)
-    assert any("R1: adjustment 0.01, the account 60508.18" in x for x in errs)
+    assert any("R1: adjustment 0.01 outside the account [60508.18, 60508.18]" in x for x in errs)
 
 
 # ---------------------------------------------------------------------------------------------------------- G5-B05
