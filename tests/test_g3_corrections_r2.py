@@ -592,7 +592,7 @@ def report_identity_errors(text: str) -> list[str]:
 
 
 def test_report_line_identities_match_the_source():
-    for p in sorted(ROOT.glob("Phase3_*.md")):
+    for p in sorted((ROOT / "docs" / "process").glob("Phase3_*.md")):
         assert report_identity_errors(p.read_text()) == [], p.name
 
 

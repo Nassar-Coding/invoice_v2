@@ -1,7 +1,8 @@
 """Render a short Markdown document (headings, paragraphs, bullet lists, tables, bold/italic/code spans) to PDF with
 PyMuPDF's Story (a pinned dependency; no other tool needed). Used for the report deliverables.
 
-Usage::  python tools/md_to_pdf.py INPUT.md OUTPUT.pdf
+Usage::  python tools/md_to_pdf.py INPUT.md OUTPUT.pdf [--compact]      (--compact: smaller type and margins, for a
+one-page document)
 """
 from __future__ import annotations
 
@@ -44,7 +45,17 @@ def to_html(md: str) -> str:
             out.append("<p>" + inline(" ".join(para)) + "</p>")
             para.clear()
         if lst:
-            out.append("<ul>" + "".join(f"<li>{inline(x)}</li>" for x in lst) + "</ul>")
+            html_, open_sub = "<ul>", False
+            for lvl, x in lst:                    # one level of nesting: an indented item belongs to the item above
+                if lvl and not open_sub:
+                    html_ = html_[:-5] + "<ul>" if html_.endswith("</li>") else html_ + "<ul>"
+                    open_sub = True
+                elif not lvl and open_sub:
+                    html_ += "</ul></li>"
+                    open_sub = False
+                html_ += f"<li>{inline(x)}</li>"
+            html_ += ("</ul></li>" if open_sub else "") + "</ul>"
+            out.append(html_)
             lst.clear()
 
     def flush_table():
@@ -73,15 +84,15 @@ def to_html(md: str) -> str:
             n = len(m.group(1))
             out.append(f"<h{n}>{inline(m.group(2))}</h{n}>")
             continue
-        m = re.match(r"^\s*[-*]\s+(.*)$", s)
+        m = re.match(r"^(\s*)[-*]\s+(.*)$", s)
         if m:
             if para:
                 out.append("<p>" + inline(" ".join(para)) + "</p>")
                 para.clear()
-            lst.append(m.group(1))
+            lst.append((1 if len(m.group(1)) >= 2 else 0, m.group(2)))
             continue
         if lst and s.startswith("  "):
-            lst[-1] += " " + s.strip()
+            lst[-1] = (lst[-1][0], lst[-1][1] + " " + s.strip())
             continue
         if lst:
             flush_text()
@@ -92,11 +103,21 @@ def to_html(md: str) -> str:
     return "<body>" + "".join(out) + "</body>"
 
 
-def render(md_path: Path, pdf_path: Path) -> int:
-    story = pymupdf.Story(html=to_html(md_path.read_text()), user_css=CSS)
+COMPACT = CSS + """
+body { font-size: 8pt; line-height: 1.2; }
+h1 { font-size: 12pt; margin: 0 0 3pt 0; }
+h2 { font-size: 9.5pt; margin: 5pt 0 2pt 0; }
+p, ul { margin: 0 0 2pt 0; }
+th, td { font-size: 7.5pt; padding: 1pt 2pt; }
+"""
+
+
+def render(md_path: Path, pdf_path: Path, compact: bool = False) -> int:
+    story = pymupdf.Story(html=to_html(md_path.read_text()), user_css=COMPACT if compact else CSS)
     writer = pymupdf.DocumentWriter(str(pdf_path))
     rect = pymupdf.paper_rect("a4")
-    where = rect + (40, 40, -40, -40)
+    m = 28 if compact else 40
+    where = rect + (m, m, -m, -m)
     pages = 0
     more = True
     while more:
@@ -117,7 +138,7 @@ def render(md_path: Path, pdf_path: Path) -> int:
 
 
 def main() -> int:
-    n = render(Path(sys.argv[1]), Path(sys.argv[2]))
+    n = render(Path(sys.argv[1]), Path(sys.argv[2]), "--compact" in sys.argv[3:])
     print(f"{sys.argv[2]}: {n} page(s)")
     return 0
 

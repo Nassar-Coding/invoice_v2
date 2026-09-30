@@ -86,10 +86,10 @@ def test_phase_artifacts_preserved_verbatim():
     names = {n for _, n in entries}
     assert {
         "Phase1_understanding_baseline.md",
-        "Phase1_understanding_supplementary.md",  # repo root; identical to the supplied supplementary report
+        "Phase1_understanding_supplementary.md",  # docs/process/; identical to the supplied supplementary report
         "Phase1_audit_and_comparison.md",
         "Phase2_plan.md",
     } <= names
     for digest, name in entries:
-        path = d / name if (d / name).exists() else ROOT / name
+        path = d / name if (d / name).exists() else ROOT / "docs" / "process" / name
         assert hashlib.sha256(path.read_bytes()).hexdigest() == digest, name

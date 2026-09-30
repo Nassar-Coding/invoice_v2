@@ -1,4 +1,4 @@
-"""Independent audit of G4/G5, round 1 (verification/g45_audit/auditor_{A,B,C}_*_round1.md): each finding's reproduction
+"""Independent audit of G4/G5, round 1 (docs/process/audits/auditor_{A,B,C}_*_round1.md): each finding's reproduction
 through the production pipeline (or the engine objects it produces), the corrected result, and a negative control - the
 audited commit's code (1f797bf), loaded from git, on the same input, failing for the finding's reason and rejected by the
 corrected oracle where one applies."""

@@ -203,4 +203,18 @@ annotation texts handed to the owner). Report: Phase3_G4_G5_corrections.md.
   displayed rate against the scenario's rate, displayed arithmetic, band division, value_differs - never 'rate' by
   default); 'term' is a monetary consequence; Z4 states its procedural set (identity, timing) itself; Z3 attribution
   oracle from the line's own facts.
-- [ ] Population and submission regenerated; all G0-G5 checks and tests in a fresh clone; report; SHAs and tag texts.
+- [x] Independent audit round 1 (three auditors, commit 1f797bf): 15 findings; every BLOCKER fixed with a regression
+  test and a control on 1f797bf (tests/test_g45_audit_round1.py); population regenerated (a7c61f1): flags unchanged
+  CW 85 / DDS 125; 95 flagged exports, 2 categories, 2 confidences changed. No recheck round (owner).
+- [x] G4/G5 closure commit 35c7abf (gate4-r1, gate5-r1); fresh clone deferred to the single final run (owner).
+
+## G6 / G7 (docs/process/Phase3_G6_G7.md)
+
+- [x] G6 population review: rule exposure, categories, residual clusters (all explained, all on flagged invoices),
+  outliers, 0 unsupported-pass candidates, uncertainty groups (verification/g6/review.json).
+- [ ] G6 independent FN/FP sample (30 invoices drawn, seed 6606): readers launched once; all ended at the account
+  usage limit before any output; not repeated (owner). G6 exit not met on this item.
+- [x] G7: root submission.csv (pipeline output, checked identical), independent checker with 9 negative controls,
+  reproduce.sh, pinned requirements, README rewritten, ERROR_ANALYSIS and DECISION_LOG (md + pdf), repository
+  cleanup (process records to docs/process/).
+- [ ] Single fresh-clone run on the final commit (reported in the final summary).

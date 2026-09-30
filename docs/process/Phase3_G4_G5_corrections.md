@@ -266,7 +266,7 @@ admissible quantity below the billed one — from the line's own facts; it rejec
 Three independent auditors examined `1f797bf`. They were given only the repository, the pinned snapshot and the gate
 exit conditions: G4 state, G5 outcomes, and end to end. Each was told to break the gate, reproduce claims from raw
 inputs, build same-format counterexamples and check that the frozen blockers stay closed. Their reports are reproduced
-unedited in Appendix A (also `verification/g45_audit/auditor_{A,B,C}_*_round1.md`).
+unedited in Appendix A (also `docs/process/audits/auditor_{A,B,C}_*_round1.md`).
 
 Every finding classed BLOCKER is fixed as a general rule. Each has a regression test with a negative control
 (`tests/test_g45_audit_round1.py`): the reproduction passes on the corrected code, and the same input on the audited
@@ -313,13 +313,31 @@ controls are the evidence of closure; no second independent reading confirms the
 - The Q11 A upper bound counts a loose charge's allowed or reported metres, not a sharper physical bound.
 
 
+
+## 5. Closure
+
+- **Commits.**
+  - `a7c61f1`: round-1 fixes and the regenerated population.
+  - `35c7abf`: the tests that encoded the earlier export rule, updated. This is the G4/G5 closure commit, recorded as
+    **gate4-r1** and **gate5-r1** (tags cannot be pushed from this environment; their annotation texts are given in
+    the final summary).
+- **One regeneration.** Build, G3, G4, G4 histories and G5, 993 s.
+  - G4 history comparison: 24 histories, 48 reader results, 0 open, 0 stale.
+  - G5 sample: 25 invoices, 50 reader results, 48 agree, 2 settled, 0 open, 0 stale.
+- **One verification.**
+  - `verify_g4`: G4 VERIFY OK.
+  - `verify_g5`: result in the final summary and in `docs/process/Phase3_G6_G7.md`.
+  - The G4, G5 and round-1 test files pass (174).
+- **Fresh clone.** One run, on the final commit, at the end of G7 (owner's instruction).
+- **Not established.** No independent recheck of the round-1 fixes; see §4.
+
 ## Appendix A — independent auditor reports, round 1 (unedited)
 
 Each report follows verbatim between the rules; it is also kept as a file (named below).
 
 ---
 
-`verification/g45_audit/auditor_A_g4_round1.md`:
+`docs/process/audits/auditor_A_g4_round1.md`:
 
 # Independent audit of G4 (chronology and shared state), commit 1f797bf
 
@@ -448,7 +466,7 @@ Nothing in `/home/user/invoice_v2` was read or modified.
 
 ---
 
-`verification/g45_audit/auditor_B_g5_round1.md`:
+`docs/process/audits/auditor_B_g5_round1.md`:
 
 # G5 audit (commit 1f797bf): four blockers found, so G5 should not pass
 
@@ -539,7 +557,7 @@ The committed outputs reproduce exactly and every verifier check (Z1–Z9) passe
 
 ---
 
-`verification/g45_audit/auditor_C_e2e_round1.md`:
+`docs/process/audits/auditor_C_e2e_round1.md`:
 
 # Independent audit C: G4 and G5 at 1f797bf (break-the-gate, invariants and hand recomputation)
 

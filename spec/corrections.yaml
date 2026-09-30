@@ -10,7 +10,7 @@ corrections:
   - {id: P1-B2, source: "P1 §3", summary: "5-8% prevalence is not a target, quota or stopping rule; billed-rate reproduction is a diagnostic, not a gate", carried_in: [Q9, "verification method: no billing agreement used to verify any term"]}
   - {id: P1-B3, source: "P1 §3", summary: "DDS annual footage bands are per well and Contract Year by explicit wording", carried_in: [D4, DDS-R12]}
   - {id: P1-B4, source: "P1 §3", summary: "Clause 29 duplicate rule keeps the PD-210 depth-interval exception", carried_in: [DDS-R16]}
-  - {id: P1-B5, source: "P1 §3", summary: "AI assistance must be disclosed", carried_in: ["prompts/phase3/", "Phase3_G0_G1.md AI disclosure"]}
+  - {id: P1-B5, source: "P1 §3", summary: "AI assistance must be disclosed", carried_in: ["prompts/phase3/", "docs/process/Phase3_G0_G1.md AI disclosure"]}
   - {id: P1-S6-1, source: "P1 §6.1", summary: "Civil unit and duplicate consequences explicit", carried_in: [CW-R08, CW-R17]}
   - {id: P1-S6-2, source: "P1 §6.2", summary: "Separate mismatch, reuse and duplication; keep PD-210 exception", carried_in: [DDS-R16, Q7]}
   - {id: P1-S6-3, source: "P1 §6.3", summary: "Explicit scope and precedence first; January anniversaries, eligibility lists, second-series exceptions, issue order", carried_in: [spec/overrides.yaml, D4, Q12, CW-R13, DDS-R11]}
@@ -36,7 +36,7 @@ corrections:
   - {id: P2-S6-8, source: "P2 §6.8", summary: "Complete coverage and reproducibility", carried_in: [spec/guideline_checks.yaml, source/manifest.tsv, requirements.txt]}
   # ---------------- Phase 2.5 audit: selection corrections and conditions
   - {id: P25-B-1, source: "P25 §4", summary: "Bounded observed vocabulary, not semantic closure; unresolved cases retained", carried_in: [DDS.T20_GLOSSARY, DDS-R06, CW-R09]}
-  - {id: P25-B-2, source: "P25 §4", summary: "Tool-assisted LLM alternative not weakened (selection closed; no reopening evidence found)", carried_in: ["Phase3_G0_G1.md 'Plan assumptions challenged'"]}
+  - {id: P25-B-2, source: "P25 §4", summary: "Tool-assisted LLM alternative not weakened (selection closed; no reopening evidence found)", carried_in: ["docs/process/Phase3_G0_G1.md 'Plan assumptions challenged'"]}
   - {id: P25-B-3, source: "P25 §4", summary: "Constraint analysis may serve competing allocations", carried_in: [Q1, Q6, Q7]}
   - {id: P25-B-4, source: "P25 §4", summary: "Reproducibility via versioned intermediate decisions, not fresh model calls", carried_in: ["verification/ (frozen OCR, blind readings, logs)", "prompts/phase3/"]}
   - {id: P25-B-5, source: "P25 §4", summary: "Bounded vocabulary is not a closed interpretive workload", carried_in: [spec/open_questions.yaml]}

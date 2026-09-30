@@ -1,5 +1,5 @@
 {
- "run_context": "89f0c33608cd82ec",
+ "run_context": "85e9cfda3bff7980",
  "flags": {
   "CW": 85,
   "DDS": 125
@@ -513,9 +513,9 @@
     "contract_ref_variant": 2,
     "header_arithmetic": 1,
     "submitted_early": 1,
+    "item_not_supported_by_record": 1,
     "record_date_mismatch": 1,
     "record_area_mismatch": 1,
-    "item_not_supported_by_record": 1,
     "record_wrong_series": 1,
     "record_unsigned": 1,
     "release_omitted": 1,
@@ -524,8 +524,8 @@
   },
   "DDS": {
    "root": {
-    "rate": 59,
-    "quantity": 19,
+    "rate": 57,
+    "quantity": 21,
     "eligibility": 14,
     "timing": 9,
     "evidence_mismatch": 8,
@@ -539,8 +539,8 @@
     "term": 3
    },
    "combination": {
-    "rate": 53,
-    "quantity": 19,
+    "rate": 51,
+    "quantity": 21,
     "eligibility": 7,
     "timing": 6,
     "arithmetic": 6,
@@ -558,19 +558,19 @@
     "duplicate; eligibility": 1
    },
    "findings": {
-    "rate_differs": 55,
+    "rate_differs": 57,
     "quantity_above_report": 17,
     "report_date_mismatch": 8,
-    "no_admissible_document": 4,
     "not_chargeable_on_standby": 4,
+    "quantity_above_record": 4,
     "adjustment_omitted": 4,
     "not_chargeable_on_operating": 4,
     "submitted_late": 3,
     "discount": 3,
     "outside_period": 3,
     "tool_not_in_hole": 3,
-    "well_event_repeated": 3,
     "well_event_not_on_its_day": 3,
+    "well_event_repeated": 3,
     "amount_arithmetic": 3,
     "report_unsigned": 3,
     "charged_twice": 3,
@@ -578,8 +578,7 @@
     "submitted_early": 3,
     "contract_ref_variant": 3,
     "required_part_missing": 3,
-    "out_of_term": 3,
-    "quantity_above_record": 2
+    "out_of_term": 3
    }
   }
  },
@@ -602,42 +601,12 @@
   },
   {
    "contract": "CW",
-   "code": "A.12.010",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 5,
-   "invoices": 4,
-   "billed_minus_contract": "9615.46",
-   "sample": [
-    "PA-00320",
-    "PA-00636",
-    "PA-00732",
-    "PA-00833"
-   ]
-  },
-  {
-   "contract": "CW",
-   "code": "C.31.010",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 4,
-   "invoices": 4,
-   "billed_minus_contract": "29636.90",
-   "sample": [
-    "PA-00019",
-    "PA-00312",
-    "PA-00496",
-    "PA-00529"
-   ]
-  },
-  {
-   "contract": "CW",
    "code": "C.31.010",
    "explained_by": "rate_differs",
    "invoice_flag": "flagged",
    "lines": 4,
    "invoices": 4,
-   "billed_minus_contract": "20667.84",
+   "billed_minus_contract": "17202.84",
    "sample": [
     "PA-00090",
     "PA-00503",
@@ -658,49 +627,6 @@
     "PA-00297",
     "PA-00738",
     "PA-00803"
-   ]
-  },
-  {
-   "contract": "CW",
-   "code": "A.15.020",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 4,
-   "invoices": 4,
-   "billed_minus_contract": "2906.46",
-   "sample": [
-    "PA-00309",
-    "PA-00496",
-    "PA-00609",
-    "PA-00732"
-   ]
-  },
-  {
-   "contract": "CW",
-   "code": "C.32.010",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 3,
-   "invoices": 3,
-   "billed_minus_contract": "2162.80",
-   "sample": [
-    "PA-00116",
-    "PA-00309",
-    "PA-00609"
-   ]
-  },
-  {
-   "contract": "CW",
-   "code": "A.15.010",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 3,
-   "invoices": 3,
-   "billed_minus_contract": "5510.24",
-   "sample": [
-    "PA-00120",
-    "PA-00659",
-    "PA-00813"
    ]
   },
   {
@@ -733,46 +659,6 @@
   },
   {
    "contract": "CW",
-   "code": "A.12.020",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 3,
-   "invoices": 3,
-   "billed_minus_contract": "17267.01",
-   "sample": [
-    "PA-00529",
-    "PA-00609",
-    "PA-00803"
-   ]
-  },
-  {
-   "contract": "CW",
-   "code": "A.12.050",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 2,
-   "invoices": 2,
-   "billed_minus_contract": "3852.15",
-   "sample": [
-    "PA-00067",
-    "PA-00312"
-   ]
-  },
-  {
-   "contract": "CW",
-   "code": "A.11.020",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 2,
-   "invoices": 2,
-   "billed_minus_contract": "3477.07",
-   "sample": [
-    "PA-00111",
-    "PA-00761"
-   ]
-  },
-  {
-   "contract": "CW",
    "code": "A.12.040",
    "explained_by": "rate_differs",
    "invoice_flag": "flagged",
@@ -786,19 +672,6 @@
   },
   {
    "contract": "CW",
-   "code": "A.14.020",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 2,
-   "invoices": 2,
-   "billed_minus_contract": "9390.49",
-   "sample": [
-    "PA-00120",
-    "PA-00668"
-   ]
-  },
-  {
-   "contract": "CW",
    "code": "C.32.030",
    "explained_by": "rate_differs",
    "invoice_flag": "flagged",
@@ -808,19 +681,6 @@
    "sample": [
     "PA-00406",
     "PA-00468"
-   ]
-  },
-  {
-   "contract": "CW",
-   "code": "C.33.010",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 2,
-   "invoices": 2,
-   "billed_minus_contract": "3545.60",
-   "sample": [
-    "PA-00496",
-    "PA-00672"
    ]
   },
   {
@@ -969,18 +829,6 @@
   },
   {
    "contract": "CW",
-   "code": "C.31.030",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 1,
-   "invoices": 1,
-   "billed_minus_contract": "9234.81",
-   "sample": [
-    "PA-00312"
-   ]
-  },
-  {
-   "contract": "CW",
    "code": "B.25.010",
    "explained_by": "rate_differs",
    "invoice_flag": "flagged",
@@ -1077,18 +925,6 @@
   },
   {
    "contract": "CW",
-   "code": "A.15.010",
-   "explained_by": "submitted_late",
-   "invoice_flag": "flagged",
-   "lines": 1,
-   "invoices": 1,
-   "billed_minus_contract": "2796.80",
-   "sample": [
-    "PA-00613"
-   ]
-  },
-  {
-   "contract": "CW",
    "code": "E.52.010",
    "explained_by": "record_missing",
    "invoice_flag": "flagged",
@@ -1130,7 +966,7 @@
    "invoice_flag": "flagged",
    "lines": 1,
    "invoices": 1,
-   "billed_minus_contract": "2087.50",
+   "billed_minus_contract": "-5.00",
    "sample": [
     "PA-00659"
    ]
@@ -1202,7 +1038,7 @@
    "invoice_flag": "flagged",
    "lines": 1,
    "invoices": 1,
-   "billed_minus_contract": "956.08",
+   "billed_minus_contract": "-159.12",
    "sample": [
     "PA-00732"
    ]
@@ -1214,7 +1050,7 @@
    "invoice_flag": "flagged",
    "lines": 1,
    "invoices": 1,
-   "billed_minus_contract": "-478.38",
+   "billed_minus_contract": "-139.36",
    "sample": [
     "PA-00761"
    ]
@@ -1250,7 +1086,7 @@
    "invoice_flag": "flagged",
    "lines": 1,
    "invoices": 1,
-   "billed_minus_contract": "2196.00",
+   "billed_minus_contract": "-366.00",
    "sample": [
     "PA-00768"
    ]
@@ -1330,139 +1166,11 @@
   {
    "contract": "DDS",
    "code": "MW-310",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 187,
-   "invoices": 42,
-   "billed_minus_contract": "100585.23",
-   "sample": [
-    "MDS-00164",
-    "MDS-00287",
-    "MDS-00307",
-    "MDS-00320",
-    "MDS-00332"
-   ]
-  },
-  {
-   "contract": "DDS",
-   "code": "PD-210",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 170,
-   "invoices": 45,
-   "billed_minus_contract": "1528214.15",
-   "sample": [
-    "MDS-00042",
-    "MDS-00062",
-    "MDS-00164",
-    "MDS-00287",
-    "MDS-00307"
-   ]
-  },
-  {
-   "contract": "DDS",
-   "code": "MW-320",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 143,
-   "invoices": 34,
-   "billed_minus_contract": "24763.94",
-   "sample": [
-    "MDS-00164",
-    "MDS-00287",
-    "MDS-00307",
-    "MDS-00320",
-    "MDS-00332"
-   ]
-  },
-  {
-   "contract": "DDS",
-   "code": "DD-120",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 137,
-   "invoices": 36,
-   "billed_minus_contract": "197575.11",
-   "sample": [
-    "MDS-00164",
-    "MDS-00287",
-    "MDS-00307",
-    "MDS-00320",
-    "MDS-00332"
-   ]
-  },
-  {
-   "contract": "DDS",
-   "code": "LW-410",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 81,
-   "invoices": 25,
-   "billed_minus_contract": "22538.82",
-   "sample": [
-    "MDS-00287",
-    "MDS-00332",
-    "MDS-00476",
-    "MDS-00622",
-    "MDS-00635"
-   ]
-  },
-  {
-   "contract": "DDS",
-   "code": "LW-411",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 73,
-   "invoices": 22,
-   "billed_minus_contract": "31350.54",
-   "sample": [
-    "MDS-00287",
-    "MDS-00332",
-    "MDS-00476",
-    "MDS-00653",
-    "MDS-00700"
-   ]
-  },
-  {
-   "contract": "DDS",
-   "code": "LW-412",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 24,
-   "invoices": 9,
-   "billed_minus_contract": "7884.49",
-   "sample": [
-    "MDS-00215",
-    "MDS-00700",
-    "MDS-00991",
-    "MDS-01265",
-    "MDS-01302"
-   ]
-  },
-  {
-   "contract": "DDS",
-   "code": "LW-413",
-   "explained_by": "(no line finding)",
-   "invoice_flag": "flagged",
-   "lines": 17,
-   "invoices": 12,
-   "billed_minus_contract": "46842.62",
-   "sample": [
-    "MDS-00287",
-    "MDS-00653",
-    "MDS-00700",
-    "MDS-00991",
-    "MDS-01047"
-   ]
-  },
-  {
-   "contract": "DDS",
-   "code": "MW-310",
    "explained_by": "rate_differs",
    "invoice_flag": "flagged",
    "lines": 16,
    "invoices": 16,
-   "billed_minus_contract": "6123.52",
+   "billed_minus_contract": "4208.36",
    "sample": [
     "MDS-00204",
     "MDS-00214",
@@ -1478,7 +1186,7 @@
    "invoice_flag": "flagged",
    "lines": 7,
    "invoices": 7,
-   "billed_minus_contract": "89982.74",
+   "billed_minus_contract": "19934.34",
    "sample": [
     "MDS-00586",
     "MDS-00977",
@@ -1540,7 +1248,7 @@
    "invoice_flag": "flagged",
    "lines": 3,
    "invoices": 3,
-   "billed_minus_contract": "1211.50",
+   "billed_minus_contract": "1018.47",
    "sample": [
     "MDS-00062",
     "MDS-01047",
@@ -1610,7 +1318,7 @@
    "invoice_flag": "flagged",
    "lines": 3,
    "invoices": 3,
-   "billed_minus_contract": "5180.24",
+   "billed_minus_contract": "4164.74",
    "sample": [
     "MDS-01604",
     "MDS-01670",
@@ -1624,7 +1332,7 @@
    "invoice_flag": "flagged",
    "lines": 2,
    "invoices": 2,
-   "billed_minus_contract": "968.39",
+   "billed_minus_contract": "620.29",
    "sample": [
     "MDS-00310",
     "MDS-00700"
@@ -1762,6 +1470,19 @@
   },
   {
    "contract": "DDS",
+   "code": "DD-120",
+   "explained_by": "quantity_above_record",
+   "invoice_flag": "flagged",
+   "lines": 2,
+   "invoices": 2,
+   "billed_minus_contract": "2193.60",
+   "sample": [
+    "MDS-01651",
+    "MDS-01877"
+   ]
+  },
+  {
+   "contract": "DDS",
    "code": "DD-101",
    "explained_by": "rate_differs",
    "invoice_flag": "flagged",
@@ -1823,6 +1544,18 @@
   },
   {
    "contract": "DDS",
+   "code": "LW-412",
+   "explained_by": "rate_differs",
+   "invoice_flag": "flagged",
+   "lines": 1,
+   "invoices": 1,
+   "billed_minus_contract": "419.04",
+   "sample": [
+    "MDS-00215"
+   ]
+  },
+  {
+   "contract": "DDS",
    "code": "MB-701",
    "explained_by": "well_event_not_on_its_day+well_event_repeated",
    "invoice_flag": "flagged",
@@ -1840,7 +1573,7 @@
    "invoice_flag": "flagged",
    "lines": 1,
    "invoices": 1,
-   "billed_minus_contract": "7731.45",
+   "billed_minus_contract": "10.00",
    "sample": [
     "MDS-00332"
    ]
@@ -1879,54 +1612,6 @@
    "billed_minus_contract": "-90.35",
    "sample": [
     "MDS-00840"
-   ]
-  },
-  {
-   "contract": "DDS",
-   "code": "DD-120",
-   "explained_by": "report_unsigned",
-   "invoice_flag": "flagged",
-   "lines": 1,
-   "invoices": 1,
-   "billed_minus_contract": "2460.69",
-   "sample": [
-    "MDS-00901"
-   ]
-  },
-  {
-   "contract": "DDS",
-   "code": "MW-310",
-   "explained_by": "report_unsigned",
-   "invoice_flag": "flagged",
-   "lines": 1,
-   "invoices": 1,
-   "billed_minus_contract": "781.73",
-   "sample": [
-    "MDS-00901"
-   ]
-  },
-  {
-   "contract": "DDS",
-   "code": "MW-320",
-   "explained_by": "report_unsigned",
-   "invoice_flag": "flagged",
-   "lines": 1,
-   "invoices": 1,
-   "billed_minus_contract": "253.39",
-   "sample": [
-    "MDS-00901"
-   ]
-  },
-  {
-   "contract": "DDS",
-   "code": "PD-210",
-   "explained_by": "report_unsigned",
-   "invoice_flag": "flagged",
-   "lines": 1,
-   "invoices": 1,
-   "billed_minus_contract": "7210.60",
-   "sample": [
-    "MDS-00901"
    ]
   },
   {
@@ -2023,6 +1708,18 @@
    "billed_minus_contract": "403.92",
    "sample": [
     "MDS-01352"
+   ]
+  },
+  {
+   "contract": "DDS",
+   "code": "LW-410",
+   "explained_by": "rate_differs",
+   "invoice_flag": "flagged",
+   "lines": 1,
+   "invoices": 1,
+   "billed_minus_contract": "247.90",
+   "sample": [
+    "MDS-01445"
    ]
   },
   {
@@ -2125,17 +1822,9 @@
      "id": "PA-00613",
      "flagged": 1,
      "billed": "88779.08",
-     "expected": "58052.28",
+     "expected": "60849.08",
      "category": "timing; signature",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
-    },
-    {
-     "id": "PA-00609",
-     "flagged": 1,
-     "billed": "118237.40",
-     "expected": "91919.19",
-     "category": "evidence",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
     },
     {
      "id": "PA-00845",
@@ -2146,22 +1835,6 @@
      "basis": "contract value under the working reading"
     },
     {
-     "id": "PA-00019",
-     "flagged": 1,
-     "billed": "165251.80",
-     "expected": "143352.27",
-     "category": "duplicate",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
-    },
-    {
-     "id": "PA-00312",
-     "flagged": 1,
-     "billed": "287499.89",
-     "expected": "271591.91",
-     "category": "quantity; rate",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
-    },
-    {
      "id": "PA-00678",
      "flagged": 1,
      "billed": "526097.77",
@@ -2170,20 +1843,12 @@
      "basis": "contract value under the working reading"
     },
     {
-     "id": "PA-00120",
+     "id": "PA-00609",
      "flagged": 1,
-     "billed": "140818.01",
-     "expected": "126365.63",
-     "category": "rate",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
-    },
-    {
-     "id": "PA-00761",
-     "flagged": 1,
-     "billed": "84513.96",
-     "expected": "71765.07",
-     "category": "rate",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
+     "billed": "118237.40",
+     "expected": "105031.16",
+     "category": "evidence",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
     },
     {
      "id": "PA-00503",
@@ -2194,20 +1859,52 @@
      "basis": "contract value under the working reading"
     },
     {
-     "id": "PA-00768",
-     "flagged": 1,
-     "billed": "81520.26",
-     "expected": "71631.22",
-     "category": "rate",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
-    },
-    {
      "id": "PA-00817",
      "flagged": 1,
      "billed": "174812.18",
      "expected": "164982.82",
      "category": "rate",
      "basis": "contract value under the working reading"
+    },
+    {
+     "id": "PA-00761",
+     "flagged": 1,
+     "billed": "84513.96",
+     "expected": "75513.02",
+     "category": "rate",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
+    },
+    {
+     "id": "PA-00138",
+     "flagged": 1,
+     "billed": "103408.58",
+     "expected": "94477.52",
+     "category": "rate",
+     "basis": "contract value under the working reading"
+    },
+    {
+     "id": "PA-00406",
+     "flagged": 1,
+     "billed": "144671.39",
+     "expected": "136889.63",
+     "category": "unit; rate",
+     "basis": "contract value under the working reading"
+    },
+    {
+     "id": "PA-00768",
+     "flagged": 1,
+     "billed": "81520.26",
+     "expected": "74193.22",
+     "category": "rate",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
+    },
+    {
+     "id": "PA-00111",
+     "flagged": 1,
+     "billed": "375442.26",
+     "expected": "368252.12",
+     "category": "evidence; duplicate",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
     }
    ],
    "most_findings": [
@@ -2266,132 +1963,132 @@
     "0@0.80": 301,
     "0@0.95": 514,
     "1@0.50": 13,
-    "1@0.60": 25,
-    "1@0.80": 7,
+    "1@0.60": 27,
+    "1@0.80": 5,
     "1@0.95": 40
    }
   },
   "DDS": {
    "largest_difference": [
     {
-     "id": "MDS-00287",
-     "flagged": 1,
-     "billed": "335100.12",
-     "expected": "218229.95",
-     "category": "eligibility",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
-    },
-    {
-     "id": "MDS-01387",
-     "flagged": 1,
-     "billed": "231504.92",
-     "expected": "139568.76",
-     "category": "rate",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
-    },
-    {
      "id": "MDS-01458",
      "flagged": 1,
      "billed": "631488.94",
-     "expected": "540184.16",
+     "expected": "558200.35",
      "category": "rate",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
     },
     {
-     "id": "MDS-00164",
+     "id": "MDS-00072",
      "flagged": 1,
-     "billed": "220472.94",
-     "expected": "129315.95",
-     "category": "timing; evidence_mismatch",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
+     "billed": "1503685.26",
+     "expected": "1455037.84",
+     "category": "discount",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
     },
     {
      "id": "MDS-00639",
      "flagged": 1,
      "billed": "674867.84",
-     "expected": "584071.68",
+     "expected": "645115.04",
      "category": "rate",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
     },
     {
-     "id": "MDS-00700",
+     "id": "MDS-01887",
      "flagged": 1,
-     "billed": "281332.93",
-     "expected": "202498.92",
+     "billed": "137467.44",
+     "expected": "116195.31",
+     "category": "duplicate; eligibility; rate",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
+    },
+    {
+     "id": "MDS-00320",
+     "flagged": 1,
+     "billed": "79833.01",
+     "expected": "58560.89",
+     "category": "duplicate; eligibility",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
+    },
+    {
+     "id": "MDS-01438",
+     "flagged": 1,
+     "billed": "132758.54",
+     "expected": "111486.42",
+     "category": "duplicate; eligibility; rate",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
+    },
+    {
+     "id": "MDS-00978",
+     "flagged": 1,
+     "billed": "223356.43",
+     "expected": "209812.15",
+     "category": "rate",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
+    },
+    {
+     "id": "MDS-00282",
+     "flagged": 1,
+     "billed": "531039.85",
+     "expected": "521298.25",
+     "category": "discount",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
+    },
+    {
+     "id": "MDS-01341",
+     "flagged": 1,
+     "billed": "50966.79",
+     "expected": "44378.10",
      "category": "quantity",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
     },
     {
-     "id": "MDS-00895",
+     "id": "MDS-00901",
      "flagged": 1,
-     "billed": "277455.88",
-     "expected": "203921.83",
-     "category": "timing; evidence_mismatch",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
+     "billed": "151460.66",
+     "expected": "145977.69",
+     "category": "signature",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
+    },
+    {
+     "id": "MDS-01313",
+     "flagged": 1,
+     "billed": "155694.00",
+     "expected": "150704.44",
+     "category": "rate",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
+    },
+    {
+     "id": "MDS-01089",
+     "flagged": 1,
+     "billed": "1506023.23",
+     "expected": "1501748.82",
+     "category": "rate",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
     },
     {
      "id": "MDS-01556",
      "flagged": 1,
      "billed": "264311.07",
-     "expected": "195022.61",
+     "expected": "260421.77",
      "category": "rate",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
     },
     {
-     "id": "MDS-01393",
+     "id": "MDS-00895",
      "flagged": 1,
-     "billed": "232018.46",
-     "expected": "163873.70",
-     "category": "evidence",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
+     "billed": "277455.88",
+     "expected": "273668.81",
+     "category": "timing; evidence_mismatch",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
     },
     {
-     "id": "MDS-01050",
+     "id": "MDS-00128",
      "flagged": 1,
-     "billed": "788650.84",
-     "expected": "722201.84",
-     "category": "rate",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
-    },
-    {
-     "id": "MDS-00332",
-     "flagged": 1,
-     "billed": "193543.24",
-     "expected": "131113.51",
-     "category": "arithmetic",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
-    },
-    {
-     "id": "MDS-01878",
-     "flagged": 1,
-     "billed": "251711.56",
-     "expected": "190399.66",
-     "category": "rate",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
-    },
-    {
-     "id": "MDS-00864",
-     "flagged": 1,
-     "billed": "256215.19",
-     "expected": "195576.73",
-     "category": "quantity",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
-    },
-    {
-     "id": "MDS-00307",
-     "flagged": 1,
-     "billed": "1526132.08",
-     "expected": "1466711.43",
-     "category": "rate",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
-    },
-    {
-     "id": "MDS-00042",
-     "flagged": 1,
-     "billed": "213194.29",
-     "expected": "156082.74",
-     "category": "rate",
-     "basis": "absent-document values (EXPORT-D: S4 G2, P2/P3 Standard, Cl.23 not nominated)"
+     "billed": "55625.96",
+     "expected": "51838.90",
+     "category": "evidence_mismatch",
+     "basis": "EXPORT-E: an admissible total - the contract total under the values of the unsupplied documents shared by the well (export_facts); every difference from the bill is named by the findings"
     }
    ],
    "most_findings": [
@@ -2505,7 +2202,7 @@
    "flagged": 1,
    "confidence": "0.60",
    "rests_on": "unsupplied document (class/ground/nomination)",
-   "invoices": 25,
+   "invoices": 27,
    "sample": [
     "PA-00019",
     "PA-00067",
@@ -2540,19 +2237,6 @@
     "PA-00023",
     "PA-00380",
     "PA-00443"
-   ]
-  },
-  {
-   "contract": "CW",
-   "flagged": 1,
-   "confidence": "0.80",
-   "rests_on": "unsupplied document (class/ground/nomination)",
-   "invoices": 4,
-   "sample": [
-    "PA-00043",
-    "PA-00059",
-    "PA-00707",
-    "PA-00768"
    ]
   },
   {
@@ -2602,6 +2286,17 @@
     "MDS-01604",
     "MDS-01670",
     "MDS-01900"
+   ]
+  },
+  {
+   "contract": "CW",
+   "flagged": 1,
+   "confidence": "0.80",
+   "rests_on": "unsupplied document (class/ground/nomination)",
+   "invoices": 2,
+   "sample": [
+    "PA-00043",
+    "PA-00059"
    ]
   },
   {
