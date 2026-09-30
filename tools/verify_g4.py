@@ -226,6 +226,35 @@ def chronology_errors(cw, dds) -> list[str]:
         if not _claim(g).get("service_date") and any(x.finding == "well_event_not_on_its_day" and x.status == "finding"
                                                     for x in g.state):
             errs.append(f"{g.g3.line_ref}: 'not on its day' established although its date is not established")
+    errs += a3_contributor_errors(cw, dds)
+    return errs
+
+
+def a3_contributor_errors(cw, dds) -> list[str]:
+    """Auditor finding A-4/A-8, from the claims and the instruments, not G3's protection reading: every line of an item
+    a retrospective instrument re-rates, on a document not established to be submitted on or after its date of issue,
+    with work not established to be before every row's effective date, and not refused, is in the instrument's account
+    (a protected line, or a possible one) - never silently dropped."""
+    errs = []
+    for st, T, c, code_f, date_f, sub_f in ((cw, cw_terms(), "CW", "item_code", "work_date", "application_date"),
+                                             (dds, dds_terms(), "DDS", "service_code", "service_date", "invoice_date")):
+        heads = _HEADS.get(c) or {}
+        no_f = "application_no" if c == "CW" else "invoice_no"
+        for a in st.adjustments:
+            ins = next((i for i in T.instruments if i.id == a["instrument"]), None)
+            if ins is None:
+                continue
+            for g in st.lines.values():
+                cl = _claim(g)
+                effs = [e for code, e, _v in ins.rate_rows if code == cl.get(code_f)]
+                sub = (heads.get(cl.get(no_f)) or {}).get(sub_f)
+                wd = cl.get(date_f)
+                if not effs or g.r.payable is False or (sub is not None and sub >= ins.issued) or \
+                        (wd is not None and not any(e <= wd for e in effs)):
+                    continue
+                if g.g3.line_ref not in a["by_line"]:
+                    errs.append(f"{c} {a['instrument']}: {g.g3.line_ref} may be protected work (submitted {sub}, work "
+                                f"{wd}) and is not in the account")
     return errs
 
 
@@ -290,6 +319,58 @@ def _pd210_raw(dds) -> dict:
     return out
 
 
+def _pd210_loose(dds) -> dict:
+    """{well: [(date or None, (from, to) or None, ref, quantity or None)]} of the admissible PD-210 charges whose date or
+    depths are not established, from the claims (auditor findings A-1/A-2): possible contestants and contributors."""
+    out = defaultdict(list)
+    for g in dds.lines.values():
+        c = _claim(g)
+        if g.g3.code != "PD-210" or g.g3.payable is False or not c.get("well_name"):
+            continue
+        f, t, d = D(c.get("depth_from_m")), D(c.get("depth_to_m")), c.get("service_date")
+        iv = (f, t) if f is not None and t is not None and t > f else None
+        if d and iv:
+            continue
+        out[c["well_name"]].append((d, iv, g.g3.line_ref, g.g3.allowed_quantity))
+    return out
+
+
+def _nom(g):
+    """The section nomination a PD-210 charge depends on (Cl.23), from its G3 conditions and claim; None if none."""
+    c = _claim(g)
+    return (c.get("well_name"), c.get("hole_section")) if any(x["dimension"] == "nomination" for x in g.g3.conditions) else None
+
+
+def _certain(g, grp) -> bool:
+    """A charge's metres certainly count as performance-chargeable metres (Q11 A) for a charge of nomination group grp:
+    payable at G3 (not merely not refused), chargeable under every G3 reading, and its nomination not in question or the
+    same as grp (auditor finding A-2)."""
+    if g.g3.payable is not True:
+        return False
+    if any(a.get("allowed_quantity") is None or D(a["allowed_quantity"]) <= 0 for a in g.g3.alternatives.values()):
+        return False
+    return _nom(g) in (None, grp)
+
+
+_REPORTS = {}          # well -> {"iv": {date: [(start, end)]}, "gaps": [date or None]} from the Daily Drilling Reports
+
+
+def load_reports(w) -> None:
+    """The reports of the world's wells (replacing any loaded earlier for the same wells)."""
+    wells = {r.values.get("well_name") for r in w.claims.rows["dds_lines"]}
+    for wl in wells | {d.well for d in w.ddr.values()}:
+        _REPORTS.pop(wl, None)
+    for d in w.ddr.values():
+        a = d.parts.get("A", {})
+        s0, e0 = a.get("Depth start (m MD)"), a.get("Depth end (m MD)")
+        for wl in ([d.well] if d.well else sorted(x for x in wells if x)):
+            r = _REPORTS.setdefault(wl, {"iv": defaultdict(list), "gaps": []})
+            if d.well and d.date and s0 is not None and e0 is not None:
+                r["iv"][d.date].append((D(s0), D(e0)))
+            else:
+                r["gaps"].append(d.date)
+
+
 def _union(intervals) -> list[tuple]:
     """Merge [(from, to)] into disjoint covering intervals (independent of the engine's segmentation)."""
     out = []
@@ -302,84 +383,140 @@ def _union(intervals) -> list[tuple]:
 
 
 def footage_reset_errors(dds) -> list[str]:
-    """Independent recount of the Q11 A accumulator over UNIQUE metres (G4-B01): per well and Contract Year, the metres
-    already drilled before each unique segment = the length of the union of the admissible PD-210 intervals of earlier
-    days plus the union below the segment on its own day. The engine's segments of a day must partition that day's union
-    exactly (a metre counted once, however many charges state it), and every position must equal the recount."""
+    """Independent recount of the annual accumulator over UNIQUE metres (G4-B01; auditor findings A-2, A-3, A-8): per well
+    and Contract Year, before each unique segment -
+      Q11 A: lo = the length of the union of the earlier PD-210 intervals whose metres certainly count (a covering charge
+             payable at G3 with its nomination not in question or the segment's own), hi = the union of every admissible
+             interval plus each possibly earlier charge of undetermined date or depths (not bounded if its metres are
+             unknown);
+      Q11 B: lo = the reported Part A metres of earlier days plus the day's own below the segment, hi = lo, or not bounded
+             where a report whose date, well or depths are not established may be earlier.
+    The engine's segments of a day must partition that day's union exactly (a metre counted once)."""
     errs = []
     T = dds_terms()
     raw = _pd210_raw(dds)
+    loose = _pd210_loose(dds)
+    lines = {g.g3.line_ref: g for g in dds.lines.values()}
     for well, acc in dds.footage.items():
         by_day = defaultdict(list)
-        for d, f, t, _r in raw.get(well, []):
-            by_day[d].append((f, t))
+        for d, f, t, r in raw.get(well, []):
+            by_day[d].append((f, t, r))
         segs = defaultdict(list)
         for k, v in acc.items():
             date, ab, q14, q11 = k.split("|")
             a, b = (D(x) for x in ab.split("-"))
             segs[(date, q14, q11)].append((a, b, D(v[0]), None if v[1] is None else D(v[1])))
+        rep_ = _REPORTS.get(well, {"iv": {}, "gaps": []})
         for d, ivs in by_day.items():
-            union_len = sum((t - f for f, t in _union(ivs)), ZERO)
+            union_len = sum((t - f for f, t in _union([(f, t) for f, t, _r in ivs])), ZERO)
             for q14 in ("Q14:A", "Q14:B"):
-                got = segs.get((str(d), q14, "Q11:A"), [])
-                if g4_dds._cy(d, q14[-1], T) is None:
+                cy = g4_dds._cy(d, q14[-1], T)
+                if cy is None:
                     continue
+                got = segs.get((str(d), q14, "Q11:A"), [])
                 if sum((b - a for a, b, _lo, _hi in got), ZERO) != union_len:
                     errs.append(f"footage {well} {d} {q14}: segments sum to {sum((b - a for a, b, _l, _h in got), ZERO)} m, "
                                 f"the day's unique metres are {union_len} m")
-                for a, b, lo, _hi in got:
-                    cy = g4_dds._cy(d, q14[-1], T)
-                    expect = sum((sum((t - f for f, t in _union(v2)), ZERO) for d2, v2 in by_day.items()
-                                  if d2 < d and g4_dds._cy(d2, q14[-1], T) == cy), ZERO)
-                    expect += sum((min(t, a) - f for f, t in _union(ivs) if f < a), ZERO)
-                    if lo != expect:
-                        errs.append(f"footage {well} {d} {a}-{b} {q14}: starts at {lo}, the unique-metre recount gives {expect}")
+                for a, b, lo, hi in got:
+                    cov = [lines[r] for f, t, r in ivs if f <= a and b <= t]
+                    grps = {_nom(g) for g in cov}
+                    grp = next(iter(grps)) if len(grps) == 1 else None
+                    earlier = [(d2, f, t, r) for d2, v2 in by_day.items() if g4_dds._cy(d2, q14[-1], T) == cy
+                               for f, t, r in v2 if d2 < d] + [(d, f, min(t, a), r) for f, t, r in ivs if f < a]
+                    want_lo = sum((t - f for f, t in _union([(f, t) for _d, f, t, r in earlier if _certain(lines[r], grp)])),
+                                  ZERO)
+                    want_hi = sum((t - f for f, t in _union([(f, t) for _d, f, t, _r in earlier])), ZERO)
+                    for ld, _iv, _r, q in loose.get(well, []):
+                        if ld is None or (g4_dds._cy(ld, q14[-1], T) == cy and ld <= d):
+                            q = q if q is not None else (sum((max(ZERO, e - s0) for s0, e in rep_["iv"].get(ld, [])), ZERO)
+                                                         or None if ld else None)
+                            want_hi = None if q is None or want_hi is None else want_hi + q
+                    if lo != want_lo or hi != want_hi:
+                        errs.append(f"footage {well} {d} {a}-{b} {q14} Q11:A: [{lo}, {hi}], the unique-metre recount gives "
+                                    f"[{want_lo}, {want_hi}]")
+                        break
+                for a, b, lo, hi in segs.get((str(d), q14, "Q11:B"), []):
+                    want_lo = sum((max(ZERO, e - s0) for d2, v2 in rep_["iv"].items() if g4_dds._cy(d2, q14[-1], T) == cy
+                                   and d2 < d for s0, e in v2), ZERO)
+                    want_lo += sum((max(ZERO, min(e, a) - s0) for s0, e in rep_["iv"].get(d, [])), ZERO)
+                    want_hi = None if any(x is None or (g4_dds._cy(x, q14[-1], T) == cy and x <= d) for x in rep_["gaps"]) \
+                        else want_lo
+                    if lo != want_lo or hi != want_hi:
+                        errs.append(f"footage {well} {d} {a}-{b} {q14} Q11:B: [{lo}, {hi}], the report recount gives "
+                                    f"[{want_lo}, {want_hi}]")
                         break
     return errs
 
 
 def pd210_coverage_errors(dds) -> list[str]:
-    """G4-B02 oracle: for every PD-210 well-day whose intervals overlap, every allocation the engine carries charges the
-    day's unique metres exactly once (sum of kept metres = union length, each charge at most its interval), and the
-    number of allocations equals the independent count of ways to give every contested elementary segment to one of the
-    charges covering it."""
+    """G4-B02 oracle (with auditor findings A-1, A-7): for every PD-210 well-day whose metres are contested, every
+    allocation the engine carries charges the day's unique metres exactly once (the metres kept by the dated charges with
+    depths plus those the allocation gives a possible contestant = the union length; each charge at most its interval),
+    and the number of allocations equals the independent count of ways to give every contested elementary segment to
+    one of the charges that may cover it - a dated charge whose interval covers it, or a charge of the well whose date or
+    depths are not established (A-1): inside its stated interval, or the day's reported interval where it states none,
+    or anywhere. A charge the engine leaves unresolved (honest bounds) keeps no finite value: the others then charge at
+    most the union (A-7); a day on which every charge is unresolved must carry no value for any of them."""
     errs = []
     lines = {g.g3.line_ref: g for g in dds.lines.values()}
     raw = _pd210_raw(dds)
+    loose = _pd210_loose(dds)
     for well, items in raw.items():
         days = defaultdict(list)
         for d, f, t, ref in items:
             days[d].append((f, t, ref))
+        rep_ = _REPORTS.get(well, {"iv": {}, "gaps": []})
         for d, ivs in days.items():
-            pts = sorted({x for f, t, _r in ivs for x in (f, t)})
-            expect_n, contested = 1, False
+            poss = []
+            for ld, iv, ref, _q in loose.get(well, []):
+                if ld is not None and ld != d:
+                    continue
+                known = ld == d and rep_["iv"].get(d) and d not in rep_["gaps"] and None not in rep_["gaps"]
+                poss.append((ref, [iv] if iv else (rep_["iv"][d] if known else None)))
+            lo_, hi_ = min(f for f, _t, _r in ivs), max(t for _f, t, _r in ivs)
+            pts = sorted({x for f, t, _r in ivs for x in (f, t)} |
+                         {x for _r, w_ in poss for iv in (w_ or ()) for x in iv if lo_ < x < hi_})
+            expect_n, contested, seg_len = 1, False, {}
             for a, b in zip(pts, pts[1:]):
-                k = sum(1 for f, t, _r in ivs if f <= a and b <= t)
-                if k > 1:
+                cov = [r for f, t, r in ivs if f <= a and b <= t]
+                if not cov:
+                    continue
+                cov += [r for r, w_ in poss if w_ is None or any(f <= a and b <= t for f, t in w_)]
+                seg_len[(a, b)] = b - a
+                if len(cov) > 1:
                     contested = True
-                    expect_n *= k
+                    expect_n *= len(cov)
             if not contested:
                 continue
             union_len = sum((t - f for f, t in _union([(f, t) for f, t, _r in ivs])), ZERO)
             dim = g4_dds.alloc_dim(well, d)
             kept = defaultdict(lambda: defaultdict(set))
-            unresolved = False
+            unresolved = [ref for _f, _t, ref in ivs if lines[ref].r.payable is None]
             for f, t, ref in ivs:
                 g = lines[ref]
-                if g.r.payable is None:
-                    unresolved = True
+                if ref in unresolved:
+                    if g.r.amount is not None or g.r.alternatives:
+                        errs.append(f"PD-210 {well} {d}: {ref} is unresolved but carries a value")
                     continue
                 for k, v in g.r.alternatives.items():
                     dd = dims_of(k)
                     if dim in dd:
                         kept[dd[dim]][ref].add(D(v.get("allowed_quantity")))
-            if unresolved and not kept:
+            if len(unresolved) == len(ivs) or (unresolved and not kept):
                 continue                      # honest bounds (unresolved), not a finite domain presented as complete
             if len(kept) != expect_n:
                 errs.append(f"PD-210 {well} {d}: {len(kept)} allocations carried, the joint domain has {expect_n}")
+            placed = {ref for _f, _t, ref in ivs}
             for val, per in kept.items():
                 tot = ZERO
+                for part in val.split(";"):
+                    seg, _, who = part.partition(">")
+                    if who and who not in placed:           # a segment the allocation gives a possible contestant
+                        a, b = (D(x) for x in seg.split("-"))
+                        tot += b - a
                 for f, t, ref in ivs:
+                    if ref in unresolved:
+                        continue
                     qs = per.get(ref)
                     if not qs or len(qs) != 1:
                         errs.append(f"PD-210 {well} {d} [{val}]: {ref} has no single kept quantity")
@@ -388,7 +525,7 @@ def pd210_coverage_errors(dds) -> list[str]:
                     if q > t - f:
                         errs.append(f"PD-210 {well} {d} [{val}]: {ref} keeps {q} m of a {t - f} m interval")
                     tot += q
-                if tot != union_len:
+                if (tot > union_len) if unresolved else (tot != union_len):
                     errs.append(f"PD-210 {well} {d} [{val}]: {tot} m charged for {union_len} unique metres")
     return errs
 
@@ -621,13 +758,21 @@ def y6(cw, dds, without_a3: dict | None = None) -> list[str]:
         g = next((g for g in cw.lines.values() if g.g3.line_ref == x["line"]), None)
         if g is not None and g.r.payable is False:
             errs.append(f"P23: {x['line']} deducted from {x.get('next_valuation')} and also excluded from its own valuation")
-    # DDS: every metre once in the footage accumulator - no two segments of a well-day overlap (G4-B01)
+    # DDS: every metre once in the footage accumulator - no two segments of a well-day overlap (G4-B01), and every segment
+    # lies inside the admissible PD-210 intervals the claims state for that well-day (auditor finding A-8: physical
+    # metres, not only the engine's own keys)
+    raw = _pd210_raw(dds)
     for well, acc in dds.footage.items():
         seen = defaultdict(list)
+        phys = defaultdict(list)
+        for d, f, t, _r in raw.get(well, []):
+            phys[str(d)].append((f, t))
         for k in acc:
             date, ab, q14, q11 = k.split("|")
             a, b = (D(x) for x in ab.split("-"))
             seen[(date, q14, q11)].append((a, b))
+            if not any(f <= a and b <= t for f, t in phys.get(date, [])):
+                errs.append(f"footage {well} {date} {a}-{b}: no admissible PD-210 interval of the day contains these metres")
         for key, segs in seen.items():
             segs.sort()
             if any(b1 > a2 for (_a1, b1), (a2, _b2) in zip(segs, segs[1:])):
@@ -651,6 +796,7 @@ _HEADS = {}           # contract -> {document number: header values} (claims), f
 def load_heads(w) -> None:
     for c, hk, no_f in (("CW", "cw_headers", "application_no"), ("DDS", "dds_headers", "invoice_no")):
         _HEADS[c] = {r.values.get(no_f): r.values for r in w.claims.rows[hk] if r.values.get(no_f)}
+    load_reports(w)
 
 
 def _claim(g) -> dict:
@@ -683,8 +829,9 @@ def y7(cw, dds) -> list[str]:
 def deferred_rate_errors(cw) -> list[str]:
     """G4-B04, from the traces and G3's band rates (not the engine's verdicts): a band line whose displayed-rate check G3
     deferred and whose value G4 established must carry the completed check - a pass exactly where, under every scenario,
-    the displayed rate is the one band's rate (one part in the trace) or one of the item's band rates (a divided
-    measurement), a finding where under none, never left unresolved or missing. A correct amount does not decide it."""
+    the displayed rate is the one band's rate (one part in the trace) or, for a divided measurement, the rate of one of
+    its parts or the item's built-up band-1 rate (never a band it does not reach), a finding where under none, never left
+    unresolved or missing. A correct amount does not decide it."""
     errs = []
     for g in cw.lines.values():
         rate3 = next((x for x in g.g3.checks if x.check == "rate"), None)
@@ -702,9 +849,11 @@ def deferred_rate_errors(cw) -> list[str]:
             if not parts or (v.get("amount") is not None and D(v["amount"]) == 0 and D(v.get("allowed_quantity") or 0) == 0):
                 continue
             kd = dims_of(k)
-            # the item's band rates under this scenario's other inputs (its ground, ...), from G3
-            band_rates = {rt for d, rt in band_alts if all(kd.get(x, y) == y for x, y in d.items() if x != "band")}
-            verdicts.append(ra == parts[0] if len(parts) == 1 else ra in band_rates)
+            # a divided measurement: one of its own parts' rates, or the item's built-up (band-1, 100%) rate under this
+            # scenario's other inputs (its ground, ...), from G3 (A-6)
+            base_rate = {rt for d, rt in band_alts if d.get("band") == "1" and all(kd.get(x, y) == y for x, y in d.items()
+                                                                                  if x != "band")}
+            verdicts.append(ra == parts[0] if len(parts) == 1 else ra in set(parts) | base_rate)
         if not verdicts or ra is None:
             continue
         want = "pass" if all(verdicts) else "finding" if not any(verdicts) else "unresolved"

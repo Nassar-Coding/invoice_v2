@@ -129,7 +129,7 @@ def _vals(v) -> set:
     if v is None:
         return set()
     if isinstance(v, dict):
-        return {_d(y) for r in v["by_reading"].values() for y in (r["min"], r["max"])}
+        return {_d(y) for r in v["by_reading"].values() for y in (r["min"], r["max"]) if y is not None}
     return {_d(v)}
 
 

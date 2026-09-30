@@ -171,16 +171,12 @@
   "engine": {
    "confidence": "0.60",
    "error_category": "evidence; duplicate",
-   "expected_total": "368862.02",
+   "expected_total": "368252.12",
    "flagged": 1
   },
   "readers": {
-   "cw_b_r1": [
-    "expected total: engine 368862.02 reader 368252.12"
-   ],
-   "cw_b_r2": [
-    "expected total: engine 368862.02 reader 368252.12"
-   ]
+   "cw_b_r1": [],
+   "cw_b_r2": []
   }
  },
  "PA-00340": {
@@ -225,16 +221,12 @@
   "engine": {
    "confidence": "0.60",
    "error_category": "timing; signature",
-   "expected_total": "58052.28",
+   "expected_total": "60849.08",
    "flagged": 1
   },
   "readers": {
-   "cw_a_r1": [
-    "expected total: engine 58052.28 reader 60849.08"
-   ],
-   "cw_a_r2": [
-    "expected total: engine 58052.28 reader 60849.08"
-   ]
+   "cw_a_r1": [],
+   "cw_a_r2": []
   }
  },
  "PA-00671": {

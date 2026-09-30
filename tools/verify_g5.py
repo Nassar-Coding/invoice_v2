@@ -161,56 +161,75 @@ def z3(out: dict) -> list[str]:
 
 
 # ============================================================================== Z4
-def admissible_errors(out: dict, eng: Engine) -> list[str]:
-    """G5-B01/B02, independent of the engine's scenario evaluation: a row that exports its own billed total instead of the
-    contract total claims that the billed total is a total the contract supports under some admissible value of the
-    unsupplied documents. Check it from the line alternatives: some well class and section nomination, and per civil line
-    some ground class, under the working readings must reproduce every billed line amount (DS-900 aside) and the billed
-    total (drilling through DS-900 and VAT)."""
+def _export_fixed(o: dict, eng: Engine, key, g) -> dict:
+    """The assignment a line is exported under: the decided readings, the working label's readings (never its Q1/R45
+    payment scenario), the owner's Q7 C choices, and the export values of the unsupplied documents (export_facts)."""
+    xf = o.get("export_facts") or {}
+    fixed = {**eng.policy.decided, **{k: v for k, v in (o["expected_under"] or {}).items() if k not in ("Q1", "R45")}}
+    if eng.policy.q7c == "earlier":
+        fixed.update({d: st[0] for d, st in eng.stands.get(key, {}).items() if not st[1]})
+    if xf.get("class") is not None:
+        fixed["class"] = xf["class"]
+    return fixed
+
+
+def export_errors(out: dict, eng: Engine) -> list[str]:
+    """EXPORT-E (Q9-7; auditor findings B-3, B-4, C-2), from G4's line alternatives and the claims, not the engine's
+    scenario evaluation: (1) an unflagged row exports its own billed total, a row that depends on no unsupplied document
+    its contract value; (2) every exported line value is one of the line's admissible contract values under the export
+    values (the well class, each section's nomination, the line's ground) and the working readings - never a billed
+    amount the contract does not give; (3) on a flagged row every line exported at a value other than its bill is named
+    by a finding on that line; (4) every row of a well is exported under one well class (Cl.4) and every section under
+    one nomination (Cl.23)."""
     errs = []
+    well_class, sec_nom = {}, {}
     for i, o in out.items():
-        if not o["formed"] or D(o["expected_total"]) == D(o["contract_total"]):
+        if not o["formed"]:
             continue
         inv = eng.inv[o["contract"]][i]
-        work = {k: v for k, v in (o["expected_under"] or {}).items() if k not in ("Q1", "class")}
-        classes = sorted({d["class"] for _k, _v, g in inv.lines for d, _x in options(g) if "class" in d}) or [None]
-        noms = sorted({(v.get("well_name"), v.get("hole_section")) for _k, v, g in inv.lines
-                       if any(x["dimension"] == "nomination" for x in g.r.conditions)}, key=str)
-        ok = False
-        for cls in classes:
-            for combo in itertools.product(*[[True, False] for _ in noms]):
-                nom = dict(zip(noms, combo))
-                svc, good = Decimal(0), True
-                for key, v, g in inv.lines:
-                    billed = D(v.get("amount")) or Decimal(0)
-                    if inv.contract == "DDS" and g.g3.code == "DS-900":
-                        continue
-                    if g.r.payable is False:
-                        vals = {Decimal(0)}
-                    elif any(x["dimension"] == "nomination" for x in g.r.conditions) and \
-                            not nom[(v.get("well_name"), v.get("hole_section"))]:
-                        vals = {Decimal(0)}
-                    else:
-                        fixed = {**eng.policy.decided, **work, **({"class": cls} if cls else {})}
-                        fixed.update({d: st[0] for d, st in eng.stands.get(key, {}).items() if not st[1]})
-                        vals = {D(x.get("amount")) for d, x in options(g)
-                                if all(fixed.get(k, y) == y for k, y in d.items() if k != "ground")}
-                    if billed not in vals:
-                        good = False
-                        break
-                    svc += billed
-                if not good:
-                    continue
-                tot = svc
-                if inv.contract == "DDS":
-                    ds = -(((svc - 250000) * Decimal("0.04")).quantize(Decimal("0.01"), rounding="ROUND_HALF_EVEN")) \
-                        if svc > 250000 else 0
-                    net = svc + ds
-                    tot = net + (net * Decimal("0.15")).quantize(Decimal("0.01"), rounding="ROUND_HALF_EVEN")
-                ok = ok or tot == D(o["billed_total"])
-        if not ok:
-            errs.append(f"{i}: exports its billed total {o['billed_total']} as an admissible contract total, but no admissible "
-                        "value of the unsupplied documents reproduces it")
+        dep = o["fact_dependent"] or o["nomination_dependent"]
+        xf = o.get("export_facts") or {}
+        if not o["flagged"] and D(o["expected_total"]) != D(o["billed_total"]):
+            errs.append(f"{i}: unflagged, but exports {o['expected_total']}, not its own total {o['billed_total']}")
+        if not dep and D(o["expected_total"]) != D(o["contract_total"]):
+            errs.append(f"{i}: depends on no unsupplied document, but exports {o['expected_total']}, not its contract value "
+                        f"{o['contract_total']}")
+        if dep and not xf:
+            errs.append(f"{i}: depends on an unsupplied document and states no export values")
+        for key, v, g in inv.lines:
+            if inv.contract == "DDS" and g.g3.code == "DS-900":
+                continue
+            ref = v.get("line_ref") or key
+            val = o["line_values"].get(ref)
+            if val is None:
+                continue
+            val = D(val)
+            nom = any(x["dimension"] == "nomination" for x in g.r.conditions)
+            if g.r.payable is False or (nom and not (xf.get("nominated") or {}).get(
+                    f"{v.get('well_name')}|{v.get('hole_section')}", True)):
+                allowed = {Decimal(0)}
+            else:
+                fixed = _export_fixed(o, eng, key, g)
+                gr = (xf.get("ground") or {}).get(ref)
+                if gr is not None:
+                    fixed["ground"] = gr
+                allowed = {D(x.get("amount")) for d, x in options(g) if all(fixed.get(k, y) == y for k, y in d.items())}
+            if val not in allowed:
+                errs.append(f"{i}: line {ref} exported at {val}, not an admissible value of the line under its export "
+                            f"values {sorted(map(str, allowed - {None}))[:4]}")
+            billed = D(v.get("amount")) or Decimal(0)
+            if o["flagged"] and val != billed and not any(f.endswith("@" + ref) for f in o["findings"]):
+                errs.append(f"{i}: line {ref} exported at {val} against its bill {billed}, and no finding names the line")
+        if xf.get("class") is not None and inv.header:
+            well_class.setdefault(inv.header.get("well_name"), set()).add(xf["class"])
+        for sec, x in (xf.get("nominated") or {}).items():
+            sec_nom.setdefault(sec, set()).add(x)
+    for well, cs in sorted(well_class.items(), key=str):
+        if len(cs) > 1:
+            errs.append(f"well {well}: its rows are exported under different well classes {sorted(cs)} (Cl.4)")
+    for sec, xs in sorted(sec_nom.items()):
+        if len(xs) > 1:
+            errs.append(f"section {sec}: its rows are exported both nominated and not (Cl.23)")
     return errs
 
 
@@ -239,22 +258,25 @@ def z4(out: dict, perturbed: dict | None = None, claims_changed: dict | None = N
             if b[0] is None or D(o["expected_total"]) != D(b[0]) or not str(o.get("expected_basis", "")).startswith("EXPORT-U"):
                 errs.append(f"{i}: unformed total exported as {o['expected_total']} without its EXPORT-U lower bound {b}")
             continue
-        # the exported figure: a flagged row exports the contract value on the evidence; an unflagged row its own total,
-        # which is then an admissible total (right under some value of every unsupplied document - EXPORT-E)
-        adm = {D(t) for t in o.get("admissible_totals", [o["contract_total"]])}
-        want = D(o["billed_total"]) if D(o["billed_total"]) in adm else D(o["contract_total"])
-        if o["formed"] and D(o["expected_total"]) != want:
-            errs.append(f"{i}: exports {o['expected_total']}; its own total is {'' if want == D(o['billed_total']) else 'not '}"
-                        f"an admissible contract total, so it must export {want}")
+        # the exported figure (EXPORT-E): an admissible contract total - checked line by line by export_errors
+        if o["formed"] and D(o["expected_total"]) not in {D(t) for t in o.get("admissible_totals", [])}:
+            errs.append(f"{i}: exports {o['expected_total']}, which is none of its admissible totals {o['admissible_totals'][:4]}")
     if perturbed is not None:
+        # every billed figure changed: the contract total (absent-document values) never moves; a row that depends on no
+        # unsupplied document still exports its contract value; any other row exports an admissible total, never a bill
         for i, o in out.items():
             p = perturbed.get(i)
             if p is None or D(p["contract_total"]) != D(o["contract_total"]):
                 errs.append(f"{i}: the contract total moves with the billed figures ({o['contract_total']} -> "
                             f"{None if p is None else p['contract_total']})")
-            elif p["formed"] and D(p["expected_total"]) != D(o["contract_total"]):
-                errs.append(f"{i}: flagged when the billed figures change, it exports {p['expected_total']} - it moves with the "
+            elif p["formed"] and not (o["fact_dependent"] or o["nomination_dependent"]) and \
+                    D(p["expected_total"]) != D(o["contract_total"]):
+                errs.append(f"{i}: with the billed figures changed it exports {p['expected_total']} - it moves with the "
                             f"billed figures instead of the contract value {o['contract_total']}")
+            elif p["formed"] and (D(p["expected_total"]) == D(p["billed_total"]) and not D(p["billed_total"]) in
+                                  {D(t) for t in p.get("admissible_totals", [])}):
+                errs.append(f"{i}: with the billed figures changed it exports the bill {p['expected_total']}, which is no "
+                            "admissible total")
     if claims_changed is not None:
         # G5-B01: the invoice's own statement of a fact whose document is not supplied (header well class; a civil line's
         # ground where no record classifies it) changes nothing - flag, category, exported total, contract total, confidence
@@ -499,6 +521,12 @@ def attribution_errors(out: dict, eng: Engine) -> list[str]:
                     any("rate_differs" in (x.get("breaches") or []) for x in g.r.alternatives.values())
                 # the scenarios the outcome is judged under: in one of them the displayed rate must not be the line's rate
                 scen = [dict(x) for x in (o["wrong_under"] or [])] + [dict(o["expected_under"] or {})]
+                xf = o.get("export_facts") or {}
+                for lab in scen:            # the unsupplied documents at their export values (EXPORT-E)
+                    if xf.get("class") is not None and "class" not in lab:
+                        lab["class"] = xf["class"]
+                    if (xf.get("ground") or {}).get(ref) is not None:
+                        lab["ground"] = xf["ground"][ref]
                 differs = False
                 for lab in scen:
                     rates = {D(x.get("unit_rate")) for d, x in options(g)
@@ -543,11 +571,48 @@ def ds900_errors(out: dict, eng: Engine) -> list[str]:
     return errs
 
 
+def a3_account(eng: Engine, contract: str) -> dict:
+    accts = eng.st[contract].adjustments if hasattr(eng, "st") else []
+    return accts[0] if accts else {}
+
+
+def _unvalued_sides(acct: dict, contract: str) -> tuple:
+    """(below open, above open) of an account from its unvalued lines, each line's sign recomputed from the terms: the
+    instrument's base rate for the line's item and date against the rate it replaces."""
+    from audit import terms
+    T = terms.cw() if contract == "CW" else terms.dds()
+    ins = next((i for i in T.instruments if i.id == acct.get("instrument")), None)
+    lo_open = hi_open = False
+    for ref, v in (acct.get("by_line") or {}).items():
+        d = v["difference"]
+        if not (d is None or (isinstance(d, dict) and None in d.values())):
+            continue
+        date = v.get("work_date") or v.get("service_date")
+        code = _LINE_CODE.get((contract, ref))
+        if ins is None or code is None or date in (None, "None"):
+            lo_open = hi_open = True
+            continue
+        import datetime as _dt
+        wd = _dt.date.fromisoformat(date)
+        pick = lambda c: max(c, key=lambda x: (x[0], x[1]))[2] if c else T.sch1[code]["rate"]  # noqa: E731
+        new, old = pick(T.rate_candidates(code, wd, None)), pick(T.rate_candidates(code, wd, ins.issued - _dt.timedelta(days=1)))
+        lo_open = lo_open or new < old
+        hi_open = hi_open or new > old
+    return lo_open, hi_open
+
+
+_LINE_CODE = {}
+
+
 def payment_errors(out: dict, eng: Engine) -> list[str]:
     """G5-B03, from G4's accounts and recipients directly: a claimed adjustment or release that differs from an exact
     account on its sole recipient, or appears on a document that is no candidate recipient under any reading, is a
     finding of the outcome (never passed because it is nonzero)."""
     errs = []
+    for c in ("CW", "DDS"):
+        for _i, inv in eng.inv[c].items():
+            for k, v, g in inv.lines:
+                _LINE_CODE[(c, v.get("line_ref") or k)] = g.g3.code
     rel = eng.release or {}
     rec = rel.get("recipient")
     rel_cands = ({rec} if isinstance(rec, str) else set(rec.get("tie") or rec.get("not_established") or [])
@@ -564,10 +629,19 @@ def payment_errors(out: dict, eng: Engine) -> list[str]:
         reads = [q for q in a3 if not q.startswith("_")]
         t = a3.get("_total") or {}
         vals = {(v["min"], v["max"]) for v in (t.get("by_reading") or {}).values()}
-        if reads and all(a3[q] == [i] for q in reads) and len(vals) == 1 and not t.get("lines_not_established"):
-            lo, hi = next(iter(vals))
-            if lo == hi and adj != D(lo) and not fs & {"adjustment_omitted", "adjustment_differs"}:
-                errs.append(f"{i}: adjustment {adj}, the account {lo}, and no finding")
+        if reads and all(a3[q] == [i] for q in reads) and len(vals) == 1:
+            lo, hi = (D(x) for x in next(iter(vals)))
+            if t.get("lines_not_established"):
+                # a line's difference not established: the account is open on each side such a line can move it (the
+                # sign of its rate change, recomputed here from the terms for each unvalued line)
+                lo_open, hi_open = _unvalued_sides(a3_account(eng, o["contract"]), o["contract"])
+                lo, hi = (None if lo_open else lo), (None if hi_open else hi)
+            outside = (lo is not None and adj < lo) or (hi is not None and adj > hi)
+            if outside and not fs & {"adjustment_omitted", "adjustment_differs"}:
+                errs.append(f"{i}: adjustment {adj} outside the account [{lo}, {hi}], and no finding")
+            elif not outside and lo != hi and "adjustment_not_established" not in {x.split("@")[0] for x in o["not_established"]} \
+                    and not fs & {"adjustment_omitted", "adjustment_differs"}:
+                errs.append(f"{i}: adjustment {adj} inside an account not established [{lo}, {hi}], and not disclosed")
         if o["contract"] == "CW":
             r = D(h.get("retention_released")) or Decimal(0)
             if r != 0 and i not in rel_cands and "release_unsupported" not in fs:
@@ -575,6 +649,14 @@ def payment_errors(out: dict, eng: Engine) -> list[str]:
             if rec == i and isinstance(rel.get("released"), str) and r != D(rel["released"]) and \
                     not fs & {"release_omitted", "release_differs"}:
                 errs.append(f"{i}: release {r}, the account {rel['released']}, and no finding")
+            if rec == i and isinstance(rel.get("released"), dict):
+                # a range (readings) or a lower bound only (an earlier application's value not established): a release
+                # below every reading's minimum, or above every bounded maximum, is established
+                rs = list(rel["released"].get("by_reading", {}).values())
+                lo = min(D(x["min"]) for x in rs)
+                hi = None if any(x["max"] is None for x in rs) else max(D(x["max"]) for x in rs)
+                if (r < lo or (hi is not None and r > hi)) and not fs & {"release_omitted", "release_differs"}:
+                    errs.append(f"{i}: release {r} outside the account [{lo}, {hi}], and no finding")
     return errs
 
 
@@ -661,9 +743,11 @@ def joint_errors(out: dict, eng: Engine) -> list[str]:
             fixed = dict(p.decided)
             if p.q7c == "earlier":
                 fixed.update({d: s[0] for d, s in eng.stands.get(key, {}).items() if not s[1]})
-            fixed.update(fact_values(o, g))
-            if any(x["dimension"] == "nomination" for x in g.r.conditions):
-                states = {(a, vals + (Decimal(0),)) for a, vals in states}      # absent nomination: not chargeable
+            fixed.update(fact_values(o, g, v.get("line_ref") or key))
+            xf = o.get("export_facts") or {}
+            if any(x["dimension"] == "nomination" for x in g.r.conditions) and \
+                    not (xf.get("nominated") or {}).get(f"{v.get('well_name')}|{v.get('hole_section')}", False):
+                states = {(a, vals + (Decimal(0),)) for a, vals in states}      # not nominated: not chargeable
                 continue
             # a civil line's ground class is its own fact (its own work area and day): local to the line in the join;
             # a well's class is one fact for all its services (joint)
@@ -697,17 +781,17 @@ def joint_errors(out: dict, eng: Engine) -> list[str]:
     return errs
 
 
-FALLBACK = {"class": "Standard", "ground": "G2"}      # spec/g5_decisions.yaml Q9-3 E (EXPORT-D), read from the register
-
-
-def fact_values(o: dict, g) -> dict:
-    """The totals an outcome reports are those on the absent-document values (EXPORT-D): S4 G2, P2/P3 Standard, Cl.23 not
-    nominated - except a well class the engine reports open across the well's invoices (Cl.4 conflict), which stays
-    free in the join."""
+def fact_values(o: dict, g, ref) -> dict:
+    """The totals an outcome reports are those of its export values (EXPORT-E, Q9-7): the well class, the line's ground
+    as the outcome states them - except a well class the engine reports open across the well's invoices (Cl.4
+    conflict), which stays free in the join."""
+    xf = o.get("export_facts") or {}
     dims = {d for k in g.r.alternatives for d in dims_of(k)}
-    out = {d: x for d, x in FALLBACK.items() if d in dims}
-    if "class" in o.get("open_readings", {}):
-        out.pop("class", None)
+    out = {}
+    if "class" in dims and xf.get("class") is not None and "class" not in o.get("open_readings", {}):
+        out["class"] = xf["class"]
+    if "ground" in dims and (xf.get("ground") or {}).get(ref) is not None:
+        out["ground"] = xf["ground"][ref]
     return out
 
 
@@ -729,6 +813,9 @@ def z7(out: dict) -> list[str]:
             errs.append(f"{i}: rests on an unsupplied fact but confidence is {c}")
         if not o["formed"] and c > Decimal("0.30"):
             errs.append(f"{i}: total not formed but confidence is {c}")
+        ne = [x for x in o.get("not_established", []) if not x.startswith("input_unresolved")]
+        if ne and o["formed"] and c > (Decimal("0.50") if not o["flagged"] else Decimal("0.80")):
+            errs.append(f"{i}: a check is not established ({ne[:2]}) but confidence is {c}")
         if c not in {Decimal(x) for x in ("0.95", "0.80", "0.60", "0.50", "0.30")}:
             errs.append(f"{i}: confidence {c} is not a rubric value")
     return errs
@@ -821,7 +908,7 @@ def main() -> int:
         ("Z2 every invoice has a status for each of the twelve checks over exactly its claim lines", lambda: z2(serial, eng, w)),
         ("Z3 findings and evidence trail: flag <-> findings, category = root categories; payment fields reconciled to "
          "G4's accounts and recipients", lambda: z3(serial) + payment_errors(out, eng) + ds900_errors(out, eng) + attribution_errors(out, eng)),
-        ("Z4 monetary and procedural outcomes distinct; billing never authority for an expected total", lambda: z4(serial, perturbed, facts_changed) + admissible_errors(out, eng) + unformed_branch_errors()
+        ("Z4 monetary and procedural outcomes distinct; billing never authority for an expected total", lambda: z4(serial, perturbed, facts_changed) + export_errors(out, eng) + unformed_branch_errors()
          + export_e_errors(out, rebilled_out, rebilled)),
         ("Z5 independently reviewed invoices agree (or carry a live settlement); inputs before outputs (git)",
          lambda: z5(cmp_, disp) + ([] if json.loads((OUT / "sample_comparison.json").read_text()) ==

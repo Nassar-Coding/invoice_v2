@@ -42,20 +42,21 @@ q9_rule:
       wrong, and the claim is not authority (plan; G5-B01). Missing evidence is not a breach: under a reading the invoice
       is right when SOME admissible value of every unsupplied document makes it right (a civil line's ground is its own
       fact; a well's class is one fact for all its services; a section's nomination one fact for its PD-210 charges), and
-      wrong only when NO admissible value does - an established breach whatever the document says, reported by the
-      findings that hold under every value (or 'no_admissible_document' where each value fails for a different reason).
-      Cl.4 'the well class stated in the call-off governs the whole well': where the invoices of one well can be right
-      only under different classes, no single call-off makes them all right, and the class is one open fact shared by
-      those invoices (Q9-2, working value Standard). Numeric export: contract_total is the total on the values the
-      supplied evidence establishes for an absent document (EXPORT-D: S4 'a classification not recorded on the day ...
-      taken to be G2'; P2/P3 HPHT/Extended Reach factors only 'where the call-off so states' - Standard; Cl.23 PD-210 only on
-      a section the call-off nominates - not chargeable), never the invoice's statement and never the bill; a flagged row
-      exports contract_total; an unflagged fact-dependent row exports its own total, which is then an admissible total
-      (EXPORT-E: right under some value of the unsupplied document; stated as such in expected_basis, not as a contract
-      calculation of that value). Confidence: 0.80 unflagged fact-dependent (the governing document is not supplied);
-      0.60 flagged where the total depends on it. Invariant (verify_g5 Z4): changing only a stated class or unrecorded
-      ground changes no flag, category, exported total, contract total or confidence. Alternatives counted: B every
-      fact-dependent invoice flagged as a query; C the absent-document values alone decide the flag.
+      wrong only when NO admissible value does - an established breach whatever the document says (the flag never
+      depends on which value is exported or reported, Q9-7). Cl.4 'the well class stated in the call-off governs the
+      whole well': where the invoices of one well can be right only under different classes, no single call-off makes
+      them all right, and the class is one open fact shared by those invoices (Q9-2, working value Standard). Reported
+      findings and the exported total (independent audit round 1, findings B-3, B-4, C-2 - replaces the earlier rule
+      that exported a flagged row at the absent-document values and reported only the (finding, line) pairs common to
+      every value, which left exports that no finding explains and dropped breaches present under every value): both
+      are those of ONE admissible evidence scenario, the export scenario of Q9-7 (EXPORT-E) - the same values of a shared
+      document for every invoice sharing it; the findings common to every admissible value are disclosed separately
+      (findings_every_value). A breach that exists only through an unsupplied document's value (section_not_nominated)
+      is never preferred as the explanation of a defect. Confidence: 0.80 unflagged fact-dependent (the governing
+      document is not supplied); 0.60 flagged where the total depends on it. Invariant (verify_g5 Z4): changing only a
+      stated class or unrecorded ground changes no flag, category, exported total, contract total or confidence.
+      Alternatives counted: B every fact-dependent invoice flagged as a query; C the absent-document values alone decide
+      the flag.
     Q9-4_unknown_total: >-
       An invoice whose total cannot be formed under the working reading (some admissible scenario leaves a line with no
       value) is flagged only when a check fails, confidence 0.30, expected_status 'bounded'. No billed amount and no zero is
@@ -72,7 +73,10 @@ q9_rule:
       they rest on a stated fact the contract assigns to a document not supplied (Q9-3), on the owner's Q7 C allocation,
       or on a reporting interpretation (a flag resting only on procedural or payment-only findings, Q9-1); 0.60 when
       readings agree the invoice is wrong but disagree on its total; 0.50 when readings disagree on
-      whether it is wrong; 0.30 when the total cannot be formed (Q9-4). Judgment conventions, not calibrated probabilities.
+      whether it is wrong; 0.30 when the total cannot be formed (Q9-4). A check whose account or input is not established
+      (a payment account not established, independent audit round 1 finding B-1) is not a check made: an unflagged row
+      is then at most 0.50 (whether it is right is not established), a flagged row at most 0.80. Judgment conventions,
+      not calibrated probabilities.
     Q9-6_category: >-
       error_category = the ordered, de-duplicated root categories of the invoice's established findings (identity,
       term, timing, evidence, signature, evidence_mismatch, unit, quantity, duplicate, eligibility, limit, rate,
@@ -81,24 +85,39 @@ q9_rule:
       consequence's cause (out-of-term work is not payable - 'term', a monetary term consequence, never also 'rate');
       otherwise what actually differs - the quantity (quantity_above_record), the displayed rate against the scenario's
       rate (rate_differs), the displayed arithmetic (amount_arithmetic), a division at a band edge
-      (band_crossing_not_split), else value_differs - never 'rate' by default. Procedural breaches with no monetary
-      consequence of their own are identity and timing only.
+      (band_crossing_not_split), else value_differs - never 'rate' by default. Each dimension that differs is named
+      unless a breach already on the line explains it (independent audit round 1, finding C-2: a quantity breach is not
+      hidden by a rate breach of the same line); a value removed by an established finding needs no other cause.
+      Procedural breaches with no monetary consequence of their own are identity and timing only.
     Q9-7_export_policies: >-
       Named numeric export policies for expected_total_cents, owned by G5 (the template needs one number per row; a
       number is never presented as more than it is - expected_basis states which policy produced it).
-      EXPORT-D (absent-document values): contract_total, the judged total under the working reading on the values the
-      supplied evidence establishes where a governing document is not supplied (CW S4 G2; DDS P2/P3 Standard; Cl.23 not
-      nominated). Independent of the bill and of the invoice's statements. Exported by every flagged row whose own
-      total is not an admissible contract total, and by every row that depends on no unsupplied document (there it is
-      simply the contract value).
-      EXPORT-E (admissible own total): where the invoice's billed total equals a total the contract supports under some
-      admissible value of its unsupplied documents (under the working reading), the row exports its billed total.
-      Scope: this CHOOSES ONLY THE EXPORTED NUMBER. The flag and the confidence never depend on which admissible value
-      the bill matches: the flag is existential (right when SOME admissible value makes the invoice right, Q9-3 E), so
-      re-billing an invoice exactly at a different admissible value leaves them unchanged - verified over the population
-      by verify_g5 Z4 (every eligible unflagged fact-dependent invoice re-billed at another well class, jointly per well,
-      or another ground class, through G3/G4/G5 again: flag, confidence and contract_total unchanged, export = its own
-      total), and against gate5, whose statement rule fails it.
+      EXPORT-E (admissible export scenario; extended to flagged rows in independent audit round 1, findings B-3/B-4/C-2):
+      a row that depends on an unsupplied document (DDS well class - Cl.4 call-off; PD-210 section nomination - Cl.23;
+      CW ground class of an unrecorded line - S4) is exported, and its findings reported, under one admissible value of
+      each: (i) a civil line's ground is its own fact: the ground under which the line is right, else the one leaving it
+      the fewest breaches, then the value nearest its bill, then G2; (ii) a well's class and a section's nomination are
+      shared facts (Cl.4, Cl.23): one value for every invoice sharing it - among the values that keep every invoice that
+      can be right right, the one under which the fewest of those invoices are at less than their most favourable
+      scenario (right, else no strict superset of another scenario's breaches, then fewest breaches resting only on an
+      unsupplied document's value); ties to Standard first for the class and to 'nominated' first for a nomination (the
+      value under which a PD-210 charge exists at all; missing evidence is not a breach); where the class is one open
+      shared fact (Cl.4 conflict) the open reading's value. An unflagged row is thereby exported at its own total, an
+      admissible total; a flagged row at the contract total under those values, every difference from its bill named by
+      a finding on the line (verify_g5 Z4 export_errors: each exported line value is one of the line's admissible
+      contract values under the export values, never a billed amount the contract does not give; one class per well,
+      one nomination per section). SCOPE: this chooses only the exported number and which admissible value the reported
+      findings are stated under. The flag is existential (right when SOME admissible value makes the invoice right,
+      Q9-3 E) and the confidence follows it, so re-billing a well's invoices together exactly at a different admissible
+      class leaves every flag and confidence unchanged - verified over the population by verify_g5 Z4 (every eligible
+      unflagged fact-dependent invoice re-billed at another well class, jointly per well, or another ground class,
+      through G3/G4/G5 again: flag, confidence and contract_total unchanged, export = its own total), and against gate5.
+      Re-billing ONE invoice of a well alone at another class can change its sister invoices' flags through Cl.4 (the
+      well's invoices then no longer admit one class) - that is the Cl.4 rule, not a dependence on the export choice.
+      EXPORT-D (absent-document values; disclosure only): contract_total, the judged total under the working reading on
+      the values the supplied evidence establishes where a governing document is not supplied (CW S4 G2; DDS P2/P3
+      Standard; Cl.23 not nominated). Independent of the bill and of the invoice's statements; reported beside the
+      export, and exported by every row that depends on no unsupplied document (there it is simply the contract value).
       EXPORT-U (unformed total): the lower bound of the admissible total (Q9-4), with the bounds disclosed.
   alternatives: {Q9_A: "flag any breach (adopted, Q9-1)", Q9_B: "flag only a changed judged total", Q9_C_unknown: "export billed total at low confidence (rejected: G5-B02)"}
 

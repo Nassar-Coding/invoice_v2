@@ -24,6 +24,7 @@ def _world(hid):
     for lk in ("cw_lines", "dds_lines"):
         for k, row in zip(result_keys(w.claims.rows[lk]), w.claims.rows[lk]):
             vg._CLAIMS[k] = row.values
+    vg.load_heads(w)
     return w, res
 
 

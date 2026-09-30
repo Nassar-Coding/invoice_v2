@@ -29,12 +29,12 @@ families:
       key: "item, Contract Year (Q12 A/B)"
       clock: "execution date; one date's measurements in every order that changes a division (G4-D1)"
       counts: "Q6 A measured incl. unpaid for want of record / Q6 B payable; rejected quantities never"
-      consequence: "a measurement crossing a band edge is divided; each part at its band's rounded rate (band_divided)"
-      source: "Sch 4 Part 3 (pp24-25); 3A (p32); Cl.28 (p6)"
+      consequence: "a measurement crossing a band edge is divided; each part at its band's rounded rate (band_divided); a divided line's displayed rate is one of its parts' rates or the built-up (band-1) rate, never a band it does not reach (audit round 1, A-6)"
+      source: "Sch 4 Part 3 (pp24-25); 3A (p32); Cl.28 (p6); Cl.42 (p8)"
     a3:
       rule: CW-R22
-      key: "instrument A3; lines G3 protected (submitted before the issue date)"
-      consequence: "difference = value as if submitted on the issue date - G4 value; posted once, on one recipient per Q1 reading"
+      key: "instrument A3; lines G3 protected (submitted before the issue date), and every line that may be (its submission date, work date or rate not established: audit round 1, A-4/B-2)"
+      consequence: "difference = value as if submitted on the issue date - G4 value; posted once, on one recipient per Q1 reading; an unvalued line leaves the account open on the side its rate change can move it (C-1)"
       source: "31A (p32); A3 (p43)"
     p23:
       rule: CW-R05
@@ -45,7 +45,7 @@ families:
       rule: CW-R21
       key: "application"
       clock: "submission date; release on the first application after 2026-09-30"
-      consequence: "5% rounded down per application; one half of earlier retention released once, rounded down"
+      consequence: "5% rounded down per application; one half of earlier retention released once, rounded down; an earlier application of unestablished value bounds the release below by its valued lines (audit round 1, B-1)"
       source: "Cl.45 (p8); 45A (p32)"
   DDS:
     once_only:
@@ -62,7 +62,7 @@ families:
     pd210_intervals:
       rule: DDS-R16
       key: "well, day"
-      consequence: "different intervals allowed; overlapping metres charged once (stands carried)"
+      consequence: "different intervals allowed; overlapping metres charged once (stands carried); a charge whose date or depths are not established is a possible contestant of the metres it may cover (audit round 1, A-1)"
       source: "Cl.23 (p6); Cl.29 (p7)"
     daily_limit:
       rule: DDS-R14
@@ -74,11 +74,11 @@ families:
       rule: DDS-R12
       key: "well, Contract Year (Q14 A/B)"
       clock: "service date, then depth"
-      counts: "Q11 A PD-210 metres charged / Q11 B every metre drilled (Part A depths)"
+      counts: "Q11 A PD-210 metres charged (certain where payable at G3 and the nomination is not in question; otherwise a possible contributor, upper bound only: A-2) / Q11 B every metre drilled (Part A depths; a report whose depths, date or well are not established leaves the count unbounded above: A-3)"
       consequence: "metres above 40,000 / 120,000 at 96% / 92% of the depth rate, rounded half to even (footage_band_divided)"
       source: "Sch 2 Part 2 (p17); 3A (p35); Cl.17 (p6)"
     a3:
       rule: DDS-R21
-      key: "instrument A3; lines G3 protected (invoiced before the issue date)"
+      key: "instrument A3; lines G3 protected (invoiced before the issue date), and every charge that may be (A-4)"
       consequence: "difference posted once per Q1 reading (A, B contract-wide; C per well)"
       source: "36A (p35); A3 (p42); Cl.32 (p8)"

@@ -651,10 +651,10 @@ def _complete_deferred(g: G4Line, options: dict, ln: Line, T) -> None:
     """G4-B04: G3 deferred the displayed-rate check (and, where a division at the band edges could give the amount, the
     arithmetic check) of a band line because its band was G4 state. With the band state established per scenario, both
     are completed under EACH scenario, independently of each other and of whether the amount is right:
-      rate: one band - the displayed rate is that band's rate; a divided measurement (Cl.28) - it is one of the item's
-            contract band rates (the claim has one rate field, which cannot carry every part's rate, and no source says
-            which band's rate a divided line displays - the parts are judged by the arithmetic; an arbitrary rate is a
-            finding);
+      rate: one band - the displayed rate is that band's rate; a divided measurement (Cl.28) - it is the rate of one of
+            its parts or the built-up (band-1, 100%) rate of which each band takes its percentage (Sch 4 Part 3; Cl.42):
+            the claim has one rate field, which cannot carry every part's rate, and the parts are judged by the
+            arithmetic; any other rate, including the rate of a band the measurement does not reach, is a finding;
       arithmetic (only where G3 deferred it): one band - quantity x displayed rate = amount; divided - the amount is the
             division of the billed quantity from the scenario's start, each part at its own rate.
     A scenario in which the line is disallowed (duplicate, exclusion) has neither check. The verdict: pass under every
@@ -671,7 +671,10 @@ def _complete_deferred(g: G4Line, options: dict, ln: Line, T) -> None:
         rates = o["rates"]
         bands = [b for _q, b in o["parts"]]
         if ra is not None:
-            rate_v[lab] = ra == rates[bands[0]] if len(bands) == 1 else ra in set(rates.values())
+            # a divided measurement (auditor finding A-6): the rate of one of ITS parts, or the built-up rate itself - the
+            # band-1 (100%) rate, 'the rate' of which each band takes its percentage (Sch 4 Part 3; Cl.42 'the built-up
+            # rate applied') - never the rate of a band the measurement does not reach
+            rate_v[lab] = ra == rates[bands[0]] if len(bands) == 1 else ra in {rates[b] for b in bands} | {rates[1]}
         if arith_deferred and ra is not None and amt is not None and bq is not None:
             if len(bands) == 1:
                 arith_v[lab] = bq * ra == amt
@@ -718,7 +721,8 @@ def _a3(w, lines: list[Line], outcome: dict, ledgers: dict, T, st: CwState) -> N
                 by_line[ln.ref] = {"difference": "0.00", "basis": "not payable: nothing valued"}
                 continue
             if g.r.payable is None:
-                by_line[ln.ref] = {"difference": None, "basis": "the line's value is not established"}
+                by_line[ln.ref] = {"difference": None, "basis": "the line's value is not established",
+                                   "sign": difference_sign(T, ins, ln.item, ln.date)}
                 continue
             rec = recs.get(ln.v.get("record_ref")) if ln.v.get("record_ref") else None
             new3 = g3_cw.evaluate(ln.v, {**(ln.app or {}), "application_date": ins.issued}, rec, rec is not None, T=T, inputs=ctx.get(ln.key))
@@ -733,19 +737,32 @@ def _a3(w, lines: list[Line], outcome: dict, ledgers: dict, T, st: CwState) -> N
                 diff[k] = None if o is None or n is None else n - o
             by_line[ln.ref] = {"difference": {(k or ""): (str(v) if v is not None else None) for k, v in diff.items()},
                                "old": {(k or ""): str(v) for k, v in old.items()}, "new": {(k or ""): str(v) for k, v in new.items()},
-                               "application": ln.app_no, "work_date": str(ln.date)}
+                               "application": ln.app_no, "work_date": str(ln.date),
+                               "sign": difference_sign(T, ins, ln.item, ln.date)}
             for k, v in diff.items():
                 totals.setdefault(k, []).append(v)
+        for ln in lines:
+            # auditor findings A-4/B-2: a line whose protection G3 could not establish - its application's submission
+            # date, its work date or its rate not established - may be work already valued at the replaced rate: a
+            # possible contributor, never silently dropped; the account is then not established
+            if ln in eligible or ln.g.r.payable is False or not possibly_protected(ln.item, ln.date, (ln.app or {}).get(
+                    "application_date"), ins):
+                continue
+            by_line[ln.ref] = {"difference": None, "possible": True, "application": ln.app_no,
+                               "work_date": None if ln.date is None else str(ln.date),
+                               "sign": difference_sign(T, ins, ln.item, ln.date),
+                               "basis": "possibly protected (31A): its submission date, work date or rate is not established"}
         subs = sorted({(a["application_date"], k) for k, a in apps.items() if a.get("application_date")})
         on_or_after = [k for d, k in subs if d >= ins.issued]
         after = [k for d, k in subs if d > ins.issued]
         first_a = [k for d, k in subs if on_or_after and d == apps[on_or_after[0]]["application_date"]]
         first_b = [k for d, k in subs if after and d == apps[after[0]]["application_date"]]
         undated = sorted(k for k, a in apps.items() if not a.get("application_date"))
-        total = _sum_options(by_line)
+        total = {**_sum_options(by_line), **open_sides(by_line)}
         st.adjustments.append({
             "instrument": ins.id, "issued": str(ins.issued), "effective": str(min(e for _c, e, _v in ins.rate_rows)),
-            "eligible_lines": len(eligible), "by_line": by_line, "total": total,
+            "eligible_lines": len(eligible), "possible_lines": sum(1 for v in by_line.values() if v.get("possible")),
+            "by_line": by_line, "total": total,
             "recipient": {"Q1:A (31A: first application submitted on or after the date of issue)": recipient_of(first_a, undated),
                           "Q1:B (A3: first application submitted after the date of issue)": recipient_of(first_b, undated)},
             "posted": "once, on the recipient under each reading; a tie has no contractual tie-breaker and stays open (Q1)",
@@ -757,6 +774,57 @@ def _opts(r) -> dict:
     if r.alternatives:
         return {k: v["amount"] for k, v in r.alternatives.items()}
     return {None: r.amount}
+
+
+def difference_sign(T, ins, code, work_date) -> str:
+    """The sign of the difference a retrospective instrument makes to a line of this item and work date, whatever its
+    quantity, factors or band (auditor findings B-2, C-1): the base rate the instrument gives (the latest-issued rate
+    applicable on the date) against the rate without it; a built-up rate is the base times positive factors rounded
+    once and the quantity is not negative, so the line's difference has that sign ('+', '-', '0'). Where the work date is
+    not established, the sign every date allows (unknown_difference_sign), else '?'."""
+    if work_date is None:
+        return unknown_difference_sign(T, ins)
+    pick = lambda cands: max(cands, key=lambda c: (c[0], c[1]))[2] if cands else T.sch1[code]["rate"]  # noqa: E731
+    new = pick(T.rate_candidates(code, work_date, None))
+    old = pick(T.rate_candidates(code, work_date, ins.issued - dt.timedelta(days=1)))
+    return "+" if new > old else "-" if new < old else "0"
+
+
+def open_sides(by_line: dict) -> dict:
+    """Which side of an account its unvalued lines leave unbounded: below where one may lower it, above where one may
+    raise it (each line's sign; '?' both)."""
+    signs = [v.get("sign", "?") for v in by_line.values() if v["difference"] is None or
+             (isinstance(v["difference"], dict) and None in v["difference"].values())]
+    return {"unknown_lo_open": any(s in ("-", "?") for s in signs), "unknown_hi_open": any(s in ("+", "?") for s in signs)}
+
+
+def unknown_difference_sign(T, ins) -> str:
+    """The sign every retrospective difference of this instrument takes, whatever the line's quantity, factors, band or
+    work date (auditor findings B-2/C-1): '+' where each of its rate rows raises the rate above every rate it can
+    replace (the Schedule 1 rate and every other instrument's rate or monthly value for that item), '-' where each
+    lowers it, else '?'. A built-up rate is the base rate times positive factors rounded once, and the quantity is not
+    negative, so the difference of a line whose value is not established has that sign - the account is then bounded on
+    one side by the lines whose differences are established."""
+    signs = set()
+    for code, _eff, to in ins.rate_rows:
+        olds = {T.sch1[code]["rate"]}
+        for i2 in T.instruments:
+            if i2 is ins:
+                continue
+            olds |= {v for c, _e, v in i2.rate_rows if c == code}
+            if i2.monthly_code == code:
+                olds |= {v for _m, v in i2.monthly}
+        signs |= {(to > o) - (to < o) for o in olds}
+    return "+" if signs == {1} else "-" if signs == {-1} else "?"
+
+
+def possibly_protected(code, work_date, submitted, ins) -> bool:
+    """Whether a line of this item may be protected by the retrospective instrument (31A/36A: work already valued at the
+    rate it replaces - submitted before the date of issue, work on or after a row's effective date), where the submission
+    date or the work date is not established (None: either way)."""
+    effs = [eff for c, eff, _v in ins.rate_rows if c == code]
+    return bool(effs) and (submitted is None or submitted < ins.issued) and \
+        (work_date is None or any(eff <= work_date for eff in effs))
 
 
 GLOBAL_READINGS = ("Q12", "Q6", "Q6-day0", "Q14", "Q11", "Q4", "Q5-DD120", "Q5-RM530", "Q5-HC630")
@@ -871,16 +939,21 @@ def _retention(lines: list[Line], apps: dict, T, st: CwState) -> None:
         return (x * pct).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
 
     def single_or_range(d: dict, f) -> object:
-        """{reading: {min, max}} -> the single value where every reading and fact gives one, else per reading."""
-        vals = {(f(Decimal(v["min"])), f(Decimal(v["max"]))) for v in d.values()}
+        """{reading: {min, max}} -> the single value where every reading and fact gives one, else per reading (a max of
+        None: not bounded above)."""
+        g = lambda x: None if x is None else str(f(Decimal(x)))  # noqa: E731
+        vals = {(g(v["min"]), g(v["max"])) for v in d.values()}
         if len(vals) == 1 and len(set(next(iter(vals)))) == 1:
-            return str(next(iter(vals))[0])
-        return {"by_reading": {k: {"min": str(f(Decimal(v["min"]))), "max": str(f(Decimal(v["max"])))} for k, v in d.items()}}
-    out, tot = {}, {}
+            return next(iter(vals))[0]
+        return {"by_reading": {k: {"min": g(v["min"]), "max": g(v["max"])} for k, v in d.items()}}
+    out, tot, part = {}, {}, {}
     for no, h in apps.items():
         s_ = _sum_options(by_app.get(no, {}))
         known = not s_["lines_not_established"]
         tot[no] = s_["by_reading"] if known else None
+        # auditor finding B-1: the lines of an application whose value is established bound its total from below (a
+        # measured line's value is quantity x rate, never negative: Cl.25, Sch 1), the others leave it unbounded above
+        part[no] = s_["by_reading"]
         out[no] = {"submitted": str(h.values.get("application_date")),
                    "total": single_or_range(s_["by_reading"], lambda x: x) if known else None,
                    "retention": single_or_range(s_["by_reading"], ret) if known else None}
@@ -899,8 +972,8 @@ def _retention(lines: list[Line], apps: dict, T, st: CwState) -> None:
         unknown = [no for no in earlier + maybe if tot[no] is None]
         rel = lambda x: (x * T.release_fraction).quantize(Decimal("0.01"), rounding=ROUND_DOWN)  # noqa: E731
         present = {}
-        for no in earlier:
-            for k in (tot[no] or {}):
+        for no in earlier + maybe:          # auditor finding A-5: the possibly earlier applications' readings too
+            for k in (part[no] or {}):
                 for d, x in dims_of(k or None).items():
                     present.setdefault(d, set()).add(x)
         names = sorted(present)
@@ -908,21 +981,23 @@ def _retention(lines: list[Line], apps: dict, T, st: CwState) -> None:
         for vals_ in itertools.product(*[sorted(present[n]) for n in names]):
             want = dict(zip(names, vals_))
             lab = label_of(want) or ""
-            lo = hi = Decimal(0)
+            lo, hi = Decimal(0), Decimal(0)
             for no in earlier + maybe:
-                if tot[no] is None:
+                picks = [v for k, v in part[no].items() if all(want.get(d) == x for d, x in dims_of(k or None).items())]
+                if not picks:
+                    hi = None                  # no value of this application under the combination: not bounded
                     continue
-                pick = next(v for k, v in tot[no].items() if all(want.get(d) == x for d, x in dims_of(k or None).items()))
                 if no in earlier:
-                    lo += ret(Decimal(pick["min"]))
-                hi += ret(Decimal(pick["max"]))
-            combos[lab] = {"min": str(rel(lo)), "max": str(rel(hi))}
+                    lo += ret(min(Decimal(v["min"]) for v in picks))
+                if hi is not None:
+                    hi = None if tot[no] is None else hi + ret(max(Decimal(v["max"]) for v in picks))
+            combos[lab] = {"min": str(rel(lo)), "max": None if hi is None else str(rel(hi))}
         # the recipient is the first application submitted after completion: a dated one, or any undated one (none of them
         # can be excluded); which is then not established
         recipient = recipient_of(tied, maybe)
         release = {"recipient": recipient, "submitted": str(day) if day else None,
                    "earlier_applications": len(earlier), "possibly_earlier_applications": maybe,
-                   "released": None if unknown else single_or_range(combos, lambda x: x),
+                   "released": single_or_range(combos, lambda x: x),
                    "not_established": sorted(unknown)[:20], "not_established_count": len(unknown),
                    "chronology_not_established": maybe,
                    "later_applications_without_release": [no for d, no in after if day is not None and d > day],

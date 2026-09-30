@@ -38,6 +38,7 @@ def _claims(w):
     for lk in ("cw_lines", "dds_lines"):
         for k, row in zip(result_keys(w.claims.rows[lk]), w.claims.rows[lk]):
             vg4._CLAIMS[k] = row.values
+    vg4.load_heads(w)
 
 
 def _with(engine_dds, h):

@@ -28,6 +28,7 @@ from decimal import Decimal
 
 from . import g3_dds, terms
 from .g3_core import Trace, headers_by_id, result_keys
+from .g4_cw import difference_sign, open_sides, possibly_protected
 from .g4_core import G4Line, apply_options, base, dims_of, half_even, label_of, local_dim, not_payable, recipient_of
 
 RUN_EVENTS = {"DD-111": "last", "LW-420": "first"}                     # Cl.26
@@ -362,15 +363,47 @@ def _interval(m: Line):
     return (f, t) if f is not None and t is not None and t > f else None
 
 
-def _segments(ms: list) -> list[tuple]:
-    """Elementary segments of the union of the members' intervals: [(a, b, [members covering it])]."""
-    pts = sorted({x for m in ms for x in _interval(m)})
+def _segments(ms: list, poss: list = ()) -> list[tuple]:
+    """Elementary segments of the union of the members' intervals: [(a, b, [members covering it])]. A possible member
+    (a charge whose date or depths are not established, auditor finding A-1) is given as (charge, [(from, to)] or None):
+    it is listed among the charges covering every segment it may cover - inside its stated interval, or the well-day's
+    reported interval where it states none, or anywhere where neither is established - and never makes a segment of its
+    own (its metres are not established)."""
+    pts = {x for m in ms for x in _interval(m)}
+    lo, hi = min(pts), max(pts)
+    for _p, ivs in poss:
+        pts |= {x for iv in (ivs or ()) for x in iv if lo < x < hi}
+    pts = sorted(pts)
     out = []
     for a, b in zip(pts, pts[1:]):
         cov = [m for m in ms if _interval(m)[0] <= a and b <= _interval(m)[1]]
         if cov:
+            cov += [p for p, ivs in poss if ivs is None or any(f <= a and b <= t for f, t in ivs)]
             out.append((a, b, cov))
     return out
+
+
+def _nom_group(m: Line):
+    """The call-off nomination a PD-210 charge's chargeability depends on (Cl.23): its well's section; None where G3
+    carries no nomination condition on it."""
+    if any(c["dimension"] == "nomination" for c in m.g.g3.conditions):
+        return (m.well, m.v.get("hole_section"))
+    return None
+
+
+def _certain(m: Line, grp) -> bool:
+    """Auditor finding A-2: the charge's metres are certainly performance-chargeable PD-210 metres (Q11 A) for the
+    valuation of a charge whose nomination group is grp - admissible at G3 (payable True: an admissibility G3 left
+    unresolved is only possible), chargeable under every G3 reading it carries, and its section's nomination (a call-off
+    fact) either not in question or the same as the valued charge's (whose own value exists only where its section is
+    nominated). Otherwise its metres are a possible earlier contributor: counted in the upper bound only."""
+    g3 = m.g.g3
+    if g3.payable is not True:
+        return False
+    if any(a.get("allowed_quantity") is None or Decimal(str(a["allowed_quantity"])) <= 0 for a in g3.alternatives.values()):
+        return False
+    ng = _nom_group(m)
+    return ng is None or ng == grp
 
 
 def _alloc_label(assign: dict) -> str:
@@ -404,11 +437,18 @@ def _pd210(w, lines, T, st: DdsState) -> None:
     for ln in lines:
         if ln.code == "PD-210" and ln.well:
             wells.setdefault(ln.well, []).append(ln)
-    reports = {}
+    reports, gaps = {}, {}
     for d in w.ddr.values():
+        if d.well is not None and d.well not in wells:
+            continue
         a = d.parts.get("A", {})
-        if d.well in wells and d.date and a.get("Depth start (m MD)") is not None and a.get("Depth end (m MD)") is not None:
+        if d.well and d.date and a.get("Depth start (m MD)") is not None and a.get("Depth end (m MD)") is not None:
             reports.setdefault(d.well, []).append((d.date, Decimal(a["Depth start (m MD)"]), Decimal(a["Depth end (m MD)"])))
+        else:
+            # auditor finding A-3: a report whose well, date or Part A depths are not established drilled an unknown
+            # number of metres (at least 0) on a day that may be earlier: under Q11 B it bounds nothing above
+            for wl in ([d.well] if d.well else list(wells)):
+                gaps.setdefault(wl, []).append(d.date)
     edge = T.annual_bands[0][0]
     for well, ms in wells.items():
         adm = [m for m in ms if m.g.g3.payable is not False]
@@ -417,10 +457,23 @@ def _pd210(w, lines, T, st: DdsState) -> None:
         days = {}
         for m in placed:
             days.setdefault(m.date, []).append(m)
+        day_iv = {}
+        for dd, s0, e0 in reports.get(well, []):
+            day_iv.setdefault(dd, []).append((s0, e0))
         # ---------------------------------------------------------------- 1. joint allocation per well-day
         alloc = {}          # date -> {"segs": [...], "combos": [assign dict] or None (too many), "gid": ...}
         for date, dms in days.items():
-            segs = _segments(dms)
+            # auditor finding A-1: a charge of the well whose date or depths are not established may charge the same
+            # metres as a charge of this day (Cl.29): a possible contestant of every segment it may cover
+            poss = []
+            for p in loose:
+                if p.date is not None and p.date != date:
+                    continue
+                iv = _interval(p)
+                known_day = p.date == date and day_iv.get(date) and date not in gaps.get(well, []) and \
+                    None not in gaps.get(well, [])
+                poss.append((p, [iv] if iv else (day_iv[date] if known_day else None)))
+            segs = _segments(dms, poss)
             contested = [(a, b, cov) for a, b, cov in segs if len(cov) > 1]
             gid = f"DDS-PD210:{well}|{date}"
             n = 1
@@ -432,11 +485,13 @@ def _pd210(w, lines, T, st: DdsState) -> None:
                 for choice in itertools.product(*[cov for _a, _b, cov in contested]):
                     combos.append({(a, b): c.ref for (a, b, _cov), c in zip(contested, choice)})
             alloc[date] = {"segs": segs, "contested": contested, "combos": combos if contested else [{}], "gid": gid, "n": n}
-            if len(dms) > 1:
+            possible = sorted({c.ref for _a, _b, cov in contested for c in cov if c not in dms})
+            if len(dms) > 1 or contested:
                 st.groups.append({"group": gid, "members": [m.ref for m in dms],
                                   "overlaps": [[f"{a}-{b}", [c.ref for c in cov]] for a, b, cov in contested],
                                   "union_m": str(sum((b - a for a, b, _c in segs), Decimal(0))),
-                                  "allocations": n if contested else 1, "rule": "Cl.23 (p6); Cl.29 (p7)"})
+                                  "allocations": n if contested else 1, "rule": "Cl.23 (p6); Cl.29 (p7)",
+                                  **({"possible": possible} if possible else {})})
         # ---------------------------------------------------------------- 2. annual positions over unique metres
         # position of each unique segment: (lo, hi) metres already drilled in its Contract Year before it
         loose_m = []
@@ -445,37 +500,56 @@ def _pd210(w, lines, T, st: DdsState) -> None:
             if q is None and m.date:
                 q = sum((max(Decimal(0), e - s) for dd, s, e in reports.get(well, []) if dd == m.date), Decimal(0)) or None
             loose_m.append((m, q))
-        pos = {}
-        for q14 in ("A", "B"):
-            for q11 in ("A", "B"):
-                useg = sorted(((date, a, b) for date, al in alloc.items() for a, b, _c in al["segs"]))
-                for date, a, b in useg:
-                    cy = _cy(date, q14, T)
-                    if cy is None:
-                        continue
-                    if q11 == "A":
-                        lo = sum((b2 - a2 for d2, a2, b2 in useg if _cy(d2, q14, T) == cy and (d2, a2) < (date, a)), Decimal(0))
-                        hi = lo
-                        for m, q in loose_m:                    # could be earlier in the same Contract Year
-                            if m.date is None or (_cy(m.date, q14, T) == cy and m.date <= date):
-                                hi = None if q is None or hi is None else hi + q
-                    else:
-                        lo = sum((max(Decimal(0), e - s) for dd, s, e in reports.get(well, []) if _cy(dd, q14, T) == cy and dd < date),
-                                 Decimal(0))
-                        lo += sum((max(Decimal(0), min(e, a) - s) for dd, s, e in reports.get(well, []) if dd == date), Decimal(0))
-                        hi = lo
-                    pos[(date, a, b, q14, q11)] = (lo, hi)
-        st.footage[well] = {f"{date}|{a}-{b}|Q14:{q14}|Q11:{q11}": [str(lo), None if hi is None else str(hi)]
-                            for (date, a, b, q14, q11), (lo, hi) in pos.items()}
+        useg = sorted(((date, a, b, [c for c in cov if c in days[date]]) for date, al in alloc.items()
+                       for a, b, cov in al["segs"]), key=lambda x: x[:3])
+        memo = {}
+
+        def pos_of(date, a, b, q14, q11, grp, useg=useg, loose_m=loose_m, well=well, memo=memo):
+            """(lo, hi) metres already drilled on the well in the Contract Year before metre a of this day, for the
+            valuation of a charge of nomination group grp; None outside the term (G3 decides payability there)."""
+            k = (date, a, b, q14, q11, grp)
+            if k in memo:
+                return memo[k]
+            cy = _cy(date, q14, T)
+            if cy is None:
+                memo[k] = None
+                return None
+            if q11 == "A":
+                before = [(b2 - a2, cov2) for d2, a2, b2, cov2 in useg if _cy(d2, q14, T) == cy and (d2, a2) < (date, a)]
+                lo = sum((x for x, cov2 in before if any(_certain(c, grp) for c in cov2)), Decimal(0))
+                hi = sum((x for x, _c in before), Decimal(0))
+                for m, q in loose_m:                    # could be earlier in the same Contract Year
+                    if m.date is None or (_cy(m.date, q14, T) == cy and m.date <= date):
+                        hi = None if q is None or hi is None else hi + q
+            else:
+                lo = sum((max(Decimal(0), e - s) for dd, s, e in reports.get(well, []) if _cy(dd, q14, T) == cy and dd < date),
+                         Decimal(0))
+                lo += sum((max(Decimal(0), min(e, a) - s) for dd, s, e in reports.get(well, []) if dd == date), Decimal(0))
+                hi = None if any(dd is None or (_cy(dd, q14, T) == cy and dd <= date) for dd in gaps.get(well, [])) else lo
+            memo[k] = (lo, hi)
+            return memo[k]
+
+        def seg_group(cov):
+            gs = {_nom_group(c) for c in cov}
+            return next(iter(gs)) if len(gs) == 1 else None
+
+        st.footage[well] = {}
+        for date, a, b, cov in useg:
+            for q14 in ("A", "B"):
+                for q11 in ("A", "B"):
+                    r = pos_of(date, a, b, q14, q11, seg_group(cov))
+                    if r is not None:
+                        st.footage[well][f"{date}|{a}-{b}|Q14:{q14}|Q11:{q11}"] = [str(r[0]), None if r[1] is None else str(r[1])]
         # ---------------------------------------------------------------- 3. valuation per charge
         for m in placed:
             al = alloc[m.date]
             f0, t0 = _interval(m)
             mine = [(a, b) for a, b, cov in al["segs"] if m in cov]
             contested_mine = any(m in cov for _a, _b, cov in al["contested"])
+            grp = _nom_group(m)
             all_100 = all(r is not None and r[1] is not None and r[1] + (b - a) <= edge
                           for (a, b) in mine for q14 in ("A", "B") for q11 in ("A", "B")
-                          for r in [pos.get((m.date, a, b, q14, q11))]) or _cy(m.date, "A", T) is None
+                          for r in [pos_of(m.date, a, b, q14, q11, grp)]) or _cy(m.date, "A", T) is None
             if not contested_mine and all_100:
                 if len(al["segs"]) > 1 or len(days[m.date]) > 1:
                     m.g.add("duplicate", "pass", "DDS-R16", "Cl.23 (p6); Cl.29 (p7)",
@@ -502,7 +576,7 @@ def _pd210(w, lines, T, st: DdsState) -> None:
                                    "Cl.23 (p6); Cl.29 (p7)")
                         qty = Decimal(0)
                         for a, b in kept:
-                            r = pos.get((m.date, a, b, q14, q11))
+                            r = pos_of(m.date, a, b, q14, q11, grp)
                             if r is None:                   # outside the term: G3 decides payability
                                 r = (Decimal(0), Decimal(0))
                             lo, hi = r
@@ -637,7 +711,8 @@ def _a3(w, lines, T, st: DdsState) -> None:
                 continue
             if g.r.payable is None or (g.changed and not any(base(d) in ("stands", "stands-run") for k in g.r.alternatives
                                                              for d in dims_of(k))):
-                by_line[ln.ref] = {"difference": None, "basis": "the line's value after state is not established here"}
+                by_line[ln.ref] = {"difference": None, "basis": "the line's value after state is not established here",
+                                   "sign": difference_sign(T, ins, ln.code, ln.date)}
                 continue
             new3 = g3_dds.evaluate(ln.v, {**(ln.inv or {}), "invoice_date": ins.issued}, ln.ddr, T=T, inputs=ctx.get(ln.key))
             new = _opts(new3)
@@ -656,7 +731,17 @@ def _a3(w, lines, T, st: DdsState) -> None:
                 else:
                     diff[k] = None if n is None or a["amount"] is None or n["amount"] is None else n["amount"] - a["amount"]
             by_line[ln.ref] = {"difference": {(k or ""): (str(v) if v is not None else None) for k, v in diff.items()},
-                               "invoice": ln.v.get("invoice_no"), "well": ln.well, "service_date": str(ln.date)}
+                               "invoice": ln.v.get("invoice_no"), "well": ln.well, "service_date": str(ln.date),
+                               "sign": difference_sign(T, ins, ln.code, ln.date)}
+        for ln in lines:
+            # auditor finding A-4: a charge whose 36A protection G3 could not establish (its invoice's submission date,
+            # its service date or its rate not established) is a possible contributor - the account is not established
+            if ln in eligible or ln.g.r.payable is False or not possibly_protected(ln.code, ln.date, ln.submitted, ins):
+                continue
+            by_line[ln.ref] = {"difference": None, "possible": True, "invoice": ln.v.get("invoice_no"), "well": ln.well,
+                               "service_date": None if ln.date is None else str(ln.date),
+                               "sign": difference_sign(T, ins, ln.code, ln.date),
+                               "basis": "possibly protected (36A): its submission date, service date or rate is not established"}
         subs = sorted({(h["invoice_date"], k) for k, h in heads.items() if h.get("invoice_date")})
         on_or_after = [(d, k) for d, k in subs if d >= ins.issued]
         after = [(d, k) for d, k in subs if d > ins.issued]
@@ -675,7 +760,8 @@ def _a3(w, lines, T, st: DdsState) -> None:
         from .g4_cw import _sum_options
         st.adjustments.append({
             "instrument": ins.id, "issued": str(ins.issued), "effective": str(min(e for _c, e, _v in ins.rate_rows)),
-            "eligible_lines": len(eligible), "by_line": by_line, "total": _sum_options(by_line),
+            "eligible_lines": len(eligible), "possible_lines": sum(1 for v in by_line.values() if v.get("possible")),
+            "by_line": by_line, "total": {**_sum_options(by_line), **open_sides(by_line)},
             "recipient": {"Q1:A (36A: first invoice submitted on or after the date of issue)": recipient_of(fa, undated),
                           "Q1:B (A3: first invoice submitted after the date of issue)": recipient_of(fb, undated),
                           "Q1:C (each well's own first invoice on or after the date of issue)": per_well},

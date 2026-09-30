@@ -151,7 +151,29 @@ def test_z4_billing_never_authority_and_fails_when_it_is(dhist):
     for i, x in bad.items():
         h = pe.inv[x["contract"]][i].header or {}
         x["expected_total"] = str(h.get("invoice_total" if x["contract"] == "DDS" else "application_total"))
-    assert any("moves with the billed figures" in e for e in vg.z4(base, bad))
+    assert any("moves with the billed figures" in e or "exports the bill" in e for e in vg.z4(base, bad))
+
+
+def test_z4_export_errors_pass_and_fail_on_an_unnamed_or_inconsistent_export(dhist):
+    """EXPORT-E (Q9-7): every exported line value is an admissible contract value under the export values, a flagged
+    row's differences from its bill are named, one class per well - each can fail."""
+    w, _res, st = dhist
+    e = Engine(w, st)
+    out = e.run()
+    assert vg.export_errors(out, e) == []
+    i = next(i for i, x in out.items() if x["flagged"] and x["formed"] and x["line_values"])
+    bad = copy.deepcopy(out)
+    ref = next(iter(bad[i]["line_values"]))
+    bad[i]["line_values"][ref] = str(Decimal(bad[i]["line_values"][ref] or "0") + Decimal("13.37"))
+    assert any("not an admissible value of the line" in x for x in vg.export_errors(bad, e))
+    j = next((j for j, x in out.items() if x.get("export_facts") and x["export_facts"].get("class")), None)
+    if j is not None:
+        bad = copy.deepcopy(out)
+        k = next(k for k, x in bad.items() if k != j and x["contract"] == "DDS")
+        bad[k]["export_facts"] = {**(bad[k].get("export_facts") or {"nominated": {}, "ground": {}}), "class": "HPHT"
+                                  if bad[j]["export_facts"]["class"] != "HPHT" else "Standard"}
+        e.inv["DDS"][k].header = {**(e.inv["DDS"][k].header or {}), "well_name": e.inv["DDS"][j].header.get("well_name")}
+        assert any("different well classes" in x for x in vg.export_errors(bad, e))
 
 
 # ---------------------------------------------------------------------------------------------------------- Z5

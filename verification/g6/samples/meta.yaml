@@ -1,0 +1,75 @@
+drawn_from: verification/g5/outcomes.jsonl at commit 1f797bf (the exported flag chooses the stratum only; packets carry nothing from the implementation)
+seed: 6606
+strata:
+  CW/unflagged: 12
+  CW/flagged: 6
+  DDS/unflagged: 8
+  DDS/flagged: 4
+why:
+  PA-00541: random unflagged CW (seed 6606)
+  PA-00078: random unflagged CW (seed 6606)
+  PA-00159: random unflagged CW (seed 6606)
+  PA-00425: random unflagged CW (seed 6606)
+  PA-00596: random unflagged CW (seed 6606)
+  PA-00150: random unflagged CW (seed 6606)
+  PA-00146: random unflagged CW (seed 6606)
+  PA-00061: random unflagged CW (seed 6606)
+  PA-00433: random unflagged CW (seed 6606)
+  PA-00630: random unflagged CW (seed 6606)
+  PA-00024: random unflagged CW (seed 6606)
+  PA-00865: random unflagged CW (seed 6606)
+  PA-00138: random flagged CW (seed 6606)
+  PA-00059: random flagged CW (seed 6606)
+  PA-00892: random flagged CW (seed 6606)
+  PA-00395: random flagged CW (seed 6606)
+  PA-00243: random flagged CW (seed 6606)
+  PA-00813: random flagged CW (seed 6606)
+  MDS-00492: random unflagged DDS (seed 6606, at most 30 lines)
+  MDS-01567: random unflagged DDS (seed 6606, at most 30 lines)
+  MDS-00884: random unflagged DDS (seed 6606, at most 30 lines)
+  MDS-01467: random unflagged DDS (seed 6606, at most 30 lines)
+  MDS-00874: random unflagged DDS (seed 6606, at most 30 lines)
+  MDS-01127: random unflagged DDS (seed 6606, at most 30 lines)
+  MDS-01506: random unflagged DDS (seed 6606, at most 30 lines)
+  MDS-00118: random unflagged DDS (seed 6606, at most 30 lines)
+  MDS-01416: random flagged DDS (seed 6606, at most 30 lines)
+  MDS-01823: random flagged DDS (seed 6606, at most 30 lines)
+  MDS-00320: random flagged DDS (seed 6606, at most 30 lines)
+  MDS-01631: random flagged DDS (seed 6606, at most 30 lines)
+packets:
+  packet_cw_a.jsonl:
+  - PA-00541
+  - PA-00425
+  - PA-00146
+  - PA-00630
+  - PA-00138
+  - PA-00395
+  packet_cw_b.jsonl:
+  - PA-00078
+  - PA-00596
+  - PA-00061
+  - PA-00024
+  - PA-00059
+  - PA-00243
+  packet_cw_c.jsonl:
+  - PA-00159
+  - PA-00150
+  - PA-00433
+  - PA-00865
+  - PA-00892
+  - PA-00813
+  packet_dds_a.jsonl:
+  - MDS-00492
+  - MDS-01467
+  - MDS-01506
+  - MDS-01823
+  packet_dds_b.jsonl:
+  - MDS-01567
+  - MDS-00874
+  - MDS-00118
+  - MDS-00320
+  packet_dds_c.jsonl:
+  - MDS-00884
+  - MDS-01127
+  - MDS-01416
+  - MDS-01631

@@ -299,7 +299,9 @@
     },
     "min": "59252.02",
     "max": "60508.18",
-    "lines_not_established": 0
+    "lines_not_established": 0,
+    "unknown_lo_open": false,
+    "unknown_hi_open": false
    },
    "recipient": {
     "Q1:A (31A: first application submitted on or after the date of issue)": {
@@ -323,7 +325,9 @@
     },
     "min": "289180.18",
     "max": "345755.27",
-    "lines_not_established": 0
+    "lines_not_established": 0,
+    "unknown_lo_open": false,
+    "unknown_hi_open": false
    },
    "recipient": {
     "Q1:A (36A: first invoice submitted on or after the date of issue)": "MDS-01625",
